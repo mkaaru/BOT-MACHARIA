@@ -9,8 +9,7 @@ import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
 import './ml-trader.scss';
 
-// Import Modal components and related logic
-import TradingModal from './TradingModal'; // Assuming TradingModal.tsx or .jsx
+// Direct Bot Builder loading - no modal needed
 
 // Enhanced volatility symbols including 1-second indices
 const ENHANCED_VOLATILITY_SYMBOLS = [
@@ -319,22 +318,21 @@ const MLTrader = observer(() => {
         setStatus(`Applied recommendation: ${recommendation.reason}`);
     }, [is_running]);
 
-    // Open the modal with the selected recommendation
-    const openRecommendationModal = useCallback((recommendation: TradingRecommendation) => {
+    // Directly load recommendation to Bot Builder (bypass modal)
+    const openRecommendationModal = useCallback(async (recommendation: TradingRecommendation) => {
         try {
             if (!recommendation) {
-                console.error('No recommendation provided to modal');
+                console.error('No recommendation provided');
                 return;
             }
             
-            console.log('📋 Opening recommendation modal with:', recommendation);
+            console.log('🚀 Loading recommendation directly to Bot Builder:', recommendation);
             
+            // Set modal form data for generateBotBuilderXML function
             setModalRecommendation(recommendation);
-            
-            // Pre-fill modal form with recommendation's data
             setModalSymbol(recommendation.symbol || '');
             setModalContractType(recommendation.direction || 'CALL');
-            setModalDuration(recommendation.suggestedDuration || 5);
+            setModalDuration(recommendation.suggestedDuration || 2); // Changed default to 2
             setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
             setModalStake(recommendation.suggestedStake || 1.0);
             
@@ -361,16 +359,456 @@ const MLTrader = observer(() => {
             setCurrentPrice(recommendation.currentPrice || null);
             baseStakeRef.current = recommendation.suggestedStake || 1.0;
 
-            setIsModalOpen(true);
+            // Generate Bot Builder XML with the recommendation data
+            const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol);
+            const trade_mode = strategy === 'call' || strategy === 'put' || 
+                recommendation.direction === 'CALL' || recommendation.direction === 'PUT' ? 'rise_fall' : 'higher_lower';
+            const contract_type = recommendation.direction || 'CALL';
+            const duration = recommendation.suggestedDuration || 2;
+            const duration_unit = (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't';
+            const stake = recommendation.suggestedStake || 1.0;
+            const barrier_offset = recommendation.barrier ? 
+                Math.abs(parseFloat(recommendation.barrier) - (recommendation.currentPrice || 0)) : 0.001;
+
+            // Calculate barrier offset based on contract type
+            const calculateBarrierOffset = () => {
+                if (trade_mode === 'higher_lower') {
+                    return contract_type === 'CALL' ? `+${barrier_offset}` : `-${barrier_offset}`;
+                }
+                return '+0.35';
+            };
+
+            const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
+            const tradeTypeList = trade_mode === 'higher_lower' ? 'highlow' : 'risefall';
+            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
+            const barrierOffsetValue = calculateBarrierOffset();
+
+            const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id=":yGQ!WYKA[R_sO1MkSjL">tick1</variable>
+    <variable id="y)BE|l7At6oT)ur0Dsw?">Stake</variable>
+    <variable id="jZ@oue8^bFSf$W^OcBHK">predict 3</variable>
+    <variable id="7S=JB!;S?@%x@F=5xFsK">tick 2</variable>
+    <variable id="qQ]^z(23IIrz6z~JnY#h">tick 3</variable>
+    <variable id="I4.{v(IzG;i#bX-6h(1#">win stake</variable>
+    <variable id=".5ELQ4[J.e4czk,qPqKM">Martingale split</variable>
+    <variable id="Result_is">Result_is</variable>
+  </variables>
+
+  <!-- Trade Definition Block -->
+  <block type="trade_definition" id="=;b|aw3,G(o+jI6HNU0_" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="GrbKdLI=66(KGnSGl*=_" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">continuous_indices</field>
+        <field name="SYMBOL_LIST">${recommendation.symbol}</field>
+        <next>
+          <block type="trade_definition_tradetype" id="F)ky6X[Pq]/Anl_CQ%)" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">${tradeTypeCategory}</field>
+            <field name="TRADETYPE_LIST">${tradeTypeList}</field>
+            <next>
+              <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
+                <field name="TYPE_LIST">${contractTypeField}</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="?%X41!vudp91L1/W30?x" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="Uw+CuacxzG/2-ktTeC|P" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id=",Dtx3!}1;A5bX#kc%+@y" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Run once at start -->
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="x4l[!tcMk5~9$g9tp)F.">
+        <value name="TEXT">
+          <shadow type="text" id="?#mD$Ejd%z^s]r*M(Co]">
+            <field name="TEXT">ML Trader Strategy Loading...</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="text_print" id="H5S$R8eJ,8_xuO2;w07T">
+            <value name="TEXT">
+              <shadow type="text" id="-(O49Z%3:}onz_i%UInT">
+                <field name="TEXT">${selectedSymbol?.display_name || recommendation.symbol} - ${(recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase()}</field>
+              </shadow>
+            </value>
+            <next>
+              <block type="variables_set" id="*k=Zh]oy^xkO%$_J}wmI">
+                <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                <value name="VALUE">
+                  <block type="math_number" id="TDv/W;dNI84TFbp}8X8=">
+                    <field name="NUM">${stake}</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="a+aI}xH)h$*P-GA=;IJi">
+                    <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="9Z%4%dmqCp;/sSt8wGv#">
+                        <field name="NUM">${stake}</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="}RkgwZuqtMN[-O}zHU%8">
+                        <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="Ib,KrcnUJzn1KMo9)A">
+                            <field name="NUM">1.5</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yzm">
+                            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                            <value name="VALUE">
+                              <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
+                                <value name="FROM">
+                                  <shadow type="math_number" id="$A^)*y7W0([+ckWE+BCo">
+                                    <field name="NUM">1</field>
+                                  </shadow>
+                                </value>
+                                <value name="TO">
+                                  <shadow type="math_number" id=",_;o3PUOp?^|_ffS^P8">
+                                    <field name="NUM">1</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Trade options -->
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${trade_mode === 'higher_lower' ? 'true' : 'false'}" has_second_barrier="false" has_prediction="false"></mutation>
+        <field name="DURATIONTYPE_LIST">${duration_unit}</field>
+        <value name="DURATION">
+          <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
+            <field name="NUM">${duration}</field>
+          </shadow>
+          <block type="math_number" id="*l8K~H:oQ)^=Cn,A^N~s">
+            <field name="NUM">${duration}</field>
+          </block>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number" id="ziEt8|we%%I_ac)[?0aT">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="m3{*qF|69xv{GI:=Nr#R">
+            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+          </block>
+        </value>
+        ${trade_mode === 'higher_lower' ? `
+        <value name="BARRIEROFFSET">
+          <shadow type="math_number" id="barrierOffsetBlock">
+            <field name="NUM">${barrier_offset}</field>
+          </shadow>
+        </value>
+        <field name="BARRIEROFFSETTYPE_LIST">${contract_type === 'CALL' ? '+' : '-'}</field>` : ''}
+      </block>
+    </statement>
+  </block>
+
+  <!-- Purchase conditions -->
+  <block type="before_purchase" id="m^:eB90FBG!Q9f85%x-K" deletable="false" x="267" y="544">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="notify" id="^KrKto{h0?Oi5y!Uo!k">
+        <field name="NOTIFICATION_TYPE">success</field>
+        <field name="NOTIFICATION_SOUND">silent</field>
+        <value name="MESSAGE">
+          <shadow type="text" id="OGu:tW}VqV1el7}LlhgE">
+            <field name="TEXT">ML Strategy Executing...</field>
+          </shadow>
+          <block type="variables_get" id="DIO6HH*]Tf87lkH)]W1">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+          </block>
+        </value>
+        <next>
+          <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
+            <field name="PURCHASE_LIST">${contractTypeField}</field>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Restart trading conditions -->
+  <block type="after_purchase" id="RSFi6b^1!S1=u5HT9ij5" x="679" y="293">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="controls_if" id="m~FN=}k/:4T0C|!9RWv7">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+        <value name="IF0">
+          <block type="contract_check_result" id="?#pF}/RWg,s)qyk6~Q4">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="variables_set" id="VCplk%:6-m~2N?w590V3">
+            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+            <value name="VALUE">
+              <block type="math_random_int" id="e!w*#f6#@(J=!w[e]aR">
+                <value name="FROM">
+                  <shadow type="math_number" id="|~+Cbgj^c]K~uP_)~88!">
+                    <field name="NUM">1</field>
+                  </shadow>
+                </value>
+                <value name="TO">
+                  <shadow type="math_number" id="]0rAYrYh#6);#j/=i}y=">
+                    <field name="NUM">1</field>
+                  </shadow>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="ZPFx9h$~-#?hu({nP9br">
+                <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                <value name="VALUE">
+                  <block type="variables_get" id="evk@VL!Cns23Tt-YO#i">
+                    <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="setResultWin">
+                    <field name="VAR" id="Result_is">Result_is</field>
+                    <value name="VALUE">
+                      <block type="text" id="resultWinText">
+                        <field name="TEXT">Win</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="controls_if" id="[]}t.-zV3B}F{r_wuWIK">
+            <value name="IF0">
+              <block type="contract_check_result" id="d6I:nMCIu?M|pZu?8Di">
+                <field name="CHECK_RESULT">loss</field>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="variables_set" id="yqjWT{JtZ.@glB=i+3kC">
+                <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                <value name="VALUE">
+                  <block type="math_random_int" id="Kbr]yzFaM7h==L/mxt_">
+                    <value name="FROM">
+                      <shadow type="math_number" id="rbIXa)*X_r-cy5S%Rw">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                    <value name="TO">
+                      <shadow type="math_number" id="EgOTvfy4?jpKvYT{M6;8">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="H%Y3[M]r3F};XmOP/iSt">
+                    <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                    <value name="VALUE">
+                      <block type="math_arithmetic" id="0(2SFhVd_f3.w;,4CdAW">
+                        <field name="OP">MULTIPLY</field>
+                        <value name="A">
+                          <shadow type="math_number" id=")X~,;|04N,b=v{cA?n:y">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="%#Fuv537r?g4g-8#ZNu7">
+                            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <shadow type="math_number" id="D-kN(N|~hTit;*Q-HF3L">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="W;ZaB.*3OzGGyV2PDE$L">
+                            <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="setResultLoss">
+                        <field name="VAR" id="Result_is">Result_is</field>
+                        <value name="VALUE">
+                          <block type="text" id="resultLossText">
+                            <field name="TEXT">Loss</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <next>
+              <block type="trade_again" id="O0gyt$46u#i^LXu}0~SE"></block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Tick Analysis -->
+  <block type="tick_analysis" id="C1)t(KjgV5)#c:5Fz2@_" collapsed="true" x="0" y="1594">
+    <statement name="TICKANALYSIS_STACK">
+      <block type="variables_set" id="/K_P8vj*(@v:6j]Bu~P=">
+        <field name="VAR" id=":yGQ!WYKA[R_sO1MkSjL">tick1</field>
+        <value name="VALUE">
+          <block type="lists_getIndex" id="XSu=~QE//2Y:]d~p=P/m">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+            <field name="MODE">GET</field>
+            <field name="WHERE">FROM_END</field>
+            <value name="VALUE">
+              <block type="lastDigitList" id="}LYybI/S:cjI/Rcy1nY"></block>
+            </value>
+            <value name="AT">
+              <block type="math_number" id="[_RkdoP8]lF/%Gn^">
+                <field name="NUM">1</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set" id="3.LXWq^5JH25~0J,AR2Z">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+            <value name="VALUE">
+              <block type="lists_getIndex" id="rkKQ307@g~epO|6C0tAc">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+                <field name="MODE">GET</field>
+                <field name="WHERE">FROM_END</field>
+                <value name="VALUE">
+                  <block type="lastDigitList" id=".]BV8x.1c1)~p8t:NugU"></block>
+                </value>
+                <value name="AT">
+                  <block type="math_number" id="iY.UfnOo*u4[q]dYMoWD">
+                    <field name="NUM">2</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id=")$vS+D(;t!*)xtofGW9R">
+                <field name="VAR" id="qQ]^z(23IIrz6z~JnY#h">tick 3</field>
+                <value name="VALUE">
+                  <block type="lists_getIndex" id="Di!)G4xp1N#;_bQVq8LG">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+                    <field name="MODE">GET</field>
+                    <field name="WHERE">FROM_END</field>
+                    <value name="VALUE">
+                      <block type="lastDigitList" id="E{if[4oW3+]]1Aq]d5!G"></block>
+                    </value>
+                    <value name="AT">
+                      <block type="math_number" id="#ULUAs[:gF)![)*!]8;j">
+                        <field name="NUM">3</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+</xml>`;
+
+            console.log('📄 Loading bot skeleton XML with recommendation settings...');
+
+            // Switch to Bot Builder tab (index 1)
+            store.dashboard.setActiveTab(1);
+
+            // Wait for tab switch and workspace initialization
+            setTimeout(async () => {
+                try {
+                    // Import bot skeleton functions
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+
+                    // Ensure workspace is ready
+                    if (window.Blockly?.derivWorkspace) {
+                        console.log('📦 Loading ML recommendation strategy to workspace...');
+
+                        await load({
+                            block_string: botSkeletonXML,
+                            file_name: `ML_${selectedSymbol?.display_name || recommendation.symbol}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+
+                        // Center and focus workspace
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML recommendation strategy loaded successfully to Bot Builder');
+
+                    } else {
+                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+
+                        // Fallback: Direct XML loading
+                        setTimeout(() => {
+                            if (window.Blockly?.derivWorkspace) {
+                                window.Blockly.derivWorkspace.clear();
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                                window.Blockly.derivWorkspace.scrollCenter();
+                                console.log('✅ ML recommendation strategy loaded using fallback method');
+                            }
+                        }, 500);
+                    }
+                } catch (loadError) {
+                    console.error('❌ Error loading ML recommendation strategy:', loadError);
+
+                    // Final fallback
+                    if (window.Blockly?.derivWorkspace) {
+                        window.Blockly.derivWorkspace.clear();
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML recommendation strategy loaded using final fallback');
+                    }
+                }
+            }, 300);
             
-            const displayName = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol)?.display_name || recommendation.symbol;
+            const displayName = selectedSymbol?.display_name || recommendation.symbol;
             const strategyText = (recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase();
-            setStatus(`Opened trading interface for ${displayName} - ${strategyText}`);
+            setStatus(`✅ Loaded ${displayName} - ${strategyText} strategy to Bot Builder`);
         } catch (error) {
-            console.error('Error opening recommendation modal:', error);
-            setStatus('Error opening trading interface');
+            console.error('Error loading recommendation to Bot Builder:', error);
+            setStatus('❌ Error loading strategy to Bot Builder');
         }
-    }, []);
+    }, [store.dashboard]);
 
     // Load settings from modal to the bot builder
     const loadSettingsToBotBuilder = useCallback(async () => {
@@ -913,37 +1351,7 @@ const MLTrader = observer(() => {
                 </div>
             </div>
 
-            {/* Trading Modal */}
-            <TradingModal
-                isOpen={is_modal_open}
-                onClose={() => {
-                    try {
-                        setIsModalOpen(false);
-                        setModalRecommendation(null);
-                    } catch (error) {
-                        console.error('Error closing modal:', error);
-                    }
-                }}
-                recommendation={modal_recommendation}
-                account_currency={account_currency}
-                current_price={current_price}
-                onLoadSettings={loadSettingsToBotBuilder}
-                // Pass modal state and setters for form manipulation
-                symbol={modal_symbol}
-                setSymbol={setModalSymbol}
-                trade_mode={modal_trade_mode}
-                setTradeMode={setModalTradeMode}
-                contract_type={modal_contract_type}
-                setContractType={setModalContractType}
-                duration={modal_duration}
-                setDuration={setModalDuration}
-                duration_unit={modal_duration_unit}
-                setDurationUnit={setModalDurationUnit}
-                stake={modal_stake}
-                setStake={setModalStake}
-                barrier_offset={modal_barrier_offset}
-                setBarrierOffset={setModalBarrierOffset}
-            />
+            
         </div>
     );
 });
