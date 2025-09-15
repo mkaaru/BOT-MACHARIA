@@ -1,0 +1,341 @@
+[HMR] connected.
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 288, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:288:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 288 |     display: flex;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 289:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 289, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:289:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 289 |     align-items: $align-items;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 290:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 290, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:290:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 290 |     justify-content: $justify-content;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 291:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+App.tsx:120 Service Worker registered with scope: https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: JournalStore@10.unfiltered_messages
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+(index):1  Uncaught (in promise) _.Lc
+content_script.js:40227 content-script-dev: downloader-gv-edge
+content_script.js:40078 check services
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+2index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+tick-stream-manager.ts:90 TickStreamManager connected to WebSocket
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+6splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+react-dom.development.js:86  Warning: Invalid DOM property `fill-rule`. Did you mean `fillRule`?
+    at path
+    at svg
+    at BotBuilderIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19270:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19368:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linecap`. Did you mean `strokeLinecap`?
+    at path
+    at svg
+    at AnalysisToolIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19270:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19368:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-width`. Did you mean `strokeWidth`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19270:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19368:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linejoin`. Did you mean `strokeLinejoin`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19270:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19368:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+main.tsx:268 Successfully loaded: Upgraded Candlemine.xml
+market-analyzer.ts:119 ✅ Connected to Deriv WebSocket API
+market-analyzer.ts:185 📊 Subscribed to R_10
+market-analyzer.ts:185 📊 Subscribed to R_25
+market-analyzer.ts:185 📊 Subscribed to R_50
+market-analyzer.ts:185 📊 Subscribed to R_75
+market-analyzer.ts:185 📊 Subscribed to R_100
+market-analyzer.ts:185 📊 Subscribed to RDBEAR
+market-analyzer.ts:185 📊 Subscribed to RDBULL
+market-analyzer.ts:185 📊 Subscribed to 1HZ10V
+market-analyzer.ts:185 📊 Subscribed to 1HZ25V
+market-analyzer.ts:185 📊 Subscribed to 1HZ50V
+market-analyzer.ts:185 📊 Subscribed to 1HZ75V
+market-analyzer.ts:185 📊 Subscribed to 1HZ100V
+main.tsx:268 Successfully loaded: Super Elite.xml
+tracking.js:1 [LiveChat] Current domain is not added to the allowed domains. LiveChat has been disabled.
+main.tsx:268 Successfully loaded: AUTO C4 PRO Version.xml
+content_script.js:40227 content-script-dev: downloader-gv-edge
+content_script.js:40078 check services
+main.tsx:268 Successfully loaded: Mkorean SV4.xml
+main.tsx:283 Loaded 4 bots total
+main.tsx:284 Successful: 4
+main.tsx:285 Placeholders: 0
+api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+market-analyzer.ts:134 🔌 Deriv WebSocket disconnected: 1005 
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+market-scanner.ts:85 Initializing Market Scanner...
+tick-stream-manager.ts:135 Subscribing to all volatility indices...
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ50V with ID: cf64647b-842a-6b64-4e0e-0dd90f7c075f
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ100V with ID: d22c484a-7f23-5f0b-f2b5-529c1556fe84
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ25V with ID: 0d7b428a-4cbb-5708-4a8a-6e4bdfbd2b16
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ30V with ID: 6ce209a7-7bd5-9d47-b6b0-1d62eb3234ce
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ75V with ID: fc50a34e-6948-f46c-0d19-64ebee8cb926
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ10V with ID: f21d4bc6-aa7c-428e-ee77-10a2e8378682
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ15V with ID: 024ecc63-b286-69e0-4122-bd324d9d8f6d
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ90V with ID: 2c8925bd-9063-8c59-c576-aa3e33fa37cb
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+tick-stream-manager.ts:126 Successfully subscribed to R_100 with ID: b8d44b7e-0586-6396-4494-106d7e6eebf5
+tick-stream-manager.ts:126 Successfully subscribed to R_10 with ID: 3baccf4b-9c25-15bf-6f13-a5615d53c2c9
+tick-stream-manager.ts:126 Successfully subscribed to R_25 with ID: 45ae42f8-6adc-3b98-0a6a-a8b34e519cdd
+tick-stream-manager.ts:126 Successfully subscribed to R_50 with ID: 13b5d0eb-0fee-f39f-7fa0-918592f8f0ad
+tick-stream-manager.ts:126 Successfully subscribed to R_75 with ID: 6d2996a2-d497-2093-9acf-0b7212aa93df
+tick-stream-manager.ts:154 Subscribed to 13 volatility indices
+market-scanner.ts:100 Successfully subscribed to volatility symbols
+market-scanner.ts:123 Market Scanner initialized successfully
+market-scanner.ts:455 Refreshing market scanner...
+tick-stream-manager.ts:135 Subscribing to all volatility indices...
+tick-stream-manager.ts:114 Already subscribed to 1HZ10V
+tick-stream-manager.ts:114 Already subscribed to 1HZ15V
+tick-stream-manager.ts:114 Already subscribed to 1HZ25V
+tick-stream-manager.ts:114 Already subscribed to 1HZ30V
+tick-stream-manager.ts:114 Already subscribed to 1HZ50V
+tick-stream-manager.ts:114 Already subscribed to 1HZ75V
+tick-stream-manager.ts:114 Already subscribed to 1HZ90V
+tick-stream-manager.ts:114 Already subscribed to 1HZ100V
+tick-stream-manager.ts:114 Already subscribed to R_10
+tick-stream-manager.ts:114 Already subscribed to R_25
+tick-stream-manager.ts:114 Already subscribed to R_50
+tick-stream-manager.ts:114 Already subscribed to R_75
+tick-stream-manager.ts:114 Already subscribed to R_100
+tick-stream-manager.ts:154 Subscribed to 13 volatility indices
+market-scanner.ts:467 Market scanner refreshed successfully
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+2content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ90V: OHLC(24484.19300, 24523.78400, 24481.63600, 24519.41600) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_75: OHLC(72810.95540, 72835.70780, 72750.10170, 72758.76090) with 20 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_50: OHLC(120.42390, 120.44610, 120.37150, 120.37670) with 20 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ15V: OHLC(13544.01800, 13545.13200, 13541.58400, 13541.58400) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ10V: OHLC(9393.58000, 9393.94000, 9391.86000, 9392.06000) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ75V: OHLC(3226.51000, 3228.76000, 3225.48000, 3227.94000) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_25: OHLC(2857.67700, 2857.67700, 2855.87800, 2856.13400) with 20 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ30V: OHLC(6368.77900, 6372.40900, 6368.64700, 6372.25900) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ25V: OHLC(637950.83000, 637998.87000, 637862.78000, 637911.66000) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ100V: OHLC(779.25000, 779.32000, 778.02000, 778.45000) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_10: OHLC(5946.78600, 5946.93600, 5946.26900, 5946.38800) with 20 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ50V: OHLC(214616.18000, 214707.59000, 214586.27000, 214688.70000) with 41 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_100: OHLC(1168.51000, 1169.29000, 1167.23000, 1168.42000) with 20 ticks
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
