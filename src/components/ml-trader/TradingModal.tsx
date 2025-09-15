@@ -206,7 +206,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
 
             const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
             // Map 'Rise/Fall' to 'risefall' and 'Higher/Lower' to 'highlow'
-            const tradeTypeList = trade_mode === 'rise_fall' ? 'risefall' : 'highlow';
+            const tradeTypeList = trade_mode === 'higher_lower' ? 'highlow' : 'risefall';
             // Corrected contract type mapping for Bot Builder
             const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
             const barrierOffsetValue = calculateBarrierOffset();
