@@ -1,0 +1,261 @@
+
+.volatility-selector-modal {
+    .modal__content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    &__content {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        padding: 0;
+    }
+
+    &__header {
+        text-align: center;
+        padding-bottom: 1.2rem;
+        border-bottom: 2px solid var(--border-normal);
+
+        h2 {
+            margin: 0 0 0.8rem 0;
+            color: var(--text-prominent);
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0;
+            color: var(--text-general);
+            font-size: 1.4rem;
+        }
+    }
+
+    &__volatility-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.6rem;
+
+        @media (max-width: 768px) {
+            grid-template-columns: 1fr;
+            gap: 1.2rem;
+        }
+    }
+
+    .volatility-card {
+        background: var(--general-main-1);
+        border: 2px solid var(--border-normal);
+        border-radius: 12px;
+        padding: 2rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+
+        &:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            border-color: #3b82f6;
+        }
+
+        &.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            transform: translateY(-2px);
+        }
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #2563eb);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        &:hover::before,
+        &.selected::before {
+            opacity: 1;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.6rem;
+            padding-bottom: 1.2rem;
+            border-bottom: 1px solid var(--border-normal);
+
+            .symbol-name {
+                font-size: 1.6rem;
+                font-weight: 600;
+                color: var(--text-prominent);
+            }
+
+            .symbol-badge {
+                display: flex;
+                align-items: center;
+                gap: 0.8rem;
+
+                .badge-1s {
+                    background: #3b82f6;
+                    color: white;
+                    padding: 0.2rem 0.6rem;
+                    border-radius: 12px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                }
+
+                .symbol-code {
+                    font-family: 'Monaco', monospace;
+                    font-size: 1.2rem;
+                    color: var(--text-general);
+                }
+            }
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+
+            .volatility-info {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                text-align: center;
+
+                .info-item {
+                    padding: 1rem;
+                    background: var(--general-section-1);
+                    border-radius: 8px;
+                    border: 1px solid var(--border-normal);
+
+                    .label {
+                        font-size: 1.2rem;
+                        color: var(--text-general);
+                        margin-bottom: 0.4rem;
+                    }
+
+                    .value {
+                        font-size: 1.4rem;
+                        font-weight: 600;
+                        color: var(--text-prominent);
+                    }
+                }
+            }
+
+            .description {
+                text-align: center;
+                color: var(--text-general);
+                font-size: 1.3rem;
+                line-height: 1.4;
+            }
+        }
+
+        .card-actions {
+            margin-top: 1.6rem;
+            padding-top: 1.2rem;
+            border-top: 1px solid var(--border-normal);
+            text-align: center;
+
+            .select-btn {
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                border: none;
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                font-size: 1.4rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                width: 100%;
+
+                &:hover {
+                    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+                }
+
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                    transform: none;
+                    box-shadow: none;
+                }
+            }
+        }
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1.2rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border-normal);
+
+        @media (max-width: 768px) {
+            flex-direction: column-reverse;
+        }
+
+        .modal-cancel-btn,
+        .modal-confirm-btn {
+            min-width: 140px;
+            height: 48px;
+            font-size: 1.4rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+
+            @media (max-width: 768px) {
+                width: 100%;
+            }
+        }
+
+        .modal-cancel-btn {
+            background: var(--general-main-2);
+            border: 1px solid var(--border-normal);
+            color: var(--text-general);
+
+            &:hover {
+                background: var(--general-main-3);
+                border-color: var(--border-hover);
+            }
+        }
+
+        .modal-confirm-btn {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border: none;
+            color: white;
+
+            &:hover {
+                background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(34, 197, 94, 0.3);
+            }
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+        }
+    }
+
+    // Dark theme support
+    .theme--dark & {
+        .volatility-card {
+            background: var(--general-main-2);
+            border-color: var(--border-normal);
+
+            .card-content .volatility-info .info-item {
+                background: var(--general-main-3);
+            }
+        }
+    }
+}
