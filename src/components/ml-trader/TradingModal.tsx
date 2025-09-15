@@ -93,13 +93,29 @@ const TradingModal: React.FC<TradingModalProps> = ({
     barrier_offset,
     setBarrierOffset,
 }) => {
-    if (!recommendation) return null;
+    if (!isOpen || !recommendation) return null;
+    
+    const handleClose = () => {
+        try {
+            onClose();
+        } catch (error) {
+            console.error('Error closing modal:', error);
+        }
+    };
+    
+    const handleLoadSettings = () => {
+        try {
+            onLoadSettings();
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    };
 
     return (
         <Modal
             className="trading-modal"
             is_open={isOpen}
-            toggleModal={onClose}
+            toggleModal={handleClose}
             title={localize('Trading Interface - ML Recommendation')}
             width="700px"
         >
@@ -243,13 +259,13 @@ const TradingModal: React.FC<TradingModalProps> = ({
                 <div className="trading-modal__actions">
                     <Button
                         className="modal-cancel-btn"
-                        onClick={onClose}
+                        onClick={handleClose}
                         text={localize('Cancel')}
                         secondary
                     />
                     <Button
                         className="modal-load-btn"
-                        onClick={onLoadSettings}
+                        onClick={handleLoadSettings}
                         text={localize('Load Settings')}
                         primary
                     />

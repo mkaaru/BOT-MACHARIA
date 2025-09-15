@@ -321,22 +321,34 @@ const MLTrader = observer(() => {
 
     // Open the modal with the selected recommendation
     const openRecommendationModal = useCallback((recommendation: TradingRecommendation) => {
-        setModalRecommendation(recommendation);
-        // Pre-fill modal form with recommendation's data
-        setModalSymbol(recommendation.symbol);
-        setModalContractType(recommendation.direction);
-        setModalDuration(recommendation.suggestedDuration);
-        setModalDurationUnit(recommendation.suggestedDurationUnit);
-        setModalStake(recommendation.suggestedStake);
-        baseStakeRef.current = recommendation.suggestedStake; // Set base stake for modal
+        try {
+            if (!recommendation) {
+                console.error('No recommendation provided to modal');
+                return;
+            }
+            
+            setModalRecommendation(recommendation);
+            // Pre-fill modal form with recommendation's data
+            setModalSymbol(recommendation.symbol || '');
+            setModalContractType(recommendation.direction || 'CALL');
+            setModalDuration(recommendation.suggestedDuration || 5);
+            setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
+            setModalStake(recommendation.suggestedStake || 1.0);
+            baseStakeRef.current = recommendation.suggestedStake || 1.0; // Set base stake for modal
 
-        if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
-            setModalTradeMode('rise_fall');
+            if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
+                setModalTradeMode('rise_fall');
+            }
+            setCurrentPrice(recommendation.currentPrice || null); // Set current price for modal context
+
+            setIsModalOpen(true);
+            
+            const displayName = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol)?.display_name || recommendation.symbol;
+            setStatus(`Opened trading interface for ${displayName}`);
+        } catch (error) {
+            console.error('Error opening recommendation modal:', error);
+            setStatus('Error opening trading interface');
         }
-        setCurrentPrice(recommendation.currentPrice); // Set current price for modal context
-
-        setIsModalOpen(true);
-        setStatus(`Opened trading interface for ${recommendation.displayName}`);
     }, []);
 
     // Load settings from modal to the bot builder
@@ -886,7 +898,14 @@ const MLTrader = observer(() => {
             {/* Trading Modal */}
             <TradingModal
                 isOpen={is_modal_open}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    try {
+                        setIsModalOpen(false);
+                        setModalRecommendation(null);
+                    } catch (error) {
+                        console.error('Error closing modal:', error);
+                    }
+                }}
                 recommendation={modal_recommendation}
                 account_currency={account_currency}
                 current_price={current_price}
