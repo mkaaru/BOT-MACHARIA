@@ -1,0 +1,293 @@
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+validateProperty$1 @ react-dom.development.js:3749
+warnUnknownProperties @ react-dom.development.js:3803
+validateProperties$2 @ react-dom.development.js:3827
+validatePropertiesInDevelopment @ react-dom.development.js:9541
+setInitialProperties @ react-dom.development.js:9830
+finalizeInitialChildren @ react-dom.development.js:10950
+completeWork @ react-dom.development.js:22232
+completeUnitOfWork @ react-dom.development.js:26635
+performUnitOfWork @ react-dom.development.js:26607
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-width`. Did you mean `strokeWidth`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19275:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19373:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+validateProperty$1 @ react-dom.development.js:3749
+warnUnknownProperties @ react-dom.development.js:3803
+validateProperties$2 @ react-dom.development.js:3827
+validatePropertiesInDevelopment @ react-dom.development.js:9541
+setInitialProperties @ react-dom.development.js:9830
+finalizeInitialChildren @ react-dom.development.js:10950
+completeWork @ react-dom.development.js:22232
+completeUnitOfWork @ react-dom.development.js:26635
+performUnitOfWork @ react-dom.development.js:26607
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linejoin`. Did you mean `strokeLinejoin`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19275:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:19373:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+validateProperty$1 @ react-dom.development.js:3749
+warnUnknownProperties @ react-dom.development.js:3803
+validateProperties$2 @ react-dom.development.js:3827
+validatePropertiesInDevelopment @ react-dom.development.js:9541
+setInitialProperties @ react-dom.development.js:9830
+finalizeInitialChildren @ react-dom.development.js:10950
+completeWork @ react-dom.development.js:22232
+completeUnitOfWork @ react-dom.development.js:26635
+performUnitOfWork @ react-dom.development.js:26607
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+main.tsx:268 Successfully loaded: Upgraded Candlemine.xml
+market-analyzer.ts:119 ✅ Connected to Deriv WebSocket API
+market-analyzer.ts:185 📊 Subscribed to R_10
+market-analyzer.ts:185 📊 Subscribed to R_25
+market-analyzer.ts:185 📊 Subscribed to R_50
+market-analyzer.ts:185 📊 Subscribed to R_75
+market-analyzer.ts:185 📊 Subscribed to R_100
+market-analyzer.ts:185 📊 Subscribed to RDBEAR
+market-analyzer.ts:185 📊 Subscribed to RDBULL
+market-analyzer.ts:185 📊 Subscribed to 1HZ10V
+market-analyzer.ts:185 📊 Subscribed to 1HZ25V
+market-analyzer.ts:185 📊 Subscribed to 1HZ50V
+market-analyzer.ts:185 📊 Subscribed to 1HZ75V
+market-analyzer.ts:185 📊 Subscribed to 1HZ100V
+main.tsx:268 Successfully loaded: Super Elite.xml
+main.tsx:268 Successfully loaded: AUTO C4 PRO Version.xml
+tracking.js:1 [LiveChat] Current domain is not added to the allowed domains. LiveChat has been disabled.
+main.tsx:268 Successfully loaded: Mkorean SV4.xml
+main.tsx:283 Loaded 4 bots total
+main.tsx:284 Successful: 4
+main.tsx:285 Placeholders: 0
+content_script.js:40227 content-script-dev: downloader-gv-edge
+content_script.js:40078 check services
+api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+market-analyzer.ts:134 🔌 Deriv WebSocket disconnected: 1005 
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+generateDerivApiInstance @ appId.js:8
+(anonymous) @ ml-trader.tsx:99
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+commitRootImpl @ react-dom.development.js:26974
+commitRoot @ react-dom.development.js:26721
+performSyncWorkOnRoot @ react-dom.development.js:26156
+flushSyncCallbacks @ react-dom.development.js:12042
+(anonymous) @ react-dom.development.js:25690
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+market-scanner.ts:85 Initializing Market Scanner...
+tick-stream-manager.ts:135 Subscribing to all volatility indices...
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ30V with ID: 25480b89-5f98-8d91-f467-0f6b3cee0c71
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ100V with ID: 1ed2cee9-6d7d-ccf5-ba64-f69c54c46945
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ25V with ID: 34bb93ff-12d1-46f5-3e86-ec4c7f8a007f
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ50V with ID: 59d5e1b1-9513-aa59-671e-1065c9e274f6
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ90V with ID: 42d21177-3488-79c9-35cd-c6e1537faece
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ15V with ID: faaaefe7-577e-455c-2b87-2772b283aae3
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ75V with ID: c36a58a2-736d-096e-37c3-e7c048463d3e
+tick-stream-manager.ts:126 Successfully subscribed to 1HZ10V with ID: f1e2cb98-f9dd-08a4-646e-233fc792e740
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:126 Successfully subscribed to R_25 with ID: 5e8ced5b-7b4c-2d37-ee92-82b007e176b9
+tick-stream-manager.ts:126 Successfully subscribed to R_100 with ID: 910885f3-2897-e72e-f936-4396dabe01d4
+tick-stream-manager.ts:126 Successfully subscribed to R_10 with ID: 62bee2c6-17ef-4655-1e61-2923e12eadbf
+tick-stream-manager.ts:126 Successfully subscribed to R_50 with ID: c6748c08-f27c-896b-45b1-d9b5ae325fde
+tick-stream-manager.ts:126 Successfully subscribed to R_75 with ID: 0dd1f947-deab-262b-896a-c0947be7e7fc
+tick-stream-manager.ts:154 Subscribed to 13 volatility indices
+market-scanner.ts:100 Successfully subscribed to volatility symbols
+content_script.js:7165 Content limit: 612032839.68
+market-scanner.ts:123 Market Scanner initialized successfully
+market-scanner.ts:455 Refreshing market scanner...
+tick-stream-manager.ts:135 Subscribing to all volatility indices...
+tick-stream-manager.ts:114 Already subscribed to 1HZ10V
+tick-stream-manager.ts:114 Already subscribed to 1HZ15V
+tick-stream-manager.ts:114 Already subscribed to 1HZ25V
+tick-stream-manager.ts:114 Already subscribed to 1HZ30V
+tick-stream-manager.ts:114 Already subscribed to 1HZ50V
+tick-stream-manager.ts:114 Already subscribed to 1HZ75V
+tick-stream-manager.ts:114 Already subscribed to 1HZ90V
+tick-stream-manager.ts:114 Already subscribed to 1HZ100V
+tick-stream-manager.ts:114 Already subscribed to R_10
+tick-stream-manager.ts:114 Already subscribed to R_25
+tick-stream-manager.ts:114 Already subscribed to R_50
+tick-stream-manager.ts:114 Already subscribed to R_75
+tick-stream-manager.ts:114 Already subscribed to R_100
+tick-stream-manager.ts:154 Subscribed to 13 volatility indices
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+market-scanner.ts:467 Market scanner refreshed successfully
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ90V: OHLC(24492.56400, 24507.94800, 24490.10900, 24507.94800) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ15V: OHLC(13538.76200, 13538.89100, 13538.18300, 13538.89100) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_75: OHLC(72706.55990, 72706.64000, 72699.97330, 72706.38140) with 4 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_50: OHLC(120.44700, 120.44700, 120.41760, 120.41760) with 4 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ75V: OHLC(3236.18000, 3236.87000, 3235.57000, 3236.77000) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ10V: OHLC(9389.96000, 9390.00000, 9389.18000, 9389.48000) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ30V: OHLC(6366.62400, 6367.41300, 6366.59800, 6366.59800) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_25: OHLC(2859.67000, 2859.67700, 2859.54900, 2859.59100) with 4 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ100V: OHLC(780.51000, 781.09000, 780.51000, 781.09000) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ25V: OHLC(638093.07000, 638258.36000, 638093.07000, 638205.31000) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_10: OHLC(5944.57400, 5944.61300, 5944.39400, 5944.39400) with 4 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for 1HZ50V: OHLC(214743.62000, 214803.03000, 214698.21000, 214698.21000) with 9 ticks
+candle-reconstruction-engine.ts:94 Completed 1-min candle for R_100: OHLC(1165.07000, 1165.37000, 1164.92000, 1165.37000) with 4 ticks
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:178 ⏰ ML Trader: Forcing scan completion after timeout
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+ml-trader.tsx:210 📊 ML Trader: Found trends for 0/10 symbols
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
