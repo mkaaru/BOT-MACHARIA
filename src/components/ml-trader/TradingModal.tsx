@@ -121,11 +121,11 @@ const TradingModal: React.FC<TradingModalProps> = ({
 
         // Contract type mapping - map ML Trader types to Bot Builder types
         const contractTypeMapping: Record<string, string> = {
-            'CALL': trade_mode === 'rise_fall' ? 'CALL' : 'CALL', // Rise for Rise/Fall, Higher for Higher/Lower
-            'PUT': trade_mode === 'rise_fall' ? 'PUT' : 'PUT'     // Fall for Rise/Fall, Lower for Higher/Lower
+            'CALL': trade_mode === 'rise_fall' ? 'CALL' : 'CALLE', // Rise for Rise/Fall, Higher for Higher/Lower
+            'PUT': trade_mode === 'rise_fall' ? 'PUT' : 'PUTE'     // Fall for Rise/Fall, Lower for Higher/Lower
         };
 
-        const mappedContractType = contractTypeMapping[contract_type] || 'CALL';
+        const mappedContractType = contractTypeMapping[contract_type] || (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE');
 
         // Duration unit mapping
         const durationUnitMapping: Record<string, string> = {
@@ -205,8 +205,8 @@ const TradingModal: React.FC<TradingModalProps> = ({
             };
 
             const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
-            // Adjusted to map 'Rise/Fall' to 'risefall' and 'Higher/Lower' to 'touchnotouch'
-            const tradeTypeList = trade_mode === 'rise_fall' ? 'risefall' : 'touchnotouch';
+            // Map 'Rise/Fall' to 'risefall' and 'Higher/Lower' to 'highlow'
+            const tradeTypeList = trade_mode === 'rise_fall' ? 'risefall' : 'highlow';
             // Corrected contract type mapping for Bot Builder
             const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
             const barrierOffsetValue = calculateBarrierOffset();
@@ -670,7 +670,10 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                 <div className="detail-item">
                                     <Text size="xs" color="general">{localize('Strategy')}</Text>
                                     <Text size="sm" weight="bold">
-                                        {(recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase()}
+                                        {trade_mode === 'higher_lower' ? 
+                                            (contract_type === 'CALL' ? 'HIGHER' : 'LOWER') :
+                                            (recommendation.strategy || recommendation.direction || 'CALL').toUpperCase()
+                                        }
                                     </Text>
                                 </div>
                             </div>
