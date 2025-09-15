@@ -620,7 +620,17 @@ const MLTrader = observer(() => {
                       </block>
                     </value>
                     <next>
-                      <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
+                      <block type="variables_set" id="resetConsecutiveLossesWin">
+                        <field name="VAR" id="current_consecutive_losses">Current Consecutive Losses</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="resetWinValue">
+                            <field name="NUM">0</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
+                        </next>
+                      </block>
                     </next>
                   </block>
                 </next>
@@ -731,6 +741,9 @@ const MLTrader = observer(() => {
                                     <field name="TEXT">Loss</field>
                                   </block>
                                 </value>
+                                <next>
+                                  <block type="trade_again" id="O0gyt$46u#i^LXu}0~SE"></block>
+                                </next>
                               </block>
                             </next>
                           </block>
@@ -741,9 +754,6 @@ const MLTrader = observer(() => {
                 </next>
               </block>
             </statement>
-            <next>
-              <block type="trade_again" id="O0gyt$46u#i^LXu}0~SE"></block>
-            </next>
           </block>
         </statement>
       </block>
