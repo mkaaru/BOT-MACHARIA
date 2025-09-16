@@ -274,13 +274,6 @@ const RunPanel = observer(() => {
 
     const content = (
         <div>
-            {isVolatilityAnalyzerRunning && (
-                <div className="volatility-analyzer-indicator">
-                    <Text as="p" size="xs" className="volatility-analyzer-status">
-                        <Localize i18n_default_text="🔬 Smart Trading Analytics Active" />
-                    </Text>
-                </div>
-            )}
             <DrawerContent
                 active_index={active_index}
                 currency={currency}
