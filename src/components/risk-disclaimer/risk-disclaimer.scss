@@ -1,7 +1,7 @@
 .risk-disclaimer-button {
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    left: 20px;
     z-index: 9999;
     background: var(--brand-red-coral);
     border: none;
@@ -42,15 +42,30 @@
     }
 
     @media (max-width: 768px) {
-        bottom: 80px;
-        right: 16px;
-        padding: 6px 10px;
-        min-width: 100px;
-        height: 32px;
-        font-size: 10px;
+        bottom: 20px;
+        left: 16px;
+        padding: 6px 8px;
+        min-width: 80px;
+        height: 28px;
+        font-size: 9px;
+        border-radius: 14px;
         
         .warning-icon {
-            font-size: 12px;
+            font-size: 10px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        bottom: 16px;
+        left: 12px;
+        padding: 4px 6px;
+        min-width: 70px;
+        height: 24px;
+        font-size: 8px;
+        border-radius: 12px;
+        
+        .warning-icon {
+            font-size: 9px;
         }
     }
 }
