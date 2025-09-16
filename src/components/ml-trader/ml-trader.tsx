@@ -1006,7 +1006,7 @@ const MLTrader = observer(() => {
     };
 
     return (
-        <div className="ml-trader">
+        <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
                 <div className="ml-trader__header">
                     <Text as="h1" className="ml-trader__title">

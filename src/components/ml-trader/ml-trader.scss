@@ -7,6 +7,10 @@
     flex-direction: column;
     background: var(--general-main-1);
     font-family: 'Inter', sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 
     &__container {
         padding: 1.6rem;
