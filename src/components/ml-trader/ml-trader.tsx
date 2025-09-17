@@ -324,9 +324,9 @@ const MLTrader = observer(() => {
                 console.error('No recommendation provided');
                 return;
             }
-            
+
             console.log('🚀 Bypassing modal - Loading recommendation directly to Bot Builder:', recommendation);
-            
+
             // Set modal form data for generateBotBuilderXML function
             setModalRecommendation(recommendation);
             setModalSymbol(recommendation.symbol || '');
@@ -334,17 +334,17 @@ const MLTrader = observer(() => {
             setModalDuration(recommendation.suggestedDuration || 2); // Changed default to 2
             setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
             setModalStake(recommendation.suggestedStake || 1.0);
-            
+
             // Set trade mode based on recommendation strategy or direction
             const strategy = recommendation.strategy || recommendation.direction || 'call';
-            if (strategy === 'call' || strategy === 'put' || 
+            if (strategy === 'call' || strategy === 'put' ||
                 recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
                 setModalTradeMode('rise_fall');
             } else {
                 // For barrier-based strategies, use higher/lower
                 setModalTradeMode('higher_lower');
             }
-            
+
             // Set barrier offset for higher/lower trades
             if (recommendation.barrier) {
                 const barrierValue = parseFloat(recommendation.barrier);
@@ -354,19 +354,19 @@ const MLTrader = observer(() => {
                     setModalBarrierOffset(calculatedOffset);
                 }
             }
-            
+
             setCurrentPrice(recommendation.currentPrice || null);
             baseStakeRef.current = recommendation.suggestedStake || 1.0;
 
             // Generate Bot Builder XML with the recommendation data
             const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol);
-            const trade_mode = strategy === 'call' || strategy === 'put' || 
+            const trade_mode = strategy === 'call' || strategy === 'put' ||
                 recommendation.direction === 'CALL' || recommendation.direction === 'PUT' ? 'rise_fall' : 'higher_lower';
             const contract_type = recommendation.direction || 'CALL';
             const duration = recommendation.suggestedDuration || 2;
             const duration_unit = (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't';
             const stake = recommendation.suggestedStake || 1.0;
-            const barrier_offset = recommendation.barrier ? 
+            const barrier_offset = recommendation.barrier ?
                 Math.abs(parseFloat(recommendation.barrier) - (recommendation.currentPrice || 0)) : 0.001;
 
             // Calculate barrier offset based on contract type
@@ -409,7 +409,7 @@ const MLTrader = observer(() => {
               <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
                 <field name="TYPE_LIST">${contractTypeField}</field>
                 <next>
-                  <block type="trade_definition_candleinterval" id="?%X41!vudp91L1/W30?x" deletable="false" movable="false">
+                  <block type="trade_definition_candleinterval" id="?%X1!vudp91L1/W30?x" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>
                     <next>
                       <block type="trade_definition_restartbuysell" id="Uw+CuacxzG/2-ktTeC|P" deletable="false" movable="false">
@@ -799,7 +799,7 @@ const MLTrader = observer(() => {
                     }
                 }
             }, 300);
-            
+
             const displayName = selectedSymbol?.display_name || recommendation.symbol;
             const strategyText = (recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase();
             setStatus(`✅ Loaded ${displayName} - ${strategyText} strategy to Bot Builder`);
@@ -831,7 +831,7 @@ const MLTrader = observer(() => {
             // The TradingModal component will handle the actual loading
             // This function is now just a placeholder for the callback
             setStatus(`Preparing to load settings to Bot Builder...`);
-            
+
         } catch (error) {
             console.error('Error in loadSettingsToBotBuilder:', error);
             setStatus(`❌ Error: ${error.message}`);
@@ -1073,6 +1073,26 @@ const MLTrader = observer(() => {
                                                         <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
                                                         <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
                                                     </div>
+
+                                                    {/* Ehlers Signal Quality Indicators */}
+                                                    {trend.ehlers && (
+                                                        <div className="ehlers-signals">
+                                                            <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
+                                                            <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
+                                                            {trend.ehlersRecommendation?.anticipatory && (
+                                                                <Text size="xs" color="profit-success">🎯 ANTICIPATORY</Text>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Cycle Trading Suitability */}
+                                                    {trend.cycleTrading && (
+                                                        <div className={`cycle-status ${trend.cycleTrading.suitable ? 'suitable' : 'unsuitable'}`}>
+                                                            <Text size="xs">
+                                                                {trend.cycleTrading.suitable ? '✅ Good for cycles' : '❌ Poor cycle conditions'}
+                                                            </Text>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 

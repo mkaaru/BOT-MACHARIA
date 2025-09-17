@@ -1,5 +1,6 @@
 import { CandleData } from './candle-reconstruction-engine';
 import { EfficientHMACalculator, EfficientHMAResult } from './efficient-hma-calculator';
+import { ehlersProcessor, EhlersSignals } from './ehlers-signal-processing';
 
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
@@ -18,6 +19,19 @@ export interface TrendAnalysis {
     lastUpdate: Date;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
     score: number; // Overall trading score (0-100)
+    
+    // Enhanced Ehlers signals
+    ehlers?: EhlersSignals;
+    ehlersRecommendation?: {
+        action: 'BUY' | 'SELL' | 'HOLD';
+        confidence: number;
+        reason: string;
+        anticipatory: boolean;
+    };
+    cycleTrading?: {
+        suitable: boolean;
+        reason: string;
+    };
 }
 
 export interface MarketScanResult {
@@ -44,21 +58,24 @@ export class TrendAnalysisEngine {
      * Add candle data and update trend analysis
      */
     addCandleData(candle: CandleData): void {
-        const { symbol, close } = candle;
+        const { symbol, close, timestamp } = candle;
 
         // Use efficient HMA calculator with both periods
         this.hmaCalculator.addCandleData(candle, [5, 40]);
         
+        // Process through Ehlers signal processing pipeline
+        const ehlersSignals = ehlersProcessor.processPrice(symbol, close, timestamp);
+        
         // Update trend analysis for this symbol if HMA is ready
         if (this.hmaCalculator.isReady(symbol, 5) && this.hmaCalculator.isReady(symbol, 40)) {
-            this.updateTrendAnalysis(symbol, close);
+            this.updateTrendAnalysis(symbol, close, ehlersSignals);
         }
     }
 
     /**
      * Update trend analysis for a specific symbol
      */
-    private updateTrendAnalysis(symbol: string, currentPrice: number): void {
+    private updateTrendAnalysis(symbol: string, currentPrice: number, ehlersSignals?: EhlersSignals): void {
         const hma5 = this.hmaCalculator.getLatestHMA(symbol, 5);
         const hma40 = this.hmaCalculator.getLatestHMA(symbol, 40);
         
@@ -86,6 +103,25 @@ export class TrendAnalysisEngine {
         // Calculate overall score
         const score = this.calculateTradingScore(direction, strength, confidence, crossover);
 
+        // Get Ehlers-based recommendations
+        const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
+        const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
+
+        // Combine traditional and Ehlers recommendations
+        let finalRecommendation = recommendation;
+        let enhancedScore = score;
+
+        if (ehlersSignals && cycleTrading.suitable) {
+            // Give priority to anticipatory signals when conditions are good
+            if (ehlersRecommendation.anticipatory && ehlersRecommendation.confidence > 70) {
+                finalRecommendation = ehlersRecommendation.action;
+                enhancedScore = Math.min(95, score + 15); // Bonus for anticipatory signals
+            } else if (ehlersRecommendation.confidence > confidence) {
+                finalRecommendation = ehlersRecommendation.action;
+                enhancedScore = Math.max(score, ehlersRecommendation.confidence);
+            }
+        }
+
         const analysis: TrendAnalysis = {
             symbol,
             direction,
@@ -98,8 +134,11 @@ export class TrendAnalysisEngine {
             crossover,
             price: currentPrice,
             lastUpdate: new Date(),
-            recommendation,
-            score,
+            recommendation: finalRecommendation,
+            score: enhancedScore,
+            ehlers: ehlersSignals,
+            ehlersRecommendation,
+            cycleTrading,
         };
 
         this.trendData.set(symbol, analysis);

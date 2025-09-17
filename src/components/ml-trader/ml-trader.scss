@@ -796,7 +796,7 @@
             height: 100vh;
             max-height: 100vh;
             border-radius: 0;
-            
+
             &::before {
                 border-radius: 0;
             }
@@ -1614,7 +1614,7 @@
                 }
 
                 @keyframes gradientShift {
-                    0%, 100% { background-position: 0% 50%; }
+                    0% { background-position: 0% 50%; }
                     50% { background-position: 100% 50%; }
                 }
 

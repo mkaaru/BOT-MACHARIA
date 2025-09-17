@@ -256,6 +256,17 @@ export class MarketScanner {
     private generateRecommendationReason(trend: TrendAnalysis): string {
         const reasons: string[] = [];
         
+        // Prioritize Ehlers signals
+        if (trend.ehlersRecommendation?.anticipatory) {
+            reasons.push(`🎯 ${trend.ehlersRecommendation.reason}`);
+            if (trend.ehlers?.snr && trend.ehlers.snr > 6) {
+                reasons.push(`High SNR: ${trend.ehlers.snr.toFixed(1)}dB`);
+            }
+        } else if (trend.ehlersRecommendation) {
+            reasons.push(trend.ehlersRecommendation.reason);
+        }
+        
+        // Add traditional signals
         if (trend.crossover === 1) {
             reasons.push('Bullish HMA crossover detected');
         } else if (trend.crossover === -1) {
@@ -270,6 +281,13 @@ export class MarketScanner {
         
         if (trend.strength === 'strong') {
             reasons.push(`${trend.strength} trend strength`);
+        }
+        
+        // Add cycle trading suitability
+        if (trend.cycleTrading?.suitable) {
+            reasons.push('✅ Good cycle conditions');
+        } else if (trend.cycleTrading) {
+            reasons.push(`⚠️ ${trend.cycleTrading.reason}`);
         }
         
         if (trend.confidence > 80) {
