@@ -1,0 +1,96 @@
+CYCLES Tutorial
+Technical analysis of the market is successful because the market is not always efficient. Discernible events that occur in chart patterns, such as double tops and Elliott waves, enable trading to be guided by technical analysis. Cycles are one of these discernible events that occur and are identifiable by direct measurement. Identification of cycles does not take a lifetime of experience or an expert system. Cycles can be measured directly, either by a simple system such as measuring the distance between successive lows or by a sophisticated computer program such as MESA.
+
+The fact that cycles exist does not imply that they exist all the time. Cycles come and go. External events sometimes dominate and obscure existing cycles. Experience shows that cycles useful for trading are present only about 15 to 30 percent of the time. This corresponds remarkably with J.M. Hurst's statement that "23% of all price motion is oscillatory in nature and semi-predictable." It is analogous to the problem of the trend follower who finds that the markets "trend" only a small percentage of the time.
+
+HISTORICAL PERSPECTIVE
+Cyclic recurring processes observed in natural phenomena by humans since the earliest times have embedded the basic concepts used in modern spectral estimation. Ancient civilizations were able to design calendars and time measures from their observations of the periodicities in the length of the day, the length of the year, the seasonal changes, the phases of the moon, and the motion of the planets and stars. Pythagoras developed a relationship between the periodicity of musical notes produced by a fixed tension string and a number representing the length of the string in the sixth century BC He believed that the essence of harmony was inherent in the numbers. Pythagoras extended the relationship to describe the harmonic motion of heavenly bodies, describing the motion as the "music of the spheres".
+
+Sir Isaac Newton provided the mathematical basis for modern spectral analysis. In the seventeenth century, he discovered that sunlight passing through a glass prism expanded into a band of many colors. He determined that each color represented a particular wavelength of light and that the white light of the sun contained all wavelengths. He invented the word spectrum as a scientific term to describe the band of light colors.
+
+Daniel Bournoulli developed the solution to the wave equation for the vibrating musical string in 1738. Later, in 1822, the French engineer Jean Baptiste Joseph Fourier extend the wave equation results by asserting that any function could be represented as an infinite summation of sine and cosine terms. The mathematics of such representation has become known as harmonic analysis due to the harmonic relationship between the sine and cosine terms. Fourier transforms , the frequency description of time domain events (and vice versa) have been named in his honor.
+
+Norbert Wiener provided the major turning point for the theory of spectral analysis in 1930, when he published his classic paper "Generalized Harmonic Analysis." Among his contributions were precise statistical definitions of autocorrelation and power spectral density for stationary random processes. The use of Fourier transforms, rather than the Fourier series of traditional harmonic analysis, enabled Wiener to define spectra in terms of a continuum of frequencies rather than as discrete harmonic frequencies.
+
+John Tukey is the pioneer of modern empirical spectral analysis. In 1949 he provided the foundation for spectral estimation using correlation estimates produced from finite time sequences. Many of the terms of modern spectral estimation (such as aliasing, windowing, prewhitening, tapering, smoothing, and decimation) are attributed to Tukey. In 1965 he collaborated with Jim Cooley to describe an efficient algorithm for digital computation of the Fourier transform. This (FFT) unfortunately is not suitable for analysis of market data.
+
+The work of John Burg was the prime impetus for the current interest in high-resolution spectral estimation from limited time sequences. He described his high-resolution spectral estimate in terms of a maximum entropy formalism in his 1975 doctoral thesis and has been instrumental in the development of modeling approaches to high-resolution spectral estimation. Burg's approach was initially applied to the geophysical exploration for oil and gas through the analysis of seismic waves. The approach is also applicable for technical market analysis because it produces high-resolution spectral estimates using minimal data. This is important because the short-term market cycles are always shifting. Another benefit of the approach is that it is maximally responsive to the selected data length and is not subject to distortions due to end effects at the ends of the data sample. The trading program, MESA, is an acronym for maximum entropy spectral analysis.
+
+WHAT IS A CYCLE?
+The dictionary definition of a cycle is that it is "an interval or space of time in which is completed one round of events or phenomena that recur regularly and in the same sequence." In the market, we consider a classic cycle exists when the price starts low, rises smoothly to a high over a length of time, and then smoothly falls back to the original price over the same length of time. The time required to complete the cycle is called the period of the cycle or the cycle length.
+
+Cycles certainly exist in the market. Many times they are justified on the basis of fundamental considerations. The clearest is the seasonal change for agricultural prices (lowest at harvest), or the decline of real estate prices in the winter. Television analysts are always talking about the rate of inflation being "seasonally adjusted" by the government. But the seasonal is a specific case of the cycle, always being 12 months. Other fundamentals-related cycles can originate from the 18 month cattle-breeding cycle or the monthly cold-storage report on pork bellies.
+
+Business cycles are not as clear, but they exist. Business cycles vary with interest rates. The government sets objectives for economic growth based on its ability to hold inflation to reasonable levels. This growth is increased or decreased by adding or withdrawing funds from the economy and by changing the rate at which government lends money to banks. Easing of rates encourages business; tightening of rates inhibits it. Inevitably this process alternates, causing what we see as a business cycle. Although in practice this cycle may repeat in the same number of years, the exact repetition of the period is not necessary. The business cycle is limited on the upside by the amount of growth the government will allow (usually 3%) and on the downside by moderate negative growth (about-1%), which indicates a recession. The range of the cycle from +3% to -1% is called its amplitude.
+
+COMPONENTS OF THE MARKET
+Statisticians and economists have identified four important characteristics of price movement. All price forecasts and analyses deal with these elements:
+1. A trend, or tendency to move in one direction for a specified time period.
+2. A seasonal factor, a pattern related to the calendar.
+3. A cycle (other than seasonal) that may exist due to government action, the lag in starting up and winding down of business, or crop estimate announcements
+4. Other unaccountable price movement, often called noise .
+
+Since points 2 and 3 are both cycles, it is clear that cycles are a significant and accepted part of all price movement.
+
+When trading using cycles, one key question is the desired time span of the trade. At one extreme, the 54 year Kondratieff economic cycle could be considered (but I don't know anyone actively trading it). A cattle rancher might prefer the 18 month breeding cycle, while a grain farmer probably hedges on the basis of the annual harvest. Speculators often work over a short (sometimes very short) time span.
+
+Behavioral cycles in prices have been most popular in Elliott's wave theory and more recently in the works of Gann. but these methods have a large element of interpretation and subjectivity.
+
+A casual glance at almost any bar chart shows, in retrospect, that short term cycles ebb and flow. The ability to isolate and use market phenomena, such as cycles, is related to the awareness of its existence and the tools available. Many forecasting methods were not practical until the computer became popular. Now these methods can be used by nearly everyone. The philosophical foundation for these short term cycles is derived from random walk theory and is developed so you will feel more comfortable dealing with cycles.
+
+SPECTRAL DILATION
+The Spectral Shape of market data is that of Pink Noise. I call this effect Spectral Dilation because the cycle amplitudes are in direct proportion to their cycle period, in general. The observation that market data behaves like Pink Noise is hardly novel. Mandelbrot described it as self-replicating fractals. Fibonaccians describe the growth rate of the logarithmic spiral as 1.618, as opposed to 2:1. In addition, the Hurst Coefficient attempts to measure the alpha term. The Hurst Coefficient is more estimated than measured. Said another way, Pink Noise amplitude doubles every time the frequency variable in the spectrum is halved. The shorthand notation for this growth rate is that the noise spectral power grows 6 dB per octave. Pink Noise is often called “noise with memory”. This characterization certainly fits market data because intraday traders remember the opening price, yesterday’s daily range, etc. Most traders remember what happened to prices in 2008. Pink Noise scaling works on any timeframe.
+
+RANDOM WALK
+Randomness in the market results from a large number of traders exercising their prerogatives with different motivations of profit, loss, greed, fear, and entertainment; it is complicated by different perspectives of time. Market movement can therefore be analyzed in terms of random variables. One such analysis is the random walk. Imagine the path of an atom of oxygen in a plastic box containing nothing but air. The path of this atom is erratic as it bounces from one molecule to another. Brownian motion is used to describe the way the atom moves. Its path is described as a three dimensional random walk. Following such a random walk, the position of that atom is just as likely to be at any one location in that box as at any other.
+
+Another form of the random walk is more appropriate for describing the motion of the market. This form is a two dimensional random walk, called the "drunkard's walk." The two dimensional structure is appropriate for the market because the prices can only go up or down in one dimension. The other dimension, time, can only move forward. These are similar to the way a drunkard's walk is described.
+
+DIFFUSION EQUATION
+The drunkard's walk is formulated by allowing the "drunk" to step to either the right or left randomly with each step forward. The ensure randomness, the decision to step right or left is made on the outcome of a coin toss from a fair coin. If the coin turns up heads, the drunk steps to the right. If the coin turns up tails, the drunk steps to the left. Viewed from above, we see the random path the drunk has followed. We can write a differential equation for this path because the rate change of time is related to the rate change of position in two dimensions. The result is a relatively famous differential equation (among mathematicians, at least) called the diffusion equation . The equation describes many physical phenomena such as heat traveling up a silver spoon when it is placed in a hot cup of coffee or the shape of the plume of smoke as it leaves a smokestack. Picture this plume of smoke in a gentle breeze. The plume is roughly conical, widening with greater distance from the smokestack. The plume is bent in the direction of the breeze. The widening of the plume is, more or less, the description of the probability of the location of a single particle of smoke. There are clearly no cycles involved.
+
+TELEGRAPHERS EQUATION
+If we reformulate the drunkard's walk problem so that the outcome of the coin flip determines whether the drunk should change his direction or keep going the same direction of the previous step, the random variable become momentum rather than position. In this case, the solution to the random walk problem is an equally famous differential equation called the telegrapher's equation . In addition to describing waves on a telegraph wire, the equation also describes the meandering of a river. The significance is that short term coherence often exists in the drunkard's path. This makes sense. If we are in a short meander of a river we can pretty well predict how that meander is going to behave. On the other hand, if we were to overlay all the meanders of a given river as in a multiple exposure photograph, they would all be different.
+
+Just as the river has a short term coherency but is random over the longer span, the market has short term cycles but is generally efficient over the longer time span. By measuring the short term market cycles we can use their predictive nature to our advantage. However, we must realize they come and go in the longer term.
+
+THEORETICAL SUMMARY
+Arguments that cycles exist in the market arise not only from fundamental considerations or direct measurement but also on philosophical grounds related to physical phenomena. The natural response to any physical disturbance is harmonic motion. If you pluck a guitar string, the string vibrates with cycles you can hear. By analogy, we have every right to expect that the market will respond to disturbances with cyclic motion. This expectation is reinforced with random walk theory that suggests there are times the market prices can be described by the diffusion equation and other times when the market prices can be described by the telegrapher's equations. The use of differential equations is well and good from a theoretical perspective, but their solutions are boundary-value problems. Since the boundaries cannot be accurately defined, the differential equations have no practical applications.
+
+The challenge for technical traders is to recognize when the short term cycles are present and to trade them in a logical and consistent manner so these cycles can contribute profitably to the bottom line.
+
+ 
+
+TRADING WITH CYCLES
+In theory, trading with cycles is easy - just buy at the valley and sell at the crest. This is just a variation of the old buy-low, sell-high dictum. In practice, trading with cycles is far more difficult. Just for openers, the very existence of market cycles is ephemeral and one must jump on them quickly to take advantage of any market inefficiency that they represent. In addition, there are a number of other conditions that make trading with cycles more difficult, perhaps to the point that the real question is "when should I NOT trade with cycles?". The most significant among these conditions are signal to noise ratios, being swamped by the trend, and trend persistence.
+
+ 
+
+Signal to Noise Ratio
+One of the purposes of measuring the market cycle is to determine market inefficiency because of a short term coherence. That is, if there is a coherence in prices, we can expect that coherence to continue - at least for a short while into the future. We can then identify this cycle component as the "signal" we are trying to exploit. On the other hand, the market is comprised of a large number of traders with diverse objectives. If we are looking for a cycle period on the order of a month, for example, then the daily fluctuation in price is "noise" that can interfere with our signal. In this sense we can define the range of a given price bar from low to high as noise. If the noise amplitude is equal to the peak amplitude of the cycle, then we have the theoretical case displayed in the following figure.
+
+
+0 dB SNR
+
+This is called 0 dB SNR, when the noise amplitude is equal to the signal peak amplitude. (a decibel, or dB is a logarithmic ratio of their respective powers) Murphy's Law being what it is, we could have our cycle measured perfectly so that we entered the trade at the valley of the cycle and exited the trade at its crest and still just have a break even profit. This occurs if we entered the long position (at the valley) at the high of the bar and exited the position at the crest, but at the low of that bar. So, 0 dB SNR defines a case where it is unlikely to make a profit because it is unlikely you will always know the cycle exactly.
+
+A better defining case for a minimum signal to noise ratio is 6 dB SNR, where the signal peak amplitude is twice the noise amplitude. The theoretical 6 dB SNR case is shown in the following figure.
+
+
+6 dB SNR
+
+The profit one can realize in the noise-free case can be seen as the difference between the highest tick (at the center of the bar) and the lowest tick (at the center of that bar). The profit one can expect to realize due to noise in this case is exactly half the profit one would obtain in the noise free case. We find this is a workable definition for the minimum signal to noise ratio that can be used when trading the cycle.
+
+ 
+
+Trend Swamping
+It is possible that a perfectly measured cycle indicates that the correct trade at the moment is to go short. On the other hand, if the market is in a massive bull trend, it is easily possible that the trend is so strong that it completely negates the advantage of the cyclic trade. A limiting case for trading cycles within a trend is shown in the following figure.
+
+
+Trend-Limiting Case for Trading Cycles
+
+The theoretical cycle is shown as the red curve, and would have a profit of 2 if the trade was to sell short at the crest and exit at the valley. The theoretical trendline is shown as the straight black line, and has a slope exactly equal to twice the peak amplitude of the cycle (or equal to the peak-to-peak amplitude, if you prefer). Assuming a model where the cycle component and trend component are added together to form a composite waveform, the theoretical model price is shown as the blue line. Following an identical strategy of selling short at the crest and exiting at the valley, the profit is now approximately half the profit that was realized in the absence of the trend. We find that the definition for trend swamping is when the trend slope across the period of the cycle exceeds twice the cycle amplitude is workable.
+
+Trend Persistence
+As shown in the previous chart, one expects the cycle component of the market to criss-cross the trend component approximately every half cycle. As a practical matter, there are times when the price stays on one side of the "instantaneous trendline" for an extended period of time. This usually happens when the cycle amplitude is relatively small. We find it helpful to avoid trading the cycles when the price has not crossed the instantaneous trendline within the last half cycle.
+
