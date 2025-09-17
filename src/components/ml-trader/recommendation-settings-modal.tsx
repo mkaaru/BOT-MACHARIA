@@ -74,8 +74,36 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
         if (recommendation && is_open) {
             setSymbol(recommendation.symbol);
             setStake(recommendation.suggestedStake || 1);
-            setDuration(recommendation.suggestedDuration || 7);
-            setDurationType((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
+            
+            // Calculate optimal duration in seconds based on signal confidence and strategy
+            const calculateSignalDuration = () => {
+                const baseSeconds = 30; // Base duration for high confidence signals
+                const confidenceMultiplier = recommendation.confidence / 100;
+                
+                // Strategy-specific duration adjustments based on signal type
+                let strategyMultiplier = 1;
+                if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+                    // Digit predictions: faster tick movements, moderate duration
+                    strategyMultiplier = 1.5; 
+                } else if (recommendation.strategy === 'rise' || recommendation.strategy === 'fall') {
+                    // Price direction: needs time for trend development
+                    strategyMultiplier = 2.0;
+                }
+                
+                // Confidence-based duration calculation:
+                // High confidence (90%+): ~30-45 seconds
+                // Medium confidence (70-89%): ~45-75 seconds  
+                // Lower confidence (50-69%): ~60-120 seconds
+                const calculatedSeconds = Math.round(baseSeconds * strategyMultiplier * (2 - confidenceMultiplier));
+                
+                // Ensure reasonable bounds for trading (15-120 seconds)
+                return Math.max(15, Math.min(120, calculatedSeconds));
+            };
+            
+            const optimalSeconds = calculateSignalDuration();
+            
+            setDuration(optimalSeconds);
+            setDurationType('s'); // Default to seconds for ML recommendations
             
             // Set contract type based on strategy
             if (recommendation.strategy === 'over' || recommendation.direction === 'CALL') {
@@ -298,6 +326,15 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
                                     onChange={(e) => setDuration(Number(e.target.value))}
                                     min="1"
                                 />
+                                {durationType === 's' && recommendation && (
+                                    <div className="duration-hint">
+                                        <Text size="xs" color="general">
+                                            {localize('Calculated based on signal confidence: {{confidence}}%', {
+                                                confidence: recommendation.confidence.toFixed(1)
+                                            })}
+                                        </Text>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="form-field">
@@ -307,8 +344,8 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
                                     value={durationType}
                                     onChange={(e) => setDurationType(e.target.value as 't' | 's' | 'm')}
                                 >
+                                    <option value="s">{localize('Seconds (Recommended)')}</option>
                                     <option value="t">{localize('Ticks')}</option>
-                                    <option value="s">{localize('Seconds')}</option>
                                     <option value="m">{localize('Minutes')}</option>
                                 </select>
                             </div>
@@ -339,6 +376,27 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
                                 </div>
                             </div>
                         )}
+
+                        <div className="signal-info-section">
+                            <Text size="sm" weight="bold" color="prominent">
+                                {localize('Signal Information:')}
+                            </Text>
+                            <div className="signal-details">
+                                <Text size="xs" color="general">
+                                    {localize('Expected duration: {{duration}} seconds', { duration })}
+                                </Text>
+                                <Text size="xs" color="general">
+                                    {localize('Signal strength: {{confidence}}%', { 
+                                        confidence: recommendation?.confidence.toFixed(1) || '0'
+                                    })}
+                                </Text>
+                                <Text size="xs" color="general">
+                                    {localize('Strategy: {{strategy}}', { 
+                                        strategy: recommendation?.strategy.toUpperCase() || 'UNKNOWN'
+                                    })}
+                                </Text>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
