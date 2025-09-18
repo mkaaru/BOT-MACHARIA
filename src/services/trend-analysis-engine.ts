@@ -12,9 +12,12 @@ export interface TrendAnalysis {
     confidence: number; // 0-100
     hma5: number | null;
     hma40: number | null;
+    hma200: number | null; // Long-term trend filter
     hma5Slope: number | null;
     hma40Slope: number | null;
+    hma200Slope: number | null;
     crossover: number; // 1 = bullish crossover, -1 = bearish crossover, 0 = no crossover
+    longTermTrend: TrendDirection; // HMA200 trend direction for filtering
     price: number | null;
     lastUpdate: Date;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
@@ -60,14 +63,16 @@ export class TrendAnalysisEngine {
     addCandleData(candle: CandleData): void {
         const { symbol, close, timestamp } = candle;
 
-        // Use efficient HMA calculator with both periods
-        this.hmaCalculator.addCandleData(candle, [5, 40]);
+        // Use efficient HMA calculator with all periods including trend filter
+        this.hmaCalculator.addCandleData(candle, [5, 40, 200]);
         
         // Process through Ehlers signal processing pipeline
         const ehlersSignals = ehlersProcessor.processPrice(symbol, close, timestamp);
         
-        // Update trend analysis for this symbol if HMA is ready
-        if (this.hmaCalculator.isReady(symbol, 5) && this.hmaCalculator.isReady(symbol, 40)) {
+        // Update trend analysis for this symbol if all HMAs are ready
+        if (this.hmaCalculator.isReady(symbol, 5) && 
+            this.hmaCalculator.isReady(symbol, 40) && 
+            this.hmaCalculator.isReady(symbol, 200)) {
             this.updateTrendAnalysis(symbol, close, ehlersSignals);
         }
     }
@@ -78,30 +83,41 @@ export class TrendAnalysisEngine {
     private updateTrendAnalysis(symbol: string, currentPrice: number, ehlersSignals?: EhlersSignals): void {
         const hma5 = this.hmaCalculator.getLatestHMA(symbol, 5);
         const hma40 = this.hmaCalculator.getLatestHMA(symbol, 40);
+        const hma200 = this.hmaCalculator.getLatestHMA(symbol, 200);
         
-        if (!hma5 || !hma40) {
+        if (!hma5 || !hma40 || !hma200) {
             // Not enough data yet
             return;
         }
 
         const hma5Slope = this.hmaCalculator.getHMASlope(symbol, 5, 3);
         const hma40Slope = this.hmaCalculator.getHMASlope(symbol, 40, 3);
+        const hma200Slope = this.hmaCalculator.getHMASlope(symbol, 200, 5); // Longer lookback for smoother slope
         const crossover = this.hmaCalculator.getHMACrossover(symbol, 5, 40);
 
-        // Determine trend direction
-        const direction = this.determineTrendDirection(hma5.value, hma40.value, hma5Slope, hma40Slope);
+        // Determine long-term trend from HMA200
+        const longTermTrend = this.determineLongTermTrend(hma200.value, currentPrice, hma200Slope);
+
+        // Determine short-term trend direction with long-term filter
+        const direction = this.determineTrendDirectionWithFilter(
+            hma5.value, hma40.value, hma5Slope, hma40Slope, longTermTrend
+        );
         
-        // Calculate trend strength
-        const strength = this.calculateTrendStrength(hma5.value, hma40.value, hma5Slope, hma40Slope, currentPrice);
+        // Calculate trend strength with trend alignment bonus
+        const strength = this.calculateTrendStrengthWithFilter(
+            hma5.value, hma40.value, hma200.value, hma5Slope, hma40Slope, hma200Slope, currentPrice, longTermTrend
+        );
         
-        // Calculate confidence
-        const confidence = this.calculateConfidence(hma5.value, hma40.value, hma5Slope, hma40Slope, crossover);
+        // Calculate confidence with trend filter bonus
+        const confidence = this.calculateConfidenceWithFilter(
+            hma5.value, hma40.value, hma200.value, hma5Slope, hma40Slope, hma200Slope, crossover, longTermTrend, direction
+        );
         
-        // Generate recommendation
-        const recommendation = this.generateRecommendation(direction, strength, confidence, crossover);
+        // Generate recommendation with trend filter
+        const recommendation = this.generateRecommendationWithFilter(direction, strength, confidence, crossover, longTermTrend);
         
-        // Calculate overall score
-        const score = this.calculateTradingScore(direction, strength, confidence, crossover);
+        // Calculate overall score with trend alignment
+        const score = this.calculateTradingScoreWithFilter(direction, strength, confidence, crossover, longTermTrend);
 
         // Get Ehlers-based recommendations
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
@@ -129,9 +145,12 @@ export class TrendAnalysisEngine {
             confidence,
             hma5: hma5.value,
             hma40: hma40.value,
+            hma200: hma200.value,
             hma5Slope,
             hma40Slope,
+            hma200Slope,
             crossover,
+            longTermTrend,
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
@@ -144,6 +163,46 @@ export class TrendAnalysisEngine {
         this.trendData.set(symbol, analysis);
         
         console.log(`Trend Analysis for ${symbol}: ${direction.toUpperCase()} (${strength}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+    }
+
+    /**
+     * Determine long-term trend from HMA200
+     */
+    private determineLongTermTrend(hma200: number, currentPrice: number, hma200Slope: number | null): TrendDirection {
+        const priceVsHma200 = currentPrice > hma200;
+        const slopeDirection = hma200Slope && hma200Slope > 0.0001 ? 'up' : 
+                              hma200Slope && hma200Slope < -0.0001 ? 'down' : 'flat';
+        
+        if (priceVsHma200 && slopeDirection === 'up') return 'bullish';
+        if (!priceVsHma200 && slopeDirection === 'down') return 'bearish';
+        return 'neutral';
+    }
+
+    /**
+     * Determine trend direction with long-term filter
+     */
+    private determineTrendDirectionWithFilter(
+        hma5: number, 
+        hma40: number, 
+        hma5Slope: number | null, 
+        hma40Slope: number | null,
+        longTermTrend: TrendDirection
+    ): TrendDirection {
+        // Get short-term signal
+        const shortTermDirection = this.determineTrendDirection(hma5, hma40, hma5Slope, hma40Slope);
+        
+        // Filter against long-term trend
+        if (longTermTrend === 'neutral') {
+            return shortTermDirection; // No filtering when long-term is neutral
+        }
+        
+        // Only allow signals that align with long-term trend
+        if (shortTermDirection === longTermTrend) {
+            return shortTermDirection;
+        }
+        
+        // If signals conflict, use neutral to avoid whipsaws
+        return 'neutral';
     }
 
     /**
@@ -270,6 +329,107 @@ export class TrendAnalysisEngine {
     }
 
     /**
+     * Calculate trend strength with trend filter
+     */
+    private calculateTrendStrengthWithFilter(
+        hma5: number, hma40: number, hma200: number,
+        hma5Slope: number | null, hma40Slope: number | null, hma200Slope: number | null,
+        price: number, longTermTrend: TrendDirection
+    ): TrendStrength {
+        const baseStrength = this.calculateTrendStrength(hma5, hma40, hma5Slope, hma40Slope, price);
+        
+        // Calculate HMA alignment (all moving in same direction)
+        const allBullish = hma5 > hma40 && hma40 > hma200 && 
+                          (hma5Slope || 0) > 0 && (hma40Slope || 0) > 0 && (hma200Slope || 0) > 0;
+        const allBearish = hma5 < hma40 && hma40 < hma200 && 
+                          (hma5Slope || 0) < 0 && (hma40Slope || 0) < 0 && (hma200Slope || 0) < 0;
+        
+        if (allBullish || allBearish) {
+            return baseStrength === 'weak' ? 'moderate' : 
+                   baseStrength === 'moderate' ? 'strong' : 'strong';
+        }
+        
+        return baseStrength;
+    }
+
+    /**
+     * Calculate confidence with trend filter
+     */
+    private calculateConfidenceWithFilter(
+        hma5: number, hma40: number, hma200: number,
+        hma5Slope: number | null, hma40Slope: number | null, hma200Slope: number | null,
+        crossover: number, longTermTrend: TrendDirection, direction: TrendDirection
+    ): number {
+        let confidence = this.calculateConfidence(hma5, hma40, hma5Slope, hma40Slope, crossover);
+        
+        // Trend alignment bonus
+        if (direction === longTermTrend && longTermTrend !== 'neutral') {
+            confidence += 15; // Bonus for trend alignment
+        }
+        
+        // All HMAs aligned bonus
+        const priceAboveAll = hma5 > hma40 && hma40 > hma200;
+        const priceBelowAll = hma5 < hma40 && hma40 < hma200;
+        
+        if (priceAboveAll || priceBelowAll) {
+            confidence += 10; // Strong alignment bonus
+        }
+        
+        // Slope alignment bonus
+        const slopesAligned = (hma5Slope || 0) * (hma40Slope || 0) > 0 && 
+                             (hma40Slope || 0) * (hma200Slope || 0) > 0;
+        
+        if (slopesAligned) {
+            confidence += 10;
+        }
+        
+        return Math.min(100, Math.max(0, confidence));
+    }
+
+    /**
+     * Generate recommendation with trend filter
+     */
+    private generateRecommendationWithFilter(
+        direction: TrendDirection, 
+        strength: TrendStrength, 
+        confidence: number, 
+        crossover: number,
+        longTermTrend: TrendDirection
+    ): 'BUY' | 'SELL' | 'HOLD' {
+        // Only generate strong signals when aligned with long-term trend
+        if (longTermTrend !== 'neutral' && direction !== longTermTrend) {
+            return 'HOLD'; // Avoid counter-trend trades
+        }
+        
+        return this.generateRecommendation(direction, strength, confidence, crossover);
+    }
+
+    /**
+     * Calculate overall trading score with trend filter (0-100)
+     */
+    private calculateTradingScoreWithFilter(
+        direction: TrendDirection, 
+        strength: TrendStrength, 
+        confidence: number, 
+        crossover: number,
+        longTermTrend: TrendDirection
+    ): number {
+        let score = this.calculateTradingScore(direction, strength, confidence, crossover);
+        
+        // Trend alignment bonus
+        if (direction === longTermTrend && longTermTrend !== 'neutral') {
+            score += 10; // Bonus for following long-term trend
+        }
+        
+        // Penalty for counter-trend signals
+        if (longTermTrend !== 'neutral' && direction !== 'neutral' && direction !== longTermTrend) {
+            score -= 20; // Penalty for counter-trend
+        }
+        
+        return Math.min(100, Math.max(0, score));
+    }
+
+    /**
      * Calculate overall trading score (0-100)
      */
     private calculateTradingScore(direction: TrendDirection, strength: TrendStrength, confidence: number, crossover: number): number {
@@ -377,13 +537,16 @@ export class TrendAnalysisEngine {
         const symbols = this.hmaCalculator.getSymbolsWithData();
         
         symbols.forEach(symbol => {
-            if (this.hmaCalculator.isReady(symbol, 5) && this.hmaCalculator.isReady(symbol, 40)) {
+            if (this.hmaCalculator.isReady(symbol, 5) && 
+                this.hmaCalculator.isReady(symbol, 40) && 
+                this.hmaCalculator.isReady(symbol, 200)) {
                 const latestHMA5 = this.hmaCalculator.getLatestHMA(symbol, 5);
                 const latestHMA40 = this.hmaCalculator.getLatestHMA(symbol, 40);
+                const latestHMA200 = this.hmaCalculator.getLatestHMA(symbol, 200);
                 
-                if (latestHMA5 && latestHMA40) {
-                    // Use the close price from price history service or estimate from HMA
-                    const estimatedPrice = (latestHMA5.value + latestHMA40.value) / 2;
+                if (latestHMA5 && latestHMA40 && latestHMA200) {
+                    // Use the close price from price history service or estimate from HMAs
+                    const estimatedPrice = (latestHMA5.value + latestHMA40.value + latestHMA200.value) / 3;
                     this.updateTrendAnalysis(symbol, estimatedPrice);
                 }
             }

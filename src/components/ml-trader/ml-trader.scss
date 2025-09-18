@@ -272,20 +272,42 @@
             }
 
             .hma-data {
-                background: #f8fafc;
-                padding: 1rem;
-                border-radius: 6px;
-                margin-bottom: 1.2rem;
-                font-family: 'Monaco', monospace;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                margin-top: 4px;
 
                 .hma-row {
                     display: flex;
                     justify-content: space-between;
-                    margin-bottom: 0.4rem;
+                    gap: 8px;
                 }
 
                 .hma-slopes {
-                    text-align: center;
+                    font-family: monospace;
+                    font-size: 11px;
+                }
+
+                .long-term-trend {
+                    font-weight: 600;
+                    padding: 1px 4px;
+                    border-radius: 3px;
+                    font-size: 10px;
+
+                    &.bullish {
+                        background-color: rgba(46, 125, 50, 0.2);
+                        color: #2e7d32;
+                    }
+
+                    &.bearish {
+                        background-color: rgba(211, 47, 47, 0.2);
+                        color: #d32f2f;
+                    }
+
+                    &.neutral {
+                        background-color: rgba(117, 117, 117, 0.2);
+                        color: #757575;
+                    }
                 }
             }
 
@@ -1645,7 +1667,8 @@
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 25%, #db2777 50%, #dc2626 75%, #ea580c 100%);
         }
 
-        .recommendation-info-card {
+        .recommendation-info-card,
+        .form-section {
             background: linear-gradient(145deg, #1e293b 0%, #334155 50%, #475569 100%) !important;
             border-color: rgba(148, 163, 184, 0.1) !important;
             box-shadow: 
@@ -1661,7 +1684,7 @@
         }
 
         .form-section {
-            background: linear-gradient(145deg, #1e293b 0%, #334155 100%) !important;
+             background: linear-gradient(145deg, #1e293b 0%, #334155 100%) !important;
             border-color: rgba(148, 163, 184, 0.08) !important;
             box-shadow: 
                 0 16px 32px rgba(0, 0, 0, 0.2),

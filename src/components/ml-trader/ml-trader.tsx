@@ -1069,9 +1069,23 @@ const MLTrader = observer(() => {
                                                         <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
                                                         <Text size="xs">{trend.strength} trend</Text>
                                                     </div>
-                                                    <div className="hma-values">
-                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
-                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                    <div className="hma-data">
+                                                        <div className="hma-row">
+                                                            <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
+                                                            <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                        </div>
+                                                        <div className="hma-row">
+                                                            <Text size="xs">HMA200: {trend.hma200?.toFixed(5) || 'N/A'}</Text>
+                                                            <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
+                                                                Filter: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                            </Text>
+                                                        </div>
+                                                        <div className="hma-slopes">
+                                                            <Text size="xs">
+                                                                Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
+                                                                {Math.abs(trend.hma5Slope || 0).toFixed(6)}
+                                                            </Text>
+                                                        </div>
                                                     </div>
 
                                                     {/* Ehlers Signal Quality Indicators */}
@@ -1195,6 +1209,12 @@ const MLTrader = observer(() => {
                                                     <div className="hma-row">
                                                         <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
                                                         <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                    </div>
+                                                    <div className="hma-row">
+                                                        <Text size="xs">HMA200: {trend.hma200?.toFixed(5) || 'N/A'}</Text>
+                                                        <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
+                                                            Filter: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                        </Text>
                                                     </div>
                                                     <div className="hma-slopes">
                                                         <Text size="xs">
