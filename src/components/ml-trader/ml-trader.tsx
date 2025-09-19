@@ -7,7 +7,7 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
-import { whatsAppNotificationService } from '@/services/whatsapp-notification-service';
+
 import './ml-trader.scss';
 
 // Direct Bot Builder loading - bypassing modal completely
@@ -106,9 +106,7 @@ const MLTrader = observer(() => {
     const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
 
-    // WhatsApp notification states
-    const [whatsapp_notifications_enabled, setWhatsAppNotificationsEnabled] = useState(true);
-    const [last_notification_sent, setLastNotificationSent] = useState<number>(0);
+    
 
     // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
@@ -201,35 +199,7 @@ const MLTrader = observer(() => {
                 setRecommendations(recs);
                 updateTrendsFromScanner();
 
-                // Send WhatsApp notification for new recommendations
-                if (whatsapp_notifications_enabled && recs.length > 0) {
-                    const bestRecommendation = recs[0];
-                    const now = Date.now();
-
-                    // Only send if it's been more than 2 minutes since last notification
-                    if (now - last_notification_sent > 120000) {
-                        try {
-                            const success = await whatsAppNotificationService.sendRecommendationNotification({
-                                symbol: bestRecommendation.symbol,
-                                displayName: bestRecommendation.displayName,
-                                direction: bestRecommendation.direction,
-                                strategy: bestRecommendation.strategy || 'ML Analysis',
-                                confidence: bestRecommendation.confidence,
-                                score: bestRecommendation.score,
-                                currentPrice: bestRecommendation.currentPrice,
-                                reason: bestRecommendation.reason,
-                                timestamp: now
-                            });
-
-                            if (success) {
-                                setLastNotificationSent(now);
-                                setStatus(`📱 WhatsApp notification sent for ${bestRecommendation.displayName}`);
-                            }
-                        } catch (error) {
-                            console.error('WhatsApp notification error:', error);
-                        }
-                    }
-                }
+                
 
                 // Auto-select best recommendation if auto mode is enabled
                 if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
@@ -358,17 +328,7 @@ const MLTrader = observer(() => {
         }
     }, [updateTrendsFromScanner]);
 
-    // Test WhatsApp notification
-    const testWhatsAppNotification = useCallback(async () => {
-        try {
-            setStatus('Testing WhatsApp notification...');
-            await whatsAppNotificationService.testNotification();
-            setStatus('✅ WhatsApp test notification sent');
-        } catch (error) {
-            console.error('WhatsApp test failed:', error);
-            setStatus(`❌ WhatsApp test failed: ${error}`);
-        }
-    }, []);
+    
 
     // Apply a trading recommendation to the trading interface (not modal)
     const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
@@ -1198,46 +1158,7 @@ const MLTrader = observer(() => {
                                                 </div>
                                             </div>
 
-                                            <div className="control-card whatsapp-notifications">
-                                                <div className="card-icon">📱</div>
-                                                <div className="card-content">
-                                                    <label className="card-title">WhatsApp Alerts</label>
-                                                    <p className="card-description">Get notifications in your WhatsApp channel</p>
-                                                    <div className="toggle-container">
-                                                        <input
-                                                            type="checkbox"
-                                                            id="whatsapp-notifications"
-                                                            className="toggle-input"
-                                                            checked={whatsapp_notifications_enabled}
-                                                            onChange={(e) => {
-                                                                setWhatsAppNotificationsEnabled(e.target.checked);
-                                                                whatsAppNotificationService.updateConfig({ enabled: e.target.checked });
-                                                            }}
-                                                        />
-                                                        <label htmlFor="whatsapp-notifications" className="toggle-label">
-                                                            <span className="toggle-switch"></span>
-                                                        </label>
-                                                    </div>
-                                                    {whatsapp_notifications_enabled && (
-                                                        <button
-                                                            className="test-btn"
-                                                            onClick={testWhatsAppNotification}
-                                                            style={{
-                                                                marginTop: '8px',
-                                                                padding: '4px 8px',
-                                                                fontSize: '12px',
-                                                                backgroundColor: '#25D366',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '4px',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            Test Notification
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            
                                         </>
                                     )}
                                 </div>
