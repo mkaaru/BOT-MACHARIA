@@ -237,19 +237,63 @@ export class EhlersSignalProcessor {
 
     /**
      * Calculate anticipatory signal for turning point prediction
+     * Enhanced for early pullback detection
      */
     private calculateAnticipatory(currentValue: number, state: NETState): number {
-        if (state.values.length < 5) return 0;
+        if (state.values.length < 8) return 0;
 
-        const recent = state.values.slice(-5);
+        const recent = state.values.slice(-8);
+        const short = recent.slice(-3); // Last 3 values
+        const medium = recent.slice(-6, -3); // Previous 3 values
+        const longer = recent.slice(-8, -6); // Earlier 2 values
+
+        // Calculate multi-timeframe momentum
+        const shortMomentum = short[2] - short[0];
+        const mediumMomentum = medium[2] - medium[0];
+        const longerTrend = longer[1] - longer[0];
+
+        // Calculate rate of change acceleration
+        const recentROC = short[2] - short[1];
+        const previousROC = short[1] - short[0];
+        const acceleration = recentROC - previousROC;
+
+        // Enhanced anticipatory conditions for pullback detection
+        
+        // Early bullish pullback signal (buy at the dip)
+        if (longerTrend > 0.01 && // Overall uptrend
+            mediumMomentum < -0.005 && // Recent pullback
+            shortMomentum > 0.002 && // Starting to recover
+            acceleration > 0.001 && // Accelerating upward
+            currentValue < -0.2) { // Still in oversold territory
+            return 1.5; // Strong bullish anticipatory signal
+        }
+
+        // Early bearish pullback signal (sell at the peak)
+        if (longerTrend < -0.01 && // Overall downtrend
+            mediumMomentum > 0.005 && // Recent bounce
+            shortMomentum < -0.002 && // Starting to decline
+            acceleration < -0.001 && // Accelerating downward
+            currentValue > 0.2) { // Still in overbought territory
+            return -1.5; // Strong bearish anticipatory signal
+        }
+
+        // Medium strength signals for less clear setups
+        if (mediumMomentum > 0.003 && shortMomentum < -0.001 && acceleration < -0.0005) {
+            return -0.8; // Medium bearish anticipation
+        }
+
+        if (mediumMomentum < -0.003 && shortMomentum > 0.001 && acceleration > 0.0005) {
+            return 0.8; // Medium bullish anticipation
+        }
+
+        // Standard momentum divergence (original logic)
         const trend = recent[recent.length - 1] - recent[0];
         const momentum = recent[recent.length - 1] - recent[recent.length - 2];
 
-        // Anticipatory logic: look for momentum divergence
-        if (trend > 0 && momentum < 0) {
-            return -1; // Anticipate bearish turn
-        } else if (trend < 0 && momentum > 0) {
-            return 1; // Anticipate bullish turn
+        if (trend > 0 && momentum < -0.002) {
+            return -0.5; // Standard bearish divergence
+        } else if (trend < 0 && momentum > 0.002) {
+            return 0.5; // Standard bullish divergence
         }
 
         return 0; // No clear anticipation
@@ -342,59 +386,83 @@ export class EhlersSignalProcessor {
     }
 
     /**
-     * Generate enhanced trading recommendation
+     * Generate enhanced trading recommendation with early pullback detection
      */
     generateEhlersRecommendation(symbol: string): {
         action: 'BUY' | 'SELL' | 'HOLD';
         confidence: number;
         reason: string;
         anticipatory: boolean;
+        signalStrength: 'weak' | 'medium' | 'strong';
     } {
         const signals = this.getLatestSignals(symbol);
         if (!signals) {
-            return { action: 'HOLD', confidence: 0, reason: 'No signal data', anticipatory: false };
+            return { action: 'HOLD', confidence: 0, reason: 'No signal data', anticipatory: false, signalStrength: 'weak' };
         }
 
         const cycleConditions = this.isGoodForCycleTrading(symbol);
+        
+        // Enhanced anticipatory signals with multiple strength levels
+        if (Math.abs(signals.anticipatorySignal) > 1.2) {
+            // Very strong anticipatory signals (pullback detection)
+            const action = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            const confidence = Math.min(95, 70 + signals.snr * 4);
+            return {
+                action,
+                confidence,
+                reason: `Strong ${action.toLowerCase()} pullback opportunity detected`,
+                anticipatory: true,
+                signalStrength: 'strong'
+            };
+        } else if (Math.abs(signals.anticipatorySignal) > 0.7) {
+            // Medium strength anticipatory signals
+            const action = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            const confidence = Math.min(85, 60 + signals.snr * 3);
+            return {
+                action,
+                confidence,
+                reason: `Early ${action.toLowerCase()} momentum shift detected`,
+                anticipatory: true,
+                signalStrength: 'medium'
+            };
+        } else if (Math.abs(signals.anticipatorySignal) > 0.4) {
+            // Weaker anticipatory signals
+            const action = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            const confidence = Math.min(75, 50 + signals.snr * 2);
+            return {
+                action,
+                confidence,
+                reason: `Potential ${action.toLowerCase()} setup forming`,
+                anticipatory: true,
+                signalStrength: 'weak'
+            };
+        }
+
+        // Fall back to standard signals only if no anticipatory signals
         if (!cycleConditions.suitable) {
-            return { action: 'HOLD', confidence: 30, reason: cycleConditions.reason, anticipatory: false };
+            return { action: 'HOLD', confidence: 30, reason: cycleConditions.reason, anticipatory: false, signalStrength: 'weak' };
         }
 
-        // Use anticipatory signals for early entry
-        if (signals.anticipatorySignal > 0.5) {
-            return {
-                action: 'BUY',
-                confidence: Math.min(85, 50 + signals.snr * 3),
-                reason: 'Anticipatory bullish turn detected',
-                anticipatory: true
-            };
-        } else if (signals.anticipatorySignal < -0.5) {
-            return {
-                action: 'SELL',
-                confidence: Math.min(85, 50 + signals.snr * 3),
-                reason: 'Anticipatory bearish turn detected',
-                anticipatory: true
-            };
-        }
-
-        // Standard NET signals
+        // Standard NET signals (delayed but more reliable)
         if (signals.netValue > 0.3) {
             return {
                 action: 'BUY',
                 confidence: Math.min(75, 40 + signals.snr * 2),
-                reason: 'NET bullish signal',
-                anticipatory: false
+                reason: 'NET bullish confirmation',
+                anticipatory: false,
+                signalStrength: 'medium'
             };
         } else if (signals.netValue < -0.3) {
             return {
                 action: 'SELL',
                 confidence: Math.min(75, 40 + signals.snr * 2),
-                reason: 'NET bearish signal',
-                anticipatory: false
+                reason: 'NET bearish confirmation',
+                anticipatory: false,
+                signalStrength: 'medium'
             };
         }
 
-        return { action: 'HOLD', confidence: 50, reason: 'Neutral signals', anticipatory: false };
+        return { action: 'HOLD', confidence: 50, reason: 'Neutral signals', anticipatory: false, signalStrength: 'weak' };
     }
 
     /**

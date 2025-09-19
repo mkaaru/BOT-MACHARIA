@@ -129,16 +129,28 @@ export class TrendAnalysisEngine {
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
 
-        // Combine traditional and Ehlers recommendations
+        // Combine traditional and Ehlers recommendations with priority for early signals
         let finalRecommendation = recommendation;
         let enhancedScore = score;
 
-        if (ehlersSignals && cycleTrading.suitable) {
-            // Give priority to anticipatory signals when conditions are good
-            if (ehlersRecommendation.anticipatory && ehlersRecommendation.confidence > 70) {
+        if (ehlersSignals) {
+            // Prioritize strong anticipatory signals regardless of cycle conditions
+            if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
                 finalRecommendation = ehlersRecommendation.action;
-                enhancedScore = Math.min(95, score + 15); // Bonus for anticipatory signals
-            } else if (ehlersRecommendation.confidence > confidence) {
+                enhancedScore = Math.min(98, score + 25); // High bonus for strong pullback signals
+            } 
+            // Medium priority for medium strength anticipatory signals
+            else if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'medium') {
+                finalRecommendation = ehlersRecommendation.action;
+                enhancedScore = Math.min(90, score + 18); // Good bonus for medium anticipatory signals
+            }
+            // Consider weak anticipatory signals only in good cycle conditions
+            else if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'weak' && cycleTrading.suitable) {
+                finalRecommendation = ehlersRecommendation.action;
+                enhancedScore = Math.min(80, score + 10); // Small bonus for weak anticipatory signals
+            }
+            // Standard Ehlers signals as backup
+            else if (cycleTrading.suitable && ehlersRecommendation.confidence > confidence) {
                 finalRecommendation = ehlersRecommendation.action;
                 enhancedScore = Math.max(score, ehlersRecommendation.confidence);
             }

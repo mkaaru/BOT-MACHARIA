@@ -1060,7 +1060,7 @@ const MLTrader = observer(() => {
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <div className="controls-grid">
                                     <div className="control-card auto-mode">
                                         <div className="card-icon">🤖</div>
@@ -1121,7 +1121,7 @@ const MLTrader = observer(() => {
                                                                 onChange={(e) => setMinTrendStrength(Number(e.target.value))}
                                                             />
                                                             <div className="range-track"></div>
-                                                            <div 
+                                                            <div
                                                                 className="range-fill"
                                                                 style={{ width: `${((min_trend_strength - 40) / 50) * 100}%` }}
                                                             ></div>
@@ -1225,7 +1225,7 @@ const MLTrader = observer(() => {
                                                                 {Math.abs(trend.hma5Slope || 0).toFixed(6)}
                                                             </Text>
                                                         </div>
-                                                        
+
                                                         {/* Long-term trend indicator with strength percentage */}
                                                         <div className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
                                                             {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
@@ -1234,7 +1234,7 @@ const MLTrader = observer(() => {
                                                         {/* Visual trend strength bar */}
                                                         {trend.longTermTrendStrength !== undefined && (
                                                             <div className="trend-strength-bar">
-                                                                <div 
+                                                                <div
                                                                     className={`strength-fill ${
                                                                         trend.longTermTrendStrength >= 70 ? 'strength-high' :
                                                                         trend.longTermTrendStrength >= 40 ? 'strength-medium' : 'strength-low'
@@ -1250,8 +1250,19 @@ const MLTrader = observer(() => {
                                                         <div className="ehlers-signals">
                                                             <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
                                                             <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
+                                                            <Text size="xs">ANTIC: {trend.ehlers.anticipatorySignal.toFixed(2)}</Text>
                                                             {trend.ehlersRecommendation?.anticipatory && (
-                                                                <Text size="xs" color="profit-success">🎯 ANTICIPATORY</Text>
+                                                                <div className={`anticipatory-signal ${trend.ehlersRecommendation.signalStrength}`}>
+                                                                    {trend.ehlersRecommendation.signalStrength === 'strong' && (
+                                                                        <Text size="xs" color="profit-success">🎯 STRONG PULLBACK</Text>
+                                                                    )}
+                                                                    {trend.ehlersRecommendation.signalStrength === 'medium' && (
+                                                                        <Text size="xs" color="prominent">⚡ EARLY SIGNAL</Text>
+                                                                    )}
+                                                                    {trend.ehlersRecommendation.signalStrength === 'weak' && (
+                                                                        <Text size="xs" color="general">📊 POTENTIAL</Text>
+                                                                    )}
+                                                                </div>
                                                             )}
                                                         </div>
                                                     )}
@@ -1341,7 +1352,7 @@ const MLTrader = observer(() => {
                                                     </span>
                                                     <div className="trend-info">
                                                         <Text size="sm" weight="bold">{trend.direction.toUpperCase()}</Text>
-                                                        <Text size="xs">{trend.strength} strength</Text>
+                                                        <Text size="xs">{trend.strength} trend</Text>
                                                     </div>
                                                 </div>
 
