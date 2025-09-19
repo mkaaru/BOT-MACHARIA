@@ -1049,7 +1049,114 @@ const MLTrader = observer(() => {
 
                 <div className="ml-trader__content">
                     <div className="ml-trader__main-content">
-                        {/* Market Recommendations - Moved to Top */}
+                        {/* Enhanced Trend Filtering Controls - Top Section */}
+                        <div className="ml-trader__top-controls">
+                            <div className="top-controls-container">
+                                <div className="controls-header">
+                                    <h3 className="controls-title">Trading Filters & Configuration</h3>
+                                    <div className="controls-status">
+                                        <span className={`status-indicator ${enable_trend_filter ? 'active' : 'inactive'}`}>
+                                            {enable_trend_filter ? '🟢 Filtering Active' : '⚫ Filtering Disabled'}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div className="controls-grid">
+                                    <div className="control-card auto-mode">
+                                        <div className="card-icon">🤖</div>
+                                        <div className="card-content">
+                                            <label className="card-title">Auto Mode</label>
+                                            <p className="card-description">Automatically execute top recommendations</p>
+                                            <div className="toggle-container">
+                                                <input
+                                                    type="checkbox"
+                                                    id="auto-mode-top"
+                                                    className="toggle-input"
+                                                    checked={auto_mode}
+                                                    onChange={(e) => setAutoMode(e.target.checked)}
+                                                />
+                                                <label htmlFor="auto-mode-top" className="toggle-label">
+                                                    <span className="toggle-switch"></span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="control-card trend-filter">
+                                        <div className="card-icon">📊</div>
+                                        <div className="card-content">
+                                            <label className="card-title">Long-Term Trend Filter</label>
+                                            <p className="card-description">Filter trades based on long-term trend analysis</p>
+                                            <div className="toggle-container">
+                                                <input
+                                                    type="checkbox"
+                                                    id="trend-filter-top"
+                                                    className="toggle-input"
+                                                    checked={enable_trend_filter}
+                                                    onChange={(e) => setEnableTrendFilter(e.target.checked)}
+                                                />
+                                                <label htmlFor="trend-filter-top" className="toggle-label">
+                                                    <span className="toggle-switch"></span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {enable_trend_filter && (
+                                        <>
+                                            <div className="control-card trend-strength">
+                                                <div className="card-icon">💪</div>
+                                                <div className="card-content">
+                                                    <label className="card-title">Min Trend Strength</label>
+                                                    <p className="card-description">Minimum required trend strength percentage</p>
+                                                    <div className="strength-control">
+                                                        <div className="strength-slider">
+                                                            <input
+                                                                type="range"
+                                                                id="trend-strength-top"
+                                                                className="strength-range"
+                                                                min="40"
+                                                                max="90"
+                                                                value={min_trend_strength}
+                                                                onChange={(e) => setMinTrendStrength(Number(e.target.value))}
+                                                            />
+                                                            <div className="range-track"></div>
+                                                            <div 
+                                                                className="range-fill"
+                                                                style={{ width: `${((min_trend_strength - 40) / 50) * 100}%` }}
+                                                            ></div>
+                                                        </div>
+                                                        <div className="strength-value">{min_trend_strength}%</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="control-card filter-mode">
+                                                <div className="card-icon">⚙️</div>
+                                                <div className="card-content">
+                                                    <label className="card-title">Filter Mode</label>
+                                                    <p className="card-description">Choose the strictness of trend filtering</p>
+                                                    <div className="mode-selector">
+                                                        <select
+                                                            id="filter-mode-top"
+                                                            className="mode-select"
+                                                            value={trend_filter_mode}
+                                                            onChange={(e) => setTrendFilterMode(e.target.value as 'strict' | 'moderate' | 'relaxed')}
+                                                        >
+                                                            <option value="relaxed">🟢 Relaxed - 80% of min strength</option>
+                                                            <option value="moderate">🟡 Moderate - Clear long-term trend required</option>
+                                                            <option value="strict">🔴 Strict - Perfect alignment required</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Market Recommendations */}
                         {recommendations.length > 0 && (
                         <div className="ml-trader__recommendations">
                             <div className="recommendations-header">
@@ -1301,63 +1408,6 @@ const MLTrader = observer(() => {
                     </div>
 
                     <div className="ml-trader__side-content">
-                        {/* Trend Filtering Controls */}
-                        <div className="ml-trader__trend-filter">
-                            <div className="trend-filter-controls">
-                                <div className="checkbox-field">
-                                    <input
-                                        type="checkbox"
-                                        id="auto-mode"
-                                        checked={auto_mode}
-                                        onChange={(e) => setAutoMode(e.target.checked)}
-                                    />
-                                    <label htmlFor="auto-mode">{localize('Auto Mode')}</label>
-                                </div>
-
-                                <div className="trend-filter-section">
-                                    <div className="checkbox-field">
-                                        <input
-                                            type="checkbox"
-                                            id="trend-filter"
-                                            checked={enable_trend_filter}
-                                            onChange={(e) => setEnableTrendFilter(e.target.checked)}
-                                        />
-                                        <label htmlFor="trend-filter">{localize('Enable Long-Term Trend Filter')}</label>
-                                    </div>
-
-                                    {enable_trend_filter && (
-                                        <>
-                                            <div className="form-field">
-                                                <label htmlFor="trend-strength">{localize('Min Trend Strength (%)')}</label>
-                                                <input
-                                                    id="trend-strength"
-                                                    type="range"
-                                                    min="40"
-                                                    max="90"
-                                                    value={min_trend_strength}
-                                                    onChange={(e) => setMinTrendStrength(Number(e.target.value))}
-                                                />
-                                                <span>{min_trend_strength}%</span>
-                                            </div>
-
-                                            <div className="form-field">
-                                                <label htmlFor="filter-mode">{localize('Filter Mode')}</label>
-                                                <select
-                                                    id="filter-mode"
-                                                    value={trend_filter_mode}
-                                                    onChange={(e) => setTrendFilterMode(e.target.value as 'strict' | 'moderate' | 'relaxed')}
-                                                >
-                                                    <option value="relaxed">{localize('Relaxed - 80% of min strength')}</option>
-                                                    <option value="moderate">{localize('Moderate - Requires clear long-term trend')}</option>
-                                                    <option value="strict">{localize('Strict - Perfect alignment required')}</option>
-                                                </select>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Trading Interface - Only shows when a recommendation is selected directly */}
                         {selected_recommendation && !is_modal_open && (
                             <div className="ml-trader__trading-interface">
