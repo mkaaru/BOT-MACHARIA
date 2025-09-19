@@ -39,7 +39,39 @@ const StoreProvider: React.FC<TStoreProvider> = ({ children, mockStore }) => {
 const useStore = () => {
     const store = useContext(StoreContext);
 
-    return store as RootStore;
+    if (!store) {
+        // Create a fallback empty store structure to prevent destructuring errors
+        const fallbackStore = {
+            ui: {
+                is_desktop: true,
+                is_mobile: false,
+            },
+            run_panel: {
+                is_running: false,
+                setIsRunning: () => {},
+            },
+            transactions: {
+                transactions: [],
+                statistics: {
+                    lost_contracts: 0,
+                    won_contracts: 0,
+                    total_profit: 0,
+                    total_stake: 0,
+                    total_payout: 0,
+                    number_of_runs: 0,
+                },
+            },
+            client: {
+                loginid: '',
+                currency: 'USD',
+                is_logged_in: false,
+            },
+        };
+
+        console.warn('useStore: Store not found in context, using fallback store. Make sure components are wrapped in StoreProvider.');
+        return fallbackStore as RootStore;
+    }
+    return store;
 };
 
 export { StoreProvider, useStore };
