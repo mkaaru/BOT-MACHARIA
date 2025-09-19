@@ -2255,3 +2255,37 @@
         }
     }
 }
+
+.control-card.filter-mode {
+    .mode-selector {
+        .mode-select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-normal);
+            border-radius: 4px;
+            background: var(--fill-normal);
+            color: var(--text-prominent);
+
+            &:focus {
+                outline: none;
+                border-color: var(--status-info);
+                box-shadow: 0 0 0 2px rgba(45, 156, 219, 0.2);
+            }
+        }
+    }
+}
+
+.control-card.whatsapp-notifications {
+    .test-btn {
+        transition: all 0.2s ease;
+
+        &:hover {
+            background-color: #1fb85a !important;
+            transform: translateY(-1px);
+        }
+
+        &:active {
+            transform: translateY(0);
+        }
+    }
+}
