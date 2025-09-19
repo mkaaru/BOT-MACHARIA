@@ -800,7 +800,7 @@ const MLTrader = observer(() => {
 
                         // Center and focus workspace
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ ML recommendation strategy loaded successfully to Bot Builder');
+                        console.log('✅ ML recommendation strategy loaded to workspace');
 
                     } else {
                         console.warn('⚠️ Blockly workspace not ready, using fallback method');
