@@ -18,6 +18,7 @@ export interface TrendAnalysis {
     hma200Slope: number | null;
     crossover: number; // 1 = bullish crossover, -1 = bearish crossover, 0 = no crossover
     longTermTrend: TrendDirection; // HMA200 trend direction for filtering
+    longTermTrendStrength?: number; // 0-100, strength of long-term trend
     price: number | null;
     lastUpdate: Date;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
@@ -113,8 +114,13 @@ export class TrendAnalysisEngine {
             hma5.value, hma40.value, hma200.value, hma5Slope, hma40Slope, hma200Slope, crossover, longTermTrend, direction
         );
         
-        // Generate recommendation with trend filter
-        const recommendation = this.generateRecommendationWithFilter(direction, strength, confidence, crossover, longTermTrend);
+        // Calculate long-term trend strength for filtering
+        const longTermStrength = this.calculateLongTermTrendStrength(hma200.value, hma200Slope, currentPrice, symbol);
+
+        // Generate recommendation with enhanced trend filter
+        const recommendation = this.generateRecommendationWithFilter(
+            direction, strength, confidence, crossover, longTermTrend, symbol, hma200.value, hma200Slope, currentPrice
+        );
         
         // Calculate overall score with trend alignment
         const score = this.calculateTradingScoreWithFilter(direction, strength, confidence, crossover, longTermTrend);
@@ -151,6 +157,7 @@ export class TrendAnalysisEngine {
             hma200Slope,
             crossover,
             longTermTrend,
+            longTermTrendStrength: longTermStrength,
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
@@ -166,16 +173,53 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Determine long-term trend from HMA200
+     * Determine long-term trend from HMA200 with enhanced filtering
      */
     private determineLongTermTrend(hma200: number, currentPrice: number, hma200Slope: number | null): TrendDirection {
         const priceVsHma200 = currentPrice > hma200;
-        const slopeDirection = hma200Slope && hma200Slope > 0.0001 ? 'up' : 
-                              hma200Slope && hma200Slope < -0.0001 ? 'down' : 'flat';
+        const slopeThreshold = 0.0002; // Increased threshold for stronger trend confirmation
+        const slopeDirection = hma200Slope && hma200Slope > slopeThreshold ? 'up' : 
+                              hma200Slope && hma200Slope < -slopeThreshold ? 'down' : 'flat';
         
+        // Require both price position AND slope confirmation for stronger filtering
         if (priceVsHma200 && slopeDirection === 'up') return 'bullish';
         if (!priceVsHma200 && slopeDirection === 'down') return 'bearish';
         return 'neutral';
+    }
+
+    /**
+     * Enhanced long-term trend strength analysis
+     */
+    private calculateLongTermTrendStrength(
+        hma200: number, 
+        hma200Slope: number | null, 
+        currentPrice: number,
+        symbol: string
+    ): number {
+        if (!hma200Slope) return 0;
+
+        // Get HMA200 history for trend consistency check
+        const hma200History = this.hmaCalculator.getHMAValues(symbol, 200, 10);
+        if (hma200History.length < 5) return 0;
+
+        // Calculate trend consistency over last 10 periods
+        let consistentPeriods = 0;
+        const currentDirection = hma200Slope > 0 ? 1 : -1;
+        
+        for (let i = 1; i < hma200History.length; i++) {
+            const periodSlope = hma200History[i].value - hma200History[i - 1].value;
+            const periodDirection = periodSlope > 0 ? 1 : -1;
+            if (periodDirection === currentDirection) {
+                consistentPeriods++;
+            }
+        }
+
+        const consistency = consistentPeriods / (hma200History.length - 1);
+        const slopeStrength = Math.abs(hma200Slope) * 1000; // Normalize slope
+        const priceDistance = Math.abs(currentPrice - hma200) / hma200;
+
+        // Combine factors for overall trend strength (0-100)
+        return Math.min(100, (consistency * 50) + (slopeStrength * 25) + (priceDistance * 100 * 25));
     }
 
     /**
@@ -387,18 +431,38 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate recommendation with trend filter
+     * Generate recommendation with enhanced trend filter
      */
     private generateRecommendationWithFilter(
         direction: TrendDirection, 
         strength: TrendStrength, 
         confidence: number, 
         crossover: number,
-        longTermTrend: TrendDirection
+        longTermTrend: TrendDirection,
+        symbol: string,
+        hma200: number,
+        hma200Slope: number | null,
+        currentPrice: number
     ): 'BUY' | 'SELL' | 'HOLD' {
-        // Only generate strong signals when aligned with long-term trend
-        if (longTermTrend !== 'neutral' && direction !== longTermTrend) {
-            return 'HOLD'; // Avoid counter-trend trades
+        // Calculate long-term trend strength
+        const longTermStrength = this.calculateLongTermTrendStrength(hma200, hma200Slope, currentPrice, symbol);
+        
+        // Require minimum long-term trend strength (configurable threshold)
+        const minTrendStrength = 60; // Only trade when long-term trend strength > 60%
+        
+        if (longTermStrength < minTrendStrength) {
+            return 'HOLD'; // Don't trade in weak or unclear long-term trends
+        }
+
+        // Only generate signals when aligned with strong long-term trend
+        if (longTermTrend === 'neutral' || direction !== longTermTrend) {
+            return 'HOLD'; // Avoid counter-trend trades and weak trends
+        }
+
+        // Require stronger short-term signals when filtering for long-term trends
+        const enhancedConfidenceThreshold = 75; // Increased from default thresholds
+        if (confidence < enhancedConfidenceThreshold) {
+            return 'HOLD';
         }
         
         return this.generateRecommendation(direction, strength, confidence, crossover);

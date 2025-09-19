@@ -100,6 +100,11 @@ const MLTrader = observer(() => {
     const [volatility_trends, setVolatilityTrends] = useState<Map<string, TrendAnalysis>>(new Map());
     const [initial_scan_complete, setInitialScanComplete] = useState(false);
 
+    // Trend filtering states
+    const [enable_trend_filter, setEnableTrendFilter] = useState(false);
+    const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
+    const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
+
     // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
 
@@ -240,9 +245,34 @@ const MLTrader = observer(() => {
         ENHANCED_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
             const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
             if (trend) {
-                trendsMap.set(symbolInfo.symbol, trend);
-                hasData = true;
-                dataProgress++;
+                // Apply trend filter if enabled
+                if (enable_trend_filter) {
+                    let strengthMatch = false;
+                    if (trend.longTermTrendStrength !== undefined) {
+                        const requiredStrength = min_trend_strength / 100;
+                        switch (trend_filter_mode) {
+                            case 'relaxed':
+                                strengthMatch = trend.longTermTrendStrength >= (min_trend_strength * 0.8);
+                                break;
+                            case 'moderate':
+                                strengthMatch = trend.longTermTrendStrength >= min_trend_strength && trend.longTermTrend === 'bullish';
+                                break;
+                            case 'strict':
+                                strengthMatch = trend.longTermTrendStrength === 100 && trend.longTermTrend === 'bullish';
+                                break;
+                        }
+                    }
+                    if (strengthMatch) {
+                        trendsMap.set(symbolInfo.symbol, trend);
+                        hasData = true;
+                        dataProgress++;
+                    }
+                } else {
+                    // No filter applied, add all trends
+                    trendsMap.set(symbolInfo.symbol, trend);
+                    hasData = true;
+                    dataProgress++;
+                }
             }
         });
 
@@ -273,7 +303,7 @@ const MLTrader = observer(() => {
                 setScanningProgress((symbolsWithCandles / ENHANCED_VOLATILITY_SYMBOLS.length) * 50); // 50% for having data
             }
         }
-    }, [initial_scan_complete]);
+    }, [enable_trend_filter, min_trend_strength, trend_filter_mode, initial_scan_complete]);
 
     // Start market scan
     const startMarketScan = useCallback(async () => {
@@ -1251,6 +1281,63 @@ const MLTrader = observer(() => {
                     </div>
 
                     <div className="ml-trader__side-content">
+                        {/* Trend Filtering Controls */}
+                        <div className="ml-trader__trend-filter">
+                            <div className="trend-filter-controls">
+                                <div className="checkbox-field">
+                                    <input
+                                        type="checkbox"
+                                        id="auto-mode"
+                                        checked={auto_mode}
+                                        onChange={(e) => setAutoMode(e.target.checked)}
+                                    />
+                                    <label htmlFor="auto-mode">{localize('Auto Mode')}</label>
+                                </div>
+
+                                <div className="trend-filter-section">
+                                    <div className="checkbox-field">
+                                        <input
+                                            type="checkbox"
+                                            id="trend-filter"
+                                            checked={enable_trend_filter}
+                                            onChange={(e) => setEnableTrendFilter(e.target.checked)}
+                                        />
+                                        <label htmlFor="trend-filter">{localize('Enable Long-Term Trend Filter')}</label>
+                                    </div>
+
+                                    {enable_trend_filter && (
+                                        <>
+                                            <div className="form-field">
+                                                <label htmlFor="trend-strength">{localize('Min Trend Strength (%)')}</label>
+                                                <input
+                                                    id="trend-strength"
+                                                    type="range"
+                                                    min="40"
+                                                    max="90"
+                                                    value={min_trend_strength}
+                                                    onChange={(e) => setMinTrendStrength(Number(e.target.value))}
+                                                />
+                                                <span>{min_trend_strength}%</span>
+                                            </div>
+
+                                            <div className="form-field">
+                                                <label htmlFor="filter-mode">{localize('Filter Mode')}</label>
+                                                <select
+                                                    id="filter-mode"
+                                                    value={trend_filter_mode}
+                                                    onChange={(e) => setTrendFilterMode(e.target.value as 'strict' | 'moderate' | 'relaxed')}
+                                                >
+                                                    <option value="relaxed">{localize('Relaxed - 80% of min strength')}</option>
+                                                    <option value="moderate">{localize('Moderate - Requires clear long-term trend')}</option>
+                                                    <option value="strict">{localize('Strict - Perfect alignment required')}</option>
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Trading Interface - Only shows when a recommendation is selected directly */}
                         {selected_recommendation && !is_modal_open && (
                             <div className="ml-trader__trading-interface">
