@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import Modal from '@/components/shared_ui/modal';
@@ -51,10 +50,10 @@ const TRADE_TYPES = [
     { value: 'PUT', label: 'Fall' },
 ];
 
-const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = observer(({ 
-    is_open, 
-    onClose, 
-    recommendation 
+const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = observer(({
+    is_open,
+    onClose,
+    recommendation
 }) => {
     const store = useStore();
     const { dashboard } = store;
@@ -74,18 +73,18 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
         if (recommendation && is_open) {
             setSymbol(recommendation.symbol);
             setStake(recommendation.suggestedStake || 1);
-            
+
             // Use Bot Builder default values
             setDuration(20); // Default to 20 seconds to match Bot Builder
             setDurationType('s'); // Default to seconds for ML recommendations
-            
+
             // Set contract type based on strategy
             if (recommendation.strategy === 'over' || recommendation.direction === 'CALL') {
                 setContractType('CALL');
             } else if (recommendation.strategy === 'under' || recommendation.direction === 'PUT') {
                 setContractType('PUT');
             }
-            
+
             // Set barrier/prediction
             if (recommendation.barrier) {
                 setBarrier(recommendation.barrier);
@@ -98,7 +97,7 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
     const generateBotBuilderXML = () => {
         const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
         const symbolDisplay = selectedSymbol?.display_name || symbol;
-        
+
         // Contract type mapping
         const contractTypeMapping: Record<string, string> = {
             'CALL': 'rise',
@@ -168,22 +167,22 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
     const handleLoadToBotBuilder = () => {
         try {
             const xmlContent = generateBotBuilderXML();
-            
+
             // Switch to Bot Builder tab
             dashboard.setActiveTab(1); // Bot Builder tab index
-            
+
             // Load the XML into Blockly workspace
             setTimeout(() => {
                 if (window.Blockly?.derivWorkspace) {
                     window.Blockly.derivWorkspace.clear();
                     const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
                     window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
-                    
+
                     // Center the workspace
                     window.Blockly.derivWorkspace.scrollCenter();
                 }
             }, 500);
-            
+
             onClose();
         } catch (error) {
             console.error('Error loading settings to Bot Builder:', error);
@@ -230,7 +229,7 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
 
                 <div className="recommendation-settings-modal__trading-form">
                     <Text as="h3" className="form-title">{localize('Trading Interface')}</Text>
-                    
+
                     <div className="form-grid">
                         <div className="form-row">
                             <div className="form-field">
@@ -360,12 +359,12 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
                                     {localize('Expected duration: {{duration}} seconds', { duration })}
                                 </Text>
                                 <Text size="xs" color="general">
-                                    {localize('Signal strength: {{confidence}}%', { 
+                                    {localize('Signal strength: {{confidence}}%', {
                                         confidence: recommendation?.confidence.toFixed(1) || '0'
                                     })}
                                 </Text>
                                 <Text size="xs" color="general">
-                                    {localize('Strategy: {{strategy}}', { 
+                                    {localize('Strategy: {{strategy}}', {
                                         strategy: recommendation?.strategy.toUpperCase() || 'UNKNOWN'
                                     })}
                                 </Text>

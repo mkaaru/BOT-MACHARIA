@@ -205,7 +205,7 @@ const MLTrader = observer(() => {
                 if (whatsapp_notifications_enabled && recs.length > 0) {
                     const bestRecommendation = recs[0];
                     const now = Date.now();
-                    
+
                     // Only send if it's been more than 2 minutes since last notification
                     if (now - last_notification_sent > 120000) {
                         try {
@@ -220,7 +220,7 @@ const MLTrader = observer(() => {
                                 reason: bestRecommendation.reason,
                                 timestamp: now
                             });
-                            
+
                             if (success) {
                                 setLastNotificationSent(now);
                                 setStatus(`📱 WhatsApp notification sent for ${bestRecommendation.displayName}`);
@@ -408,9 +408,9 @@ const MLTrader = observer(() => {
             setModalRecommendation(recommendation);
             setModalSymbol(recommendation.symbol || '');
             setModalContractType(recommendation.direction || 'CALL');
-            setModalDuration(recommendation.suggestedDuration || 2); // Changed default to 2
-            setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
-            setModalStake(recommendation.suggestedStake || 1.0);
+            setModalDuration(recommendation.suggestedDuration || 20); // Default to 20 seconds
+            setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's'); // Default to seconds
+            setModalStake(recommendation.suggestedStake || 1.0); // Default to $1
 
             // Set trade mode based on recommendation strategy or direction
             const strategy = recommendation.strategy || recommendation.direction || 'call';
