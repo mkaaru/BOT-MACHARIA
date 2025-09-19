@@ -62,8 +62,8 @@ const SmartTrader = observer(() => {
     const [symbol, setSymbol] = useState<string>('');
     const [tradeType, setTradeType] = useState<string>('DIGITOVER');
     const [ticks, setTicks] = useState<number>(1);
-    const [stake, setStake] = useState<number>(0.5);
-    const [baseStake, setBaseStake] = useState<number>(0.5);
+    const [stake, setStake] = useState<number>(1);
+    const [baseStake, setBaseStake] = useState<number>(1);
 
     // Predictions - key improvement for Over/Under after loss logic
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);

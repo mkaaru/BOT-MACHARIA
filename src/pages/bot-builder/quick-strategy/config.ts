@@ -132,6 +132,7 @@ const STAKE = (): TConfigItem => ({
     name: 'stake',
     validation: ['number', 'required', 'ceil', NUMBER_DEFAULT_VALIDATION()],
     has_currency_unit: true,
+    defaultValue: 1,
 });
 
 const LABEL_DURATION = (): TConfigItem => ({
@@ -152,6 +153,7 @@ const DURATION = (): TConfigItem => ({
     name: 'duration',
     attached: true,
     validation: ['number', 'required', 'min', 'max'],
+    defaultValue: 20,
 });
 
 const LABEL_PROFIT = (): TConfigItem => ({
