@@ -568,7 +568,7 @@ const MLTrader = observer(() => {
         <field name="NOTIFICATION_TYPE">success</field>
         <field name="NOTIFICATION_SOUND">silent</field>
         <value name="MESSAGE">
-          <shadow type="text" id="OGu:tW}VqV1el7}LlhgE">
+          <shadow type="text" id="OGu:tW}V1el7}LlhgE">
             <field name="TEXT">ML Strategy Executing...</field>
           </shadow>
           <block type="variables_get" id="DIO6HH*]Tf87lkH)]W1">

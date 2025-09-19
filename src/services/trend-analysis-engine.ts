@@ -67,15 +67,20 @@ export class TrendAnalysisEngine {
     addCandleData(candle: CandleData): void {
         const { symbol, close, timestamp } = candle;
 
-        // Use efficient HMA calculator with immediate and long-term periods
-        this.hmaCalculator.addCandleData(candle, [5, 200]);
+        // Use multiple HMA periods that divide evenly into 210 candles
+        // 210 = 2×3×5×7, so we use periods: 5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105
+        const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
+        this.hmaCalculator.addCandleData(candle, hmaPeriods);
         
         // Process through Ehlers signal processing pipeline
         const ehlersSignals = ehlersProcessor.processPrice(symbol, close, timestamp);
         
-        // Update trend analysis for this symbol if both HMAs are ready
-        if (this.hmaCalculator.isReady(symbol, 5) && 
-            this.hmaCalculator.isReady(symbol, 200)) {
+        // Update trend analysis when all HMA periods are ready
+        const allPeriodsReady = hmaPeriods.every(period => 
+            this.hmaCalculator.isReady(symbol, period)
+        );
+        
+        if (allPeriodsReady) {
             this.updateTrendAnalysis(symbol, close, ehlersSignals);
         }
     }
@@ -84,41 +89,57 @@ export class TrendAnalysisEngine {
      * Update trend analysis for a specific symbol
      */
     private updateTrendAnalysis(symbol: string, currentPrice: number, ehlersSignals?: EhlersSignals): void {
-        const hma5 = this.hmaCalculator.getLatestHMA(symbol, 5);
-        const hma200 = this.hmaCalculator.getLatestHMA(symbol, 200);
+        // Multiple HMA periods for comprehensive analysis
+        const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
         
-        if (!hma5 || !hma200) {
-            // Not enough data yet
-            return;
+        // Get all HMA values and slopes
+        const hmaData: Array<{
+            period: number;
+            value: number;
+            slope: number | null;
+            color: 'green' | 'red' | 'neutral';
+        }> = [];
+
+        for (const period of hmaPeriods) {
+            const hma = this.hmaCalculator.getLatestHMA(symbol, period);
+            if (!hma) return; // Not ready yet
+
+            const slope = this.hmaCalculator.getHMASlope(symbol, period, Math.min(5, Math.floor(period / 10) + 2));
+            const color = this.getHMAColor(slope);
+            
+            hmaData.push({
+                period,
+                value: hma.value,
+                slope,
+                color
+            });
         }
 
-        const hma5Slope = this.hmaCalculator.getHMASlope(symbol, 5, 3);
-        const hma200Slope = this.hmaCalculator.getHMASlope(symbol, 200, 5); // Longer lookback for smoother slope
+        // Analyze HMA alignment
+        const alignment = this.analyzeHMAAlignment(hmaData);
+        
+        // Determine trend direction based on HMA alignment
+        const direction = this.determineTrendDirectionByAlignment(alignment);
+        
+        // Calculate trend strength based on alignment score
+        const strength = this.calculateTrendStrengthByAlignment(alignment);
+        
+        // Calculate confidence based on alignment consistency
+        const confidence = this.calculateConfidenceByAlignment(alignment);
+        
+        // Long-term trend from longest HMA (105 period)
+        const longTermHMA = hmaData.find(h => h.period === 105);
+        const longTermTrend = longTermHMA?.color === 'green' ? 'bullish' : 
+                             longTermHMA?.color === 'red' ? 'bearish' : 'neutral';
+        
+        // Calculate long-term trend strength
+        const longTermStrength = this.calculateLongTermTrendStrengthMultiHMA(hmaData, currentPrice, symbol);
 
-        // Color-code HMAs based on slope
-        const hma5Color = this.getHMAColor(hma5Slope);
-        const hma200Color = this.getHMAColor(hma200Slope);
-
-        // Determine trend direction based on color alignment
-        const direction = this.determineTrendDirectionByColor(hma5Color, hma200Color);
+        // Generate recommendation based on alignment
+        const recommendation = this.generateRecommendationByAlignment(direction, strength, confidence, alignment);
         
-        // Calculate trend strength based on slope magnitude and color alignment
-        const strength = this.calculateTrendStrengthByColor(hma5Slope, hma200Slope, hma5Color, hma200Color);
-        
-        // Calculate confidence based on color alignment and slope strength
-        const confidence = this.calculateConfidenceByColor(hma5Slope, hma200Slope, hma5Color, hma200Color);
-        
-        // Long-term trend from HMA200 color
-        const longTermTrend = hma200Color === 'green' ? 'bullish' : hma200Color === 'red' ? 'bearish' : 'neutral';
-        
-        // Calculate long-term trend strength for filtering
-        const longTermStrength = this.calculateLongTermTrendStrength(hma200.value, hma200Slope, currentPrice, symbol);
-
-        // Generate recommendation based on color alignment
-        const recommendation = this.generateRecommendationByColor(direction, strength, confidence, hma5Color, hma200Color);
-        
-        // Calculate overall score based on color alignment
-        const score = this.calculateTradingScoreByColor(direction, strength, confidence, hma5Color, hma200Color);
+        // Calculate overall score based on alignment
+        const score = this.calculateTradingScoreByAlignment(direction, strength, confidence, alignment);
 
         // Get Ehlers-based recommendations
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
@@ -156,13 +177,13 @@ export class TrendAnalysisEngine {
             direction,
             strength,
             confidence,
-            hma5: hma5.value,
-            hma200: hma200.value,
-            hma5Slope,
-            hma200Slope,
-            hma5Color,
-            hma200Color,
-            colorAlignment: hma5Color === hma200Color && hma5Color !== 'neutral',
+            hma5: hmaData.find(h => h.period === 5)?.value || null,
+            hma200: hmaData.find(h => h.period === 105)?.value || null, // Use 105 as long-term instead of 200
+            hma5Slope: hmaData.find(h => h.period === 5)?.slope || null,
+            hma200Slope: hmaData.find(h => h.period === 105)?.slope || null,
+            hma5Color: hmaData.find(h => h.period === 5)?.color,
+            hma200Color: hmaData.find(h => h.period === 105)?.color,
+            colorAlignment: alignment.isAligned,
             longTermTrend,
             longTermTrendStrength: longTermStrength,
             price: currentPrice,
@@ -176,7 +197,198 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
         
-        console.log(`Color-Coded HMA Analysis for ${symbol}: ${direction.toUpperCase()} (${strength}) - HMA5: ${hma5Color}, HMA200: ${hma200Color} - Alignment: ${hma5Color === hma200Color} - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+        console.log(`Multi-HMA Alignment Analysis for ${symbol}: ${direction.toUpperCase()} (${strength}) - Alignment: ${alignment.alignmentPercentage.toFixed(1)}% (${alignment.alignedCount}/${alignment.totalCount}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+    }
+
+    /**
+     * Analyze HMA alignment across all periods
+     */
+    private analyzeHMAAlignment(hmaData: Array<{period: number; value: number; slope: number | null; color: 'green' | 'red' | 'neutral'}>): {
+        alignedCount: number;
+        totalCount: number;
+        alignmentPercentage: number;
+        dominantColor: 'green' | 'red' | 'neutral';
+        isAligned: boolean;
+        shortTermAlignment: number; // 0-100
+        longTermAlignment: number; // 0-100
+    } {
+        const totalCount = hmaData.length;
+        const colorCounts = {
+            green: hmaData.filter(h => h.color === 'green').length,
+            red: hmaData.filter(h => h.color === 'red').length,
+            neutral: hmaData.filter(h => h.color === 'neutral').length
+        };
+
+        const dominantColor = colorCounts.green > colorCounts.red && colorCounts.green > colorCounts.neutral ? 'green' :
+                             colorCounts.red > colorCounts.green && colorCounts.red > colorCounts.neutral ? 'red' : 'neutral';
+
+        const alignedCount = colorCounts[dominantColor];
+        const alignmentPercentage = (alignedCount / totalCount) * 100;
+        
+        // Short-term alignment (periods <= 21)
+        const shortTermHMAs = hmaData.filter(h => h.period <= 21);
+        const shortTermAligned = shortTermHMAs.filter(h => h.color === dominantColor).length;
+        const shortTermAlignment = (shortTermAligned / shortTermHMAs.length) * 100;
+
+        // Long-term alignment (periods > 21)
+        const longTermHMAs = hmaData.filter(h => h.period > 21);
+        const longTermAligned = longTermHMAs.filter(h => h.color === dominantColor).length;
+        const longTermAlignment = longTermHMAs.length > 0 ? (longTermAligned / longTermHMAs.length) * 100 : 0;
+
+        return {
+            alignedCount,
+            totalCount,
+            alignmentPercentage,
+            dominantColor,
+            isAligned: alignmentPercentage >= 75 && dominantColor !== 'neutral', // Require 75% alignment
+            shortTermAlignment,
+            longTermAlignment
+        };
+    }
+
+    /**
+     * Determine trend direction based on HMA alignment
+     */
+    private determineTrendDirectionByAlignment(alignment: any): TrendDirection {
+        if (alignment.isAligned) {
+            return alignment.dominantColor === 'green' ? 'bullish' : 'bearish';
+        }
+        return 'neutral';
+    }
+
+    /**
+     * Calculate trend strength based on alignment score
+     */
+    private calculateTrendStrengthByAlignment(alignment: any): TrendStrength {
+        if (alignment.alignmentPercentage >= 90) {
+            return 'strong';
+        } else if (alignment.alignmentPercentage >= 75) {
+            return 'moderate';
+        }
+        return 'weak';
+    }
+
+    /**
+     * Calculate confidence based on alignment consistency
+     */
+    private calculateConfidenceByAlignment(alignment: any): number {
+        let confidence = alignment.alignmentPercentage; // Base confidence from alignment percentage
+        
+        // Bonus for strong short-term and long-term alignment
+        if (alignment.shortTermAlignment >= 80 && alignment.longTermAlignment >= 80) {
+            confidence += 15;
+        } else if (alignment.shortTermAlignment >= 70 && alignment.longTermAlignment >= 70) {
+            confidence += 10;
+        }
+
+        // Penalty for neutral dominant color
+        if (alignment.dominantColor === 'neutral') {
+            confidence -= 20;
+        }
+
+        return Math.min(100, Math.max(0, confidence));
+    }
+
+    /**
+     * Generate recommendation based on alignment
+     */
+    private generateRecommendationByAlignment(
+        direction: TrendDirection,
+        strength: TrendStrength,
+        confidence: number,
+        alignment: any
+    ): 'BUY' | 'SELL' | 'HOLD' {
+        // Require strong alignment for trading signals
+        if (!alignment.isAligned || alignment.alignmentPercentage < 80) {
+            return 'HOLD';
+        }
+
+        // Require high confidence
+        if (confidence < 75) {
+            return 'HOLD';
+        }
+
+        // Generate signals based on aligned direction
+        if (direction === 'bullish' && strength !== 'weak') {
+            return 'BUY';
+        } else if (direction === 'bearish' && strength !== 'weak') {
+            return 'SELL';
+        }
+
+        return 'HOLD';
+    }
+
+    /**
+     * Calculate trading score based on alignment
+     */
+    private calculateTradingScoreByAlignment(
+        direction: TrendDirection,
+        strength: TrendStrength,
+        confidence: number,
+        alignment: any
+    ): number {
+        let score = 0;
+
+        // Base score from alignment percentage
+        score += alignment.alignmentPercentage * 0.6;
+
+        // Alignment quality bonus
+        if (alignment.isAligned) {
+            score += 20;
+        }
+
+        // Short-term and long-term alignment bonus
+        score += (alignment.shortTermAlignment * 0.15);
+        score += (alignment.longTermAlignment * 0.15);
+
+        // Direction scoring
+        if (direction === 'bullish' || direction === 'bearish') {
+            score += 15;
+        }
+
+        // Strength scoring
+        switch (strength) {
+            case 'strong':
+                score += 20;
+                break;
+            case 'moderate':
+                score += 10;
+                break;
+            case 'weak':
+                score += 2;
+                break;
+        }
+
+        return Math.min(100, Math.max(0, score));
+    }
+
+    /**
+     * Calculate long-term trend strength using multiple HMAs
+     */
+    private calculateLongTermTrendStrengthMultiHMA(
+        hmaData: Array<{period: number; value: number; slope: number | null; color: string}>,
+        currentPrice: number,
+        symbol: string
+    ): number {
+        const longTermHMAs = hmaData.filter(h => h.period >= 35); // Use longer periods
+        if (longTermHMAs.length === 0) return 0;
+
+        // Calculate consistency in long-term HMAs
+        const colorCounts = {
+            green: longTermHMAs.filter(h => h.color === 'green').length,
+            red: longTermHMAs.filter(h => h.color === 'red').length,
+            neutral: longTermHMAs.filter(h => h.color === 'neutral').length
+        };
+
+        const maxCount = Math.max(colorCounts.green, colorCounts.red, colorCounts.neutral);
+        const consistency = (maxCount / longTermHMAs.length) * 100;
+
+        // Calculate average slope magnitude
+        const validSlopes = longTermHMAs.filter(h => h.slope !== null).map(h => h.slope!);
+        const avgSlopeMagnitude = validSlopes.length > 0 ? 
+            validSlopes.reduce((sum, slope) => sum + Math.abs(slope), 0) / validSlopes.length : 0;
+
+        return Math.min(100, consistency * 0.7 + (avgSlopeMagnitude * 1000 * 30));
     }
 
     /**
@@ -763,18 +975,23 @@ export class TrendAnalysisEngine {
      */
     private updateAllTrends(): void {
         const symbols = this.hmaCalculator.getSymbolsWithData();
+        const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
         
         symbols.forEach(symbol => {
-            if (this.hmaCalculator.isReady(symbol, 5) && 
-                this.hmaCalculator.isReady(symbol, 40) && 
-                this.hmaCalculator.isReady(symbol, 200)) {
-                const latestHMA5 = this.hmaCalculator.getLatestHMA(symbol, 5);
-                const latestHMA40 = this.hmaCalculator.getLatestHMA(symbol, 40);
-                const latestHMA200 = this.hmaCalculator.getLatestHMA(symbol, 200);
+            // Check if all HMA periods are ready
+            const allPeriodsReady = hmaPeriods.every(period => 
+                this.hmaCalculator.isReady(symbol, period)
+            );
+            
+            if (allPeriodsReady) {
+                // Get a few HMA values to estimate current price
+                const hma5 = this.hmaCalculator.getLatestHMA(symbol, 5);
+                const hma21 = this.hmaCalculator.getLatestHMA(symbol, 21);
+                const hma105 = this.hmaCalculator.getLatestHMA(symbol, 105);
                 
-                if (latestHMA5 && latestHMA40 && latestHMA200) {
+                if (hma5 && hma21 && hma105) {
                     // Use the close price from price history service or estimate from HMAs
-                    const estimatedPrice = (latestHMA5.value + latestHMA40.value + latestHMA200.value) / 3;
+                    const estimatedPrice = (hma5.value + hma21.value + hma105.value) / 3;
                     this.updateTrendAnalysis(symbol, estimatedPrice);
                 }
             }
