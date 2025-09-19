@@ -136,7 +136,7 @@ export class TrendAnalysisEngine {
         const longTermStrength = this.calculateLongTermTrendStrengthMultiHMA(hmaData, currentPrice, symbol);
 
         // Generate recommendation based on alignment
-        const recommendation = this.generateRecommendationByAlignment(direction, strength, confidence, alignment);
+        const recommendation = this.generateRecommendationByAlignment(direction, strength, confidence, alignment, symbol);
         
         // Calculate overall score based on alignment
         const score = this.calculateTradingScoreByAlignment(direction, strength, confidence, alignment);
@@ -296,7 +296,8 @@ export class TrendAnalysisEngine {
         direction: TrendDirection,
         strength: TrendStrength,
         confidence: number,
-        alignment: any
+        alignment: any,
+        symbol?: string
     ): 'BUY' | 'SELL' | 'HOLD' {
         // Require strong alignment for trading signals
         if (!alignment.isAligned || alignment.alignmentPercentage < 80) {
@@ -306,6 +307,15 @@ export class TrendAnalysisEngine {
         // Require high confidence
         if (confidence < 75) {
             return 'HOLD';
+        }
+
+        // Check candle color validation if symbol is provided
+        if (symbol) {
+            const candleColorValid = this.validateCandleColor(symbol, direction);
+            if (!candleColorValid) {
+                console.log(`${symbol}: Candle color validation failed for ${direction} signal - waiting for aligned candle`);
+                return 'HOLD';
+            }
         }
 
         // Generate signals based on aligned direction
@@ -402,6 +412,46 @@ export class TrendAnalysisEngine {
         if (slope > slopeThreshold) return 'green';
         if (slope < -slopeThreshold) return 'red';
         return 'neutral';
+    }
+
+    /**
+     * Validate that the last 1-minute candle color aligns with the signal direction
+     */
+    private validateCandleColor(symbol: string, direction: TrendDirection): boolean {
+        // Import candle reconstruction engine
+        const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
+        
+        // Get the latest completed candle for this symbol
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 1);
+        
+        if (recentCandles.length === 0) {
+            console.log(`${symbol}: No candle data available for validation`);
+            return false; // No candle data available
+        }
+        
+        const lastCandle = recentCandles[recentCandles.length - 1];
+        const { open, close } = lastCandle;
+        
+        // Determine candle color
+        const isBullishCandle = close > open;  // Green/bullish candle
+        const isBearishCandle = close < open;  // Red/bearish candle
+        
+        // Validate alignment
+        if (direction === 'bullish' && isBullishCandle) {
+            console.log(`${symbol}: ✅ Bullish signal validated - last candle was GREEN (${open.toFixed(5)} → ${close.toFixed(5)})`);
+            return true;
+        }
+        
+        if (direction === 'bearish' && isBearishCandle) {
+            console.log(`${symbol}: ✅ Bearish signal validated - last candle was RED (${open.toFixed(5)} → ${close.toFixed(5)})`);
+            return true;
+        }
+        
+        // Signal doesn't align with candle color
+        const candleType = isBullishCandle ? 'GREEN' : isBearishCandle ? 'RED' : 'DOJI';
+        console.log(`${symbol}: ❌ ${direction.toUpperCase()} signal blocked - last candle was ${candleType} (${open.toFixed(5)} → ${close.toFixed(5)})`);
+        
+        return false;
     }
 
     /**
