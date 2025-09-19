@@ -75,34 +75,8 @@ const RecommendationSettingsModal: React.FC<RecommendationSettingsModalProps> = 
             setSymbol(recommendation.symbol);
             setStake(recommendation.suggestedStake || 1);
             
-            // Calculate optimal duration in seconds based on signal confidence and strategy
-            const calculateSignalDuration = () => {
-                const baseSeconds = 30; // Base duration for high confidence signals
-                const confidenceMultiplier = recommendation.confidence / 100;
-                
-                // Strategy-specific duration adjustments based on signal type
-                let strategyMultiplier = 1;
-                if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
-                    // Digit predictions: faster tick movements, moderate duration
-                    strategyMultiplier = 1.5; 
-                } else if (recommendation.strategy === 'rise' || recommendation.strategy === 'fall') {
-                    // Price direction: needs time for trend development
-                    strategyMultiplier = 2.0;
-                }
-                
-                // Confidence-based duration calculation:
-                // High confidence (90%+): ~30-45 seconds
-                // Medium confidence (70-89%): ~45-75 seconds  
-                // Lower confidence (50-69%): ~60-120 seconds
-                const calculatedSeconds = Math.round(baseSeconds * strategyMultiplier * (2 - confidenceMultiplier));
-                
-                // Ensure reasonable bounds for trading (15-120 seconds)
-                return Math.max(15, Math.min(120, calculatedSeconds));
-            };
-            
-            const optimalSeconds = calculateSignalDuration();
-            
-            setDuration(optimalSeconds);
+            // Use Bot Builder default values
+            setDuration(20); // Default to 20 seconds to match Bot Builder
             setDurationType('s'); // Default to seconds for ML recommendations
             
             // Set contract type based on strategy

@@ -80,8 +80,8 @@ const MLTrader = observer(() => {
     const [modal_symbol, setModalSymbol] = useState<string>('');
     const [modal_trade_mode, setModalTradeMode] = useState<'rise_fall' | 'higher_lower'>('rise_fall');
     const [modal_contract_type, setModalContractType] = useState<string>('CALL');
-    const [modal_duration, setModalDuration] = useState<number>(5);
-    const [modal_duration_unit, setModalDurationUnit] = useState<'t' | 's' | 'm'>('t');
+    const [modal_duration, setModalDuration] = useState<number>(20);
+    const [modal_duration_unit, setModalDurationUnit] = useState<'t' | 's' | 'm'>('s');
     const [modal_stake, setModalStake] = useState<number>(1.0);
     const [modal_barrier_offset, setModalBarrierOffset] = useState<number>(0.001);
 
@@ -378,12 +378,12 @@ const MLTrader = observer(() => {
         }
 
         setSelectedRecommendation(recommendation);
-        setSymbol(recommendation.symbol);
-        setContractType(recommendation.direction);
-        setDuration(recommendation.suggestedDuration);
-        setDurationUnit(recommendation.suggestedDurationUnit);
-        setStake(recommendation.suggestedStake);
-        baseStakeRef.current = recommendation.suggestedStake; // Set the base stake
+        setModalSymbol(recommendation.symbol);
+        setModalContractType(recommendation.direction);
+        setModalDuration(recommendation.suggestedDuration || 20); // Default to 20 seconds
+        setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's'); // Default to seconds
+        setModalStake(recommendation.suggestedStake || 1.0); // Default to $1
+        baseStakeRef.current = recommendation.suggestedStake || 1.0; // Set the base stake
 
         // Update trade mode based on recommendation
         if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
@@ -440,8 +440,8 @@ const MLTrader = observer(() => {
             const trade_mode = strategy === 'call' || strategy === 'put' ||
                 recommendation.direction === 'CALL' || recommendation.direction === 'PUT' ? 'rise_fall' : 'higher_lower';
             const contract_type = recommendation.direction || 'CALL';
-            const duration = recommendation.suggestedDuration || 2;
-            const duration_unit = (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't';
+            const duration = recommendation.suggestedDuration || 20;
+            const duration_unit = (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's';
             const stake = recommendation.suggestedStake || 1.0;
             const barrier_offset = recommendation.barrier ?
                 Math.abs(parseFloat(recommendation.barrier) - (recommendation.currentPrice || 0)) : 0.001;
