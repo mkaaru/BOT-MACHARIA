@@ -1,6 +1,6 @@
 import { action, computed, makeObservable, observable, reaction } from 'mobx';
 import { formatDate, isEnded } from '@/components/shared';
-import { LogTypes } from '@/external/bot-skeleton/constants';
+import { LogTypes } from '@/external/bot-skeleton';
 import { ProposalOpenContract } from '@deriv/api-types';
 import { TPortfolioPosition, TStores } from '@deriv/stores/types';
 import { TContractInfo } from '../components/summary/summary-card.types';
@@ -15,15 +15,6 @@ type TTransaction = {
 
 type TElement = {
     [key: string]: TTransaction[];
-};
-
-type TStatistics = {
-    lost_contracts: number;
-    number_of_runs: number;
-    total_profit: number;
-    total_payout: number;
-    total_stake: number;
-    won_contracts: number;
 };
 
 export default class TransactionsStore {
@@ -45,10 +36,8 @@ export default class TransactionsStore {
             is_called_proposal_open_contract: observable,
             is_transaction_details_modal_open: observable,
             transactions: computed,
-            statistics: computed, // Computed property for statistics
             onBotContractEvent: action.bound,
             pushTransaction: action.bound,
-            updateTransaction: action.bound, // Assuming updateTransaction is defined elsewhere or needs to be added
             clear: action.bound,
             registerReactions: action.bound,
             recoverPendingContracts: action.bound,
@@ -66,15 +55,6 @@ export default class TransactionsStore {
     is_called_proposal_open_contract = false;
     is_transaction_details_modal_open = false;
 
-    statistics: TStatistics = {
-        lost_contracts: 0,
-        number_of_runs: 0,
-        total_profit: 0,
-        total_payout: 0,
-        total_stake: 0,
-        won_contracts: 0,
-    };
-
     get transactions(): TTransaction[] {
         if (this.core?.client?.loginid) return this.elements[this.core?.client?.loginid] ?? [];
         return [];
@@ -86,13 +66,13 @@ export default class TransactionsStore {
         const trxs = this.transactions.filter(
             trx => trx.type === transaction_elements.CONTRACT && typeof trx.data === 'object'
         );
-        const stats = trxs.reduce(
+        const statistics = trxs.reduce(
             (stats, { data }) => {
                 const { profit = 0, is_completed = false, buy_price = 0, payout, bid_price, status } = data as TContractInfo;
                 if (is_completed) {
                     // Check multiple conditions to determine if it's a win
                     const isWin = profit > 0 || status === 'won' || (payout && payout > buy_price);
-
+                    
                     if (isWin) {
                         stats.won_contracts += 1;
                         stats.total_payout += payout ?? bid_price ?? 0;
@@ -114,86 +94,16 @@ export default class TransactionsStore {
                 won_contracts: 0,
             }
         );
-        stats.number_of_runs = total_runs;
-        return stats;
+        statistics.number_of_runs = total_runs;
+        return statistics;
     }
 
     toggleTransactionDetailsModal = (is_open: boolean) => {
         this.is_transaction_details_modal_open = is_open;
     };
 
-    // Assuming getSameReferenceTransactions and updateTransaction are defined elsewhere or need to be added.
-    // Placeholder implementations for demonstration:
-    getSameReferenceTransactions(contract: TContractInfo): TTransaction[] {
-        if (!this.elements[this.core?.client?.loginid]) return [];
-        return this.elements[this.core?.client?.loginid].filter(trx => {
-            if (typeof trx.data === 'string' || !trx.data) return false;
-            return trx.data.contract_id === contract.contract_id;
-        });
-    }
-
-    updateTransaction(updated_transaction: TContractInfo) {
-        const current_account = this.core?.client?.loginid as string;
-        const index = this.elements[current_account]?.findIndex(trx => {
-            if (typeof trx.data === 'string' || !trx.data) return false;
-            return trx.data.contract_id === updated_transaction.contract_id;
-        });
-
-        if (index !== undefined && index > -1) {
-            this.elements[current_account].splice(index, 1, {
-                type: transaction_elements.CONTRACT,
-                data: updated_transaction,
-            });
-            this.elements = { ...this.elements }; // force update
-        }
-    }
-
-    onBotContractEvent(contract: TContractInfo) {
-        const { run_panel } = this.root_store;
-        const same_reference = this.getSameReferenceTransactions(contract);
-        const new_transaction = {
-            ...contract,
-            barrier: Number(contract.entry_tick),
-            entry_spot: Number(contract.entry_tick),
-            is_completed: !!contract.is_sold,
-        };
-
-        const existing_transaction = same_reference[0];
-        const is_new_contract = same_reference.length === 0;
-        const was_already_sold = existing_transaction?.is_sold || existing_transaction?.is_completed;
-
-        if (is_new_contract) {
-            this.pushTransaction(new_transaction);
-        } else {
-            this.updateTransaction(new_transaction);
-        }
-
-        // Update statistics only when contract is newly sold (not already counted)
-        if (contract.is_sold && !was_already_sold) {
-            const profit = Number(contract.profit || 0);
-            const buy_price = Number(contract.buy_price || 0);
-            const sell_price = Number(contract.sell_price || 0);
-
-            // Count wins and losses correctly
-            if (profit < 0) {
-                this.statistics.lost_contracts += 1;
-            } else if (profit > 0) {
-                this.statistics.won_contracts += 1;
-            }
-
-            // Update financial statistics
-            this.statistics.total_payout += sell_price;
-            this.statistics.total_stake += buy_price;
-            this.statistics.total_profit += profit;
-            this.statistics.number_of_runs += 1;
-
-            console.log('📊 Transaction Stats Updated:', {
-                profit,
-                lost_contracts: this.statistics.lost_contracts,
-                won_contracts: this.statistics.won_contracts,
-                total_profit: this.statistics.total_profit
-            });
-        }
+    onBotContractEvent(data: TContractInfo) {
+        this.pushTransaction(data);
     }
 
     pushTransaction(data: TContractInfo) {
@@ -269,15 +179,6 @@ export default class TransactionsStore {
         this.recovered_completed_transactions = this.recovered_completed_transactions?.slice(0, 0);
         this.recovered_transactions = this.recovered_transactions?.slice(0, 0);
         this.is_transaction_details_modal_open = false;
-        this.statistics = {
-            lost_contracts: 0,
-            number_of_runs: 0,
-            total_profit: 0,
-            total_payout: 0,
-            total_stake: 0,
-            won_contracts: 0,
-        };
-        console.log('📊 Transaction statistics cleared');
     }
 
     registerReactions() {
