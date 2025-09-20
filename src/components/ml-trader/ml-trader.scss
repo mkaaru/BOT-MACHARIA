@@ -1059,11 +1059,190 @@
         }
     }
 
+    &__roc-controls {
+        background: var(--general-main-1);
+        border: 1px solid var(--border-normal);
+        border-radius: 8px;
+        padding: 1.6rem;
+        margin-bottom: 1.6rem;
+
+        .roc-controls-header {
+            text-align: center;
+            margin-bottom: 1.6rem;
+            padding-bottom: 1.2rem;
+            border-bottom: 2px solid var(--border-normal);
+
+            h3 {
+                margin: 0 0 0.5rem 0;
+                color: var(--text-prominent);
+                font-size: 1.6rem;
+            }
+        }
+
+        .roc-controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.6rem;
+
+            @media (max-width: 768px) {
+                grid-template-columns: 1fr;
+            }
+
+            .control-card {
+                background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+                border-radius: 12px;
+                padding: 1.5rem;
+                border: 2px solid rgba(148, 163, 184, 0.1);
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                overflow: hidden;
+                box-shadow: 
+                    0 8px 25px rgba(0, 0, 0, 0.08),
+                    0 3px 6px rgba(0, 0, 0, 0.04),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 
+                        0 12px 32px rgba(0, 0, 0, 0.12),
+                        0 4px 8px rgba(0, 0, 0, 0.08);
+                }
+
+                .card-icon {
+                    font-size: 2rem;
+                    margin-bottom: 1rem;
+                    display: block;
+                }
+
+                .card-content {
+                    .card-title {
+                        font-size: 1.4rem;
+                        font-weight: 700;
+                        color: var(--text-prominent);
+                        margin: 0 0 0.5rem 0;
+                    }
+
+                    .card-description {
+                        margin: 0 0 1rem 0;
+                        line-height: 1.4;
+                    }
+                }
+
+                &.roc-sensitivity {
+                    .toggle-container {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+
+                        .toggle-input {
+                            display: none;
+                        }
+
+                        .toggle-label {
+                            position: relative;
+                            width: 60px;
+                            height: 32px;
+                            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+                            border-radius: 16px;
+                            cursor: pointer;
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                            box-shadow: 
+                                inset 0 2px 4px rgba(0, 0, 0, 0.1),
+                                0 2px 4px rgba(0, 0, 0, 0.05);
+
+                            .toggle-switch {
+                                position: absolute;
+                                top: 2px;
+                                left: 2px;
+                                width: 28px;
+                                height: 28px;
+                                background: white;
+                                border-radius: 50%;
+                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                box-shadow: 
+                                    0 4px 8px rgba(0, 0, 0, 0.15),
+                                    0 2px 4px rgba(0, 0, 0, 0.1);
+                            }
+                        }
+
+                        .toggle-input:checked + .toggle-label {
+                            background: linear-gradient(135deg, #10b981, #059669);
+                            box-shadow: 
+                                inset 0 2px 4px rgba(0, 0, 0, 0.1),
+                                0 0 0 2px rgba(16, 185, 129, 0.2);
+
+                            .toggle-switch {
+                                transform: translateX(28px);
+                                box-shadow: 
+                                    0 4px 12px rgba(16, 185, 129, 0.3),
+                                    0 2px 6px rgba(16, 185, 129, 0.2);
+                            }
+                        }
+                    }
+                }
+
+                &.roc-info {
+                    .roc-settings-display {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.4rem;
+                        padding: 0.8rem;
+                        background: rgba(59, 130, 246, 0.05);
+                        border-radius: 6px;
+                        border-left: 3px solid #3b82f6;
+                    }
+                }
+            }
+        }
+    }
+
     // Dark theme support
     .theme--dark & {
         .recommendation-card {
             background: var(--general-main-2);
             border-color: var(--border-normal);
+        }
+
+        &__roc-controls {
+            background: var(--general-main-2);
+
+            .control-card {
+                background: linear-gradient(145deg, #1e293b 0%, #334155 100%);
+                border-color: rgba(148, 163, 184, 0.1);
+                box-shadow: 
+                    0 8px 25px rgba(0, 0, 0, 0.2),
+                    0 3px 6px rgba(0, 0, 0, 0.1),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+                &:hover {
+                    box-shadow: 
+                        0 12px 32px rgba(0, 0, 0, 0.3),
+                        0 4px 8px rgba(0, 0, 0, 0.2);
+                }
+
+                .card-content {
+                    .card-title {
+                        color: #f8fafc;
+                    }
+
+                    .card-description {
+                        color: rgba(248, 250, 252, 0.8);
+                    }
+                }
+
+                &.roc-sensitivity {
+                    .toggle-label {
+                        background: linear-gradient(135deg, #475569, #64748b);
+                    }
+                }
+
+                &.roc-info {
+                    .roc-settings-display {
+                        background: rgba(59, 130, 246, 0.1);
+                        color: #f8fafc;
+                    }
+                }
+            }
         }
 
         &__trading-interface,

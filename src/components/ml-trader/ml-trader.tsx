@@ -104,6 +104,7 @@ const MLTrader = observer(() => {
     const [enable_trend_filter, setEnableTrendFilter] = useState(false);
     const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
+    const [roc_sensitive_settings, setRocSensitiveSettings] = useState(false); // ROC sensitivity toggle
 
 
 
@@ -416,11 +417,11 @@ const MLTrader = observer(() => {
             const defaultDuration = 5;
             const defaultDurationUnit = 't'; // ticks
             
-            // ROC sensitivity settings - use current settings as default, half for sensitive
-            const rocSensitive = false; // Default to false, can be toggled via UI later
-            const longTermROCPeriod = rocSensitive ? 10 : 20; // Half for sensitive
-            const shortTermROCPeriod = rocSensitive ? 2.5 : 5; // Half for sensitive (round to 3 for sensitive)
-            const actualShortTermROC = rocSensitive ? 3 : 5; // Rounded for actual use
+            // ROC sensitivity settings - use toggle state
+            const rocSensitive = roc_sensitive_settings;
+            const longTermROCPeriod = rocSensitive ? 15 : 30; // Half for sensitive: 30/2 = 15
+            const shortTermROCPeriod = rocSensitive ? 7 : 14; // Half for sensitive: 14/2 = 7
+            const actualShortTermROC = shortTermROCPeriod; // Use the calculated value directly
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -1320,6 +1321,59 @@ const MLTrader = observer(() => {
                                     </div>
                                 );
                             })}
+                        </div>
+                    </div>
+
+                    {/* ROC Sensitivity Controls */}
+                    <div className="ml-trader__roc-controls">
+                        <div className="roc-controls-header">
+                            <Text as="h3">ROC Analysis Settings</Text>
+                            <Text size="xs" color="general">Configure Rate of Change sensitivity for trend analysis</Text>
+                        </div>
+
+                        <div className="roc-controls-grid">
+                            <div className="control-card roc-sensitivity">
+                                <div className="card-icon">⚙️</div>
+                                <div className="card-content">
+                                    <Text className="card-title">ROC Sensitivity</Text>
+                                    <Text className="card-description" size="xs" color="general">
+                                        {roc_sensitive_settings 
+                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
+                                            : `Default: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
+                                        }
+                                    </Text>
+                                </div>
+                                <div className="toggle-container">
+                                    <input
+                                        type="checkbox"
+                                        id="roc-sensitive-toggle"
+                                        className="toggle-input"
+                                        checked={roc_sensitive_settings}
+                                        onChange={() => setRocSensitiveSettings(!roc_sensitive_settings)}
+                                    />
+                                    <label htmlFor="roc-sensitive-toggle" className="toggle-label">
+                                        <div className="toggle-switch"></div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="control-card roc-info">
+                                <div className="card-icon">📊</div>
+                                <div className="card-content">
+                                    <Text className="card-title">Current ROC Settings</Text>
+                                    <div className="roc-settings-display">
+                                        <Text size="xs">
+                                            Long-term: {roc_sensitive_settings ? 15 : 30} periods
+                                        </Text>
+                                        <Text size="xs">
+                                            Short-term: {roc_sensitive_settings ? 7 : 14} periods
+                                        </Text>
+                                        <Text size="xs" color={roc_sensitive_settings ? "profit-success" : "general"}>
+                                            Mode: {roc_sensitive_settings ? "Sensitive" : "Default"}
+                                        </Text>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
