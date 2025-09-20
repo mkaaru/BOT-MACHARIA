@@ -465,7 +465,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Calculate MACD with custom settings (3, 16, 16)
+     * Calculate MACD with custom settings (3, 10, 16)
      */
     private calculateMACD(prices: number[]): { 
         macd: number | null; 
@@ -479,14 +479,14 @@ export class TrendAnalysisEngine {
 
         // Calculate EMAs
         const ema3 = this.calculateEMA(prices, 3);
-        const ema16 = this.calculateEMA(prices, 16);
+        const ema10 = this.calculateEMA(prices, 10);
         
-        if (!ema3 || !ema16) {
+        if (!ema3 || !ema10) {
             return { macd: null, signal: null, histogram: null, trend: 'NEUTRAL' };
         }
 
-        // MACD line = EMA3 - EMA16
-        const macd = ema3 - ema16;
+        // MACD line = EMA3 - EMA10
+        const macd = ema3 - ema10;
 
         // Calculate signal line (EMA of MACD with period 16)
         // For simplicity, we'll use a shorter history for signal calculation
