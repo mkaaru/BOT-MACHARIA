@@ -1230,138 +1230,113 @@ const MLTrader = observer(() => {
                         )}
 
                         {/* Market Recommendations */}
-                        <div className="recommendations-section">
+                        <div className='ml-trader__recommendations'>
                             <div className="recommendations-header">
-                                <Text as="h3">Trading Recommendations</Text>
-                                <Text size="xs">Click a recommendation to load trading details</Text>
+                                <Text as="h2" size="l" weight="bold" color="prominent">
+                                    {localize('🎯 Trading Recommendations')}
+                                </Text>
+                                {recommendations.length > 0 && (
+                                    <Text size="xs" color="general">
+                                        {localize('{{count}} signals available', { count: recommendations.length })}
+                                    </Text>
+                                )}
                             </div>
 
-                            <div className="recommendations-grid">
-                                {recommendations.slice(0, 6).map((rec, index) => {
-                                    const trend = market_trends.get(rec.symbol);
-                                    const isSelected = selected_recommendation?.symbol === rec.symbol;
-
-                                    return (
+                            {recommendations.length === 0 ? (
+                                <div className="no-recommendations">
+                                    {scanner_status && scanner_status.connectedSymbols < scanner_status.totalSymbols ? (
+                                        <>
+                                            <div className="loading-spinner"></div>
+                                            <div className="loading-text">
+                                                <Text size="sm" color="general">
+                                                    {localize('Analyzing markets... {{connected}}/{{total}} symbols', {
+                                                        connected: scanner_status.connectedSymbols,
+                                                        total: scanner_status.totalSymbols
+                                                    })}
+                                                </Text>
+                                            </div>
+                                            <div style={{
+                                                width: '100%',
+                                                height: '6px',
+                                                background: '#e5e7eb',
+                                                borderRadius: '3px',
+                                                margin: '1rem 0',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <div style={{
+                                                    width: `${scanning_progress}%`,
+                                                    height: '100%',
+                                                    background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
+                                                    transition: 'width 0.3s ease'
+                                                }} />
+                                            </div>
+                                        </>
+                                    ) : initial_scan_complete ? (
+                                        <Text size="sm" color="general">
+                                            {localize('No high-confidence signals available. Markets are being monitored...')}
+                                        </Text>
+                                    ) : (
+                                        <>
+                                            <div className="loading-spinner"></div>
+                                            <Text size="sm" color="general">
+                                                {localize('Initializing ML models and market analysis...')}
+                                            </Text>
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="recommendations-grid">
+                                    {recommendations.slice(0, 6).map((rec, index) => (
                                         <div
-                                            key={rec.symbol}
-                                            className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
+                                            key={`${rec.symbol}-${rec.direction}-${index}`}
+                                            className={`recommendation-card ${rec.direction?.toLowerCase()} ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
                                             onClick={() => openRecommendationModal(rec)}
-                                            style={{ cursor: 'pointer' }}
                                         >
                                             <div className="rec-header">
                                                 <div className="rec-rank">#{index + 1}</div>
-                                                <div className="rec-symbol">{rec.displayName}</div>
-                                                <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
-                                                    {rec.direction}
+                                                <div className="rec-symbol">{rec.displayName || rec.symbol}</div>
+                                                <div className={`rec-direction ${rec.direction?.toLowerCase()}`}>
+                                                    {rec.direction === 'CALL' ? 'RISE' : 'FALL'}
                                                 </div>
                                             </div>
 
                                             <div className="rec-details">
-                                                <div className="rec-score">
-                                                    <Text size="xs">Score</Text>
-                                                    <Text weight="bold">{rec.score.toFixed(0)}</Text>
+                                                <div>
+                                                    <Text size="xs" color="general">{localize('Score')}</Text>
+                                                    <Text size="xs" weight="bold">{rec.score?.toFixed(0) || 0}</Text>
                                                 </div>
-                                                <div className="rec-confidence">
-                                                    <Text size="xs">Confidence</Text>
-                                                    <Text weight="bold">{rec.confidence.toFixed(0)}%</Text>
-                                                    {rec.mlPrediction && (
-                                                        <Text size="xs" color="prominent">
-                                                            🤖 ML: {rec.mlPrediction.confidence.toFixed(1)}%
-                                                        </Text>
-                                                    )}
+                                                <div>
+                                                    <Text size="xs" color="general">{localize('Confidence')}</Text>
+                                                    <Text size="xs" weight="bold">{rec.confidence?.toFixed(0) || 0}%</Text>
                                                 </div>
-                                                <div className="rec-price">
-                                                    <Text size="xs">Price</Text>
-                                                    <Text weight="bold">{rec.currentPrice.toFixed(5)}</Text>
+                                                <div>
+                                                    <Text size="xs" color="general">{localize('Stake')}</Text>
+                                                    <Text size="xs" weight="bold">${rec.suggestedStake?.toFixed(2) || '1.00'}</Text>
                                                 </div>
                                             </div>
 
-                                            {trend && (
-                                                <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
-                                                    <span className="trend-icon">{getTrendIcon(trend)}</span>
-                                                    <div className="trend-details">
-                                                        <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
-                                                        <Text size="xs">{trend.strength} trend</Text>
-                                                    </div>
-                                                    <div className="hma-data">
-                                                        <div className="hma-row">
-                                                            <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
-                                                            <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
-                                                        </div>
-                                                        <div className="hma-row">
-                                                            <Text size="xs">HMA200: {trend.hma200?.toFixed(5) || 'N/A'}</Text>
-                                                            {trend.longTermTrendStrength !== undefined && (
-                                                                <Text size="xs" weight="bold">
-                                                                    Strength: {trend.longTermTrendStrength.toFixed(1)}%
-                                                                </Text>
-                                                            )}
-                                                        </div>
-                                                        <div className="hma-slopes">
-                                                            <Text size="xs">
-                                                                Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
-                                                                {Math.abs(trend.hma5Slope || 0).toFixed(6)}
-                                                            </Text>
-                                                        </div>
-
-                                                        {/* Long-term trend indicator with strength percentage */}
-                                                        <div className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
-                                                            {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
-                                                        </div>
-
-                                                        {/* Visual trend strength bar */}
-                                                        {trend.longTermTrendStrength !== undefined && (
-                                                            <div className="trend-strength-bar">
-                                                                <div
-                                                                    className={`strength-fill ${
-                                                                        trend.longTermTrendStrength >= 70 ? 'strength-high' :
-                                                                        trend.longTermTrendStrength >= 40 ? 'strength-medium' : 'strength-low'
-                                                                    }`}
-                                                                    style={{ width: `${trend.longTermTrendStrength}%` }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Ehlers Signal Quality Indicators */}
-                                                    {trend.ehlers && (
-                                                        <div className="ehlers-signals">
-                                                            <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
-                                                            <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
-                                                            <Text size="xs">ANTIC: {trend.ehlers.anticipatorySignal.toFixed(2)}</Text>
-                                                            {trend.ehlersRecommendation?.anticipatory && (
-                                                                <div className={`anticipatory-signal ${trend.ehlersRecommendation.signalStrength}`}>
-                                                                    {trend.ehlersRecommendation.signalStrength === 'strong' && (
-                                                                        <Text size="xs" color="profit-success">🎯 STRONG PULLBACK</Text>
-                                                                    )}
-                                                                    {trend.ehlersRecommendation.signalStrength === 'medium' && (
-                                                                        <Text size="xs" color="prominent">⚡ EARLY SIGNAL</Text>
-                                                                    )}
-                                                                    {trend.ehlersRecommendation.signalStrength === 'weak' && (
-                                                                        <Text size="xs" color="general">📊 POTENTIAL</Text>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Cycle Trading Suitability */}
-                                                    {trend.cycleTrading && (
-                                                        <div className={`cycle-status ${trend.cycleTrading.suitable ? 'suitable' : 'unsuitable'}`}>
-                                                            <Text size="xs">
-                                                                {trend.cycleTrading.suitable ? '✅ Good for cycles' : '❌ Poor cycle conditions'}
-                                                            </Text>
-                                                        </div>
-                                                    )}
+                                            {/* Trend indicator */}
+                                            <div className={`trend-indicator trend-${rec.direction === 'CALL' ? 'bullish' : 'bearish'}`}>
+                                                <div className="trend-icon">
+                                                    {rec.direction === 'CALL' ? '📈' : '📉'}
                                                 </div>
-                                            )}
+                                                <div className="trend-details">
+                                                    <Text size="xs" weight="bold">
+                                                        {rec.direction === 'CALL' ? 'Bullish Signal' : 'Bearish Signal'}
+                                                    </Text>
+                                                    <Text size="xs">
+                                                        {rec.suggestedDuration || 20}s • {rec.currentPrice?.toFixed(3) || 'N/A'}
+                                                    </Text>
+                                                </div>
+                                            </div>
 
                                             <div className="rec-reason">
-                                                <Text size="xs">{rec.reason}</Text>
+                                                {rec.reason || localize('ML-powered trading signal based on trend analysis')}
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                     </div>
