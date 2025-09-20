@@ -7,7 +7,7 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
-import { Button } from '@deriv/ui';
+import { Button } from '@deriv-com/ui';
 
 import './ml-trader.scss';
 
