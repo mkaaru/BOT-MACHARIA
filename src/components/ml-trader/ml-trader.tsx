@@ -1165,17 +1165,17 @@ const MLTrader = observer(() => {
                                             </div>
 
                                             <div className="rec-details">
-                                                <div className="rec-score">
-                                                    <Text size="xs">Score</Text>
-                                                    <Text weight="bold">{rec.score.toFixed(0)}</Text>
+                                                <div>
+                                                    <div className="detail-label">Score</div>
+                                                    <div className="detail-value">{rec.confidence.toFixed(0)}</div>
                                                 </div>
-                                                <div className="rec-confidence">
-                                                    <Text size="xs">Confidence</Text>
-                                                    <Text weight="bold">{rec.confidence.toFixed(0)}%</Text>
+                                                <div>
+                                                    <div className="detail-label">Confidence</div>
+                                                    <div className="detail-value">{rec.confidence.toFixed(0)}%</div>
                                                 </div>
-                                                <div className="rec-price">
-                                                    <Text size="xs">Price</Text>
-                                                    <Text weight="bold">{rec.currentPrice.toFixed(5)}</Text>
+                                                <div>
+                                                    <div className="detail-label">Price</div>
+                                                    <div className="detail-value">{rec.currentPrice?.toFixed(5) || 'N/A'}</div>
                                                 </div>
                                             </div>
 
@@ -1494,7 +1494,7 @@ const MLTrader = observer(() => {
                                         onClick={is_running ? onStop : onStart}
                                         disabled={!modal_recommendation && !is_running} // Disabled if no modal recommendation is set
                                     >
-                                        {is_running ? 'Stop' : 'Start Trading'}
+                                        {is_running ? localize('Stop') : localize('Start Trading')}
                                     </button>
 
                                     <button
@@ -1502,7 +1502,7 @@ const MLTrader = observer(() => {
                                         onClick={startMarketScan}
                                         disabled={is_running}
                                     >
-                                        Refresh Scan
+                                        {localize('Refresh Analysis')}
                                     </button>
                                 </div>
                             </div>

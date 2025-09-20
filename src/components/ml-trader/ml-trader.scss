@@ -81,14 +81,14 @@
         min-width: 0; // Prevent overflow issues
     }
 
-    // Beautiful Top Controls Section
-    &__top-controls {
+    // Bottom Controls Section (previously top controls)
+    &__bottom-controls {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
         background-size: 300% 300%;
         animation: gradientFlow 8s ease infinite;
         border-radius: 16px;
         padding: 2px;
-        margin-bottom: 1.5rem;
+        margin-top: 2rem;
         position: relative;
         overflow: hidden;
 
@@ -105,7 +105,7 @@
             z-index: 1;
         }
 
-        .top-controls-container {
+        .bottom-controls-container {
             background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
             border-radius: 16px;
             padding: 1.8rem;
@@ -800,15 +800,36 @@
             .rec-details {
                 display: grid;
                 grid-template-columns: 1fr 1fr 1fr;
-                gap: 1.2rem;
-                margin-bottom: 1.6rem;
+                gap: 1rem;
+                margin-bottom: 1.4rem;
                 text-align: center;
 
+                @media (max-width: 768px) {
+                    grid-template-columns: 1fr;
+                    gap: 0.8rem;
+                }
+
                 > div {
-                    padding: 1rem;
+                    padding: 0.8rem;
                     background: #f8fafc;
                     border-radius: 8px;
                     border: 1px solid #e2e8f0;
+                    font-size: 1.1rem;
+                    
+                    .detail-label {
+                        font-size: 1rem;
+                        font-weight: 600;
+                        color: #64748b;
+                        margin-bottom: 0.3rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+
+                    .detail-value {
+                        font-size: 1.3rem;
+                        font-weight: 700;
+                        color: #1e293b;
+                    }
                 }
             }
 
