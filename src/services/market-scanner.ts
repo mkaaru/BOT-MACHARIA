@@ -218,7 +218,7 @@ export class MarketScanner {
         }
 
         console.log('Generating trading recommendations...');
-        
+
         // Enhanced recommendation logic with ML predictions and trend filtering
         const recommendations: TradingRecommendation[] = [];
         VOLATILITY_SYMBOLS.forEach(symbolInfo => {
@@ -232,7 +232,7 @@ export class MarketScanner {
                 console.log(`No trend analysis available for ${symbolInfo.symbol}`);
                 return;
             }
-            
+
             // Reduce the minimum digits requirement to allow more recommendations
             if (recentDigits.length < 10) {
                 console.log(`Insufficient recent digits for ${symbolInfo.symbol}: ${recentDigits.length}`);
@@ -297,7 +297,7 @@ export class MarketScanner {
 
             // Apply enhanced filters and store qualified recommendations
             console.log(`${symbolInfo.symbol} composite score: ${compositeScore.toFixed(1)} (min required: ${this.MIN_RECOMMENDATION_SCORE})`);
-            
+
             if (compositeScore >= this.MIN_RECOMMENDATION_SCORE) {
                 const enhancedRec = {
                     ...symbol_rec,
@@ -338,22 +338,6 @@ export class MarketScanner {
         // Suggest optimal trading parameters
         const suggestedStake = this.calculateOptimalStake(trend.confidence, trend);
         const suggestedDuration = this.calculateOptimalDuration(scanResult.symbol, trend.confidence, []);
-
-        return {
-            symbol: scanResult.symbol,
-            displayName: scanResult.displayName,
-            direction,
-            confidence: trend.confidence,
-            score: trend.score,
-            reason,
-            hma5: trend.hma5 || 0,
-            hma40: trend.hma40 || 0,
-            currentPrice: trend.price || 0,
-            trendStrength: trend.strength,
-            suggestedStake,
-            suggestedDuration: suggestedDuration,
-            suggestedDurationUnit: 's',
-        };</old_str>
 
         return {
             symbol: scanResult.symbol,
