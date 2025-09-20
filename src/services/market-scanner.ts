@@ -337,7 +337,23 @@ export class MarketScanner {
 
         // Suggest optimal trading parameters
         const suggestedStake = this.calculateOptimalStake(trend.confidence, trend);
-        const suggestedDuration = this.calculateOptimalDuration(scanResult.symbol, trend.confidence, []);</old_str>
+        const suggestedDuration = this.calculateOptimalDuration(scanResult.symbol, trend.confidence, []);
+
+        return {
+            symbol: scanResult.symbol,
+            displayName: scanResult.displayName,
+            direction,
+            confidence: trend.confidence,
+            score: trend.score,
+            reason,
+            hma5: trend.hma5 || 0,
+            hma40: trend.hma40 || 0,
+            currentPrice: trend.price || 0,
+            trendStrength: trend.strength,
+            suggestedStake,
+            suggestedDuration: suggestedDuration,
+            suggestedDurationUnit: 's',
+        };</old_str>
 
         return {
             symbol: scanResult.symbol,
