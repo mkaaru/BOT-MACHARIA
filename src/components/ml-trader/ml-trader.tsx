@@ -185,6 +185,16 @@ const MLTrader = observer(() => {
         }
     }, [account_currency, baseStake, ouPredPostLoss]); // Add dependencies
 
+    // Import tickTrendAnalyzer when component mounts or when needed
+    const tickTrendAnalyzer = useRef<any>(null);
+    useEffect(() => {
+        import('@/services/tick-trend-analyzer').then(({ TickTrendAnalyzer }) => {
+            tickTrendAnalyzer.current = new TickTrendAnalyzer();
+            tickTrendAnalyzer.current.initialize(); // Initialize the analyzer
+        });
+    }, []);
+
+
     useEffect(() => {
         // Initialize API connection and market scanner
         const api = generateDerivApiInstance();
@@ -1219,46 +1229,73 @@ const MLTrader = observer(() => {
                                 )}
                             </div>
 
+                            {/* Tick Trend Analysis Status */}
+                            {selected_recommendation && (
+                                <div className="ml-trader__tick-analysis">
+                                    {(() => {
+                                        const mlSuitability = tickTrendAnalyzer.current.isMLTradingSuitable(selected_recommendation.symbol);
+                                        const tickDecision = tickTrendAnalyzer.current.generateTradingDecision(selected_recommendation.symbol);
+                                        const marketCondition = tickTrendAnalyzer.current.getMarketCondition(selected_recommendation.symbol);
+
+                                        return (
+                                            <div className={`tick-analysis ${mlSuitability.suitable ? 'suitable' : 'unsuitable'}`}>
+                                                <div className="tick-analysis__header">
+                                                    <Text size="xs" weight="bold">
+                                                        📊 Ultra-Fast Trend Analysis ({selected_recommendation.symbol})
+                                                    </Text>
+                                                    <span className={`suitability-badge ${mlSuitability.suitable ? 'good' : 'poor'}`}>
+                                                        {mlSuitability.score.toFixed(0)}%
+                                                    </span>
+                                                </div>
+                                                <div className="tick-analysis__details">
+                                                    <div className="filter-status">
+                                                        <span className={`filter ${mlSuitability.filters.trending ? 'pass' : 'fail'}`}>
+                                                            Trending: {mlSuitability.filters.trending ? '✅' : '❌'}
+                                                        </span>
+                                                        <span className={`filter ${mlSuitability.filters.volatility ? 'pass' : 'fail'}`}>
+                                                            Volatility: {mlSuitability.filters.volatility ? '✅' : '❌'}
+                                                        </span>
+                                                        <span className={`filter ${mlSuitability.filters.momentum ? 'pass' : 'fail'}`}>
+                                                            Momentum: {mlSuitability.filters.momentum ? '✅' : '❌'}
+                                                        </span>
+                                                        <span className={`filter ${mlSuitability.filters.velocity ? 'pass' : 'fail'}`}>
+                                                            Velocity: {mlSuitability.filters.velocity ? '✅' : '❌'}
+                                                        </span>
+                                                    </div>
+                                                    {marketCondition && (
+                                                        <div className="market-condition">
+                                                            <Text size="xs">
+                                                                {marketCondition.volatility} volatility •
+                                                                {marketCondition.trending ? ' Trending' : ' Sideways'} •
+                                                                {tickDecision.action} ({tickDecision.confidence.toFixed(0)}%)
+                                                            </Text>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+
                             {recommendations.length === 0 ? (
-                                <div className="no-recommendations">
-                                    {scanner_status && scanner_status.connectedSymbols < scanner_status.totalSymbols ? (
-                                        <>
-                                            <div className="loading-spinner"></div>
-                                            <div className="loading-text">
-                                                <Text size="sm" color="general">
-                                                    {localize('Analyzing markets... {{connected}}/{{total}} symbols', {
-                                                        connected: scanner_status.connectedSymbols,
-                                                        total: scanner_status.totalSymbols
-                                                    })}
-                                                </Text>
+                                <div className="ml-trader__no-recommendations">
+                                    <Text size="sm">
+                                        {initial_scan_complete
+                                            ? 'No suitable trading opportunities found'
+                                            : 'Scanning markets for opportunities...'
+                                        }
+                                    </Text>
+                                    {scanning_progress > 0 && (
+                                        <div className="ml-trader__progress">
+                                            <div className="ml-trader__progress-bar">
+                                                <div
+                                                    className="ml-trader__progress-fill"
+                                                    style={{ width: `${scanning_progress}%` }}
+                                                />
                                             </div>
-                                            <div style={{
-                                                width: '100%',
-                                                height: '6px',
-                                                background: '#e5e7eb',
-                                                borderRadius: '3px',
-                                                margin: '1rem 0',
-                                                overflow: 'hidden'
-                                            }}>
-                                                <div style={{
-                                                    width: `${scanning_progress}%`,
-                                                    height: '100%',
-                                                    background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
-                                                    transition: 'width 0.3s ease'
-                                                }} />
-                                            </div>
-                                        </>
-                                    ) : initial_scan_complete ? (
-                                        <Text size="sm" color="general">
-                                            {localize('No high-confidence signals available. Markets are being monitored...')}
-                                        </Text>
-                                    ) : (
-                                        <>
-                                            <div className="loading-spinner"></div>
-                                            <Text size="sm" color="general">
-                                                {localize('Initializing ML models and market analysis...')}
-                                            </Text>
-                                        </>
+                                            <Text size="xs">{scanning_progress.toFixed(0)}% complete</Text>
+                                        </div>
                                     )}
                                 </div>
                             ) : (

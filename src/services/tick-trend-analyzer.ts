@@ -1,4 +1,3 @@
-
 interface TickData {
     symbol: string;
     price: number;
@@ -26,18 +25,26 @@ interface TickAnalysis {
     volume?: number; // if available
 }
 
+interface MarketCondition {
+    trending: boolean;
+    volatility: 'HIGH' | 'MEDIUM' | 'LOW';
+    suitableForTrading: boolean;
+    reason: string;
+}
+
 export class DerivTickTrendAnalyzer {
     private tickHistory: Map<string, TickData[]> = new Map();
     private analysisCache: Map<string, TickAnalysis> = new Map();
     private signalHistory: Map<string, TrendSignal[]> = new Map();
-    
+    private marketConditions: Map<string, MarketCondition> = new Map();
+
     // Configuration for 2-minute trading
     private readonly TICK_BUFFER_SIZE = 600; // Keep last 10 minutes of ticks (assuming 1 tick/second)
     private readonly SIGNAL_VALIDITY_SECONDS = 30; // Signal valid for 30 seconds
     private readonly MIN_TICKS_FOR_ANALYSIS = 60; // Need at least 1 minute of data
-    
+
     constructor() {
-        console.log('🎯 Deriv Tick Trend Analyzer initialized for 2-minute binary options');
+        console.log('Enhanced Tick Trend Analyzer initialized for 2-minute binary options with ultra-fast detection');
     }
 
     /**
@@ -45,22 +52,26 @@ export class DerivTickTrendAnalyzer {
      */
     processTick(tick: TickData): TrendSignal | null {
         this.storeTick(tick);
-        
+
         const history = this.tickHistory.get(tick.symbol);
         if (!history || history.length < this.MIN_TICKS_FOR_ANALYSIS) {
             return null;
         }
 
-        // Perform rapid tick analysis
+        // Perform ultra-fast tick analysis
         const analysis = this.analyzeTickData(tick.symbol);
         this.analysisCache.set(tick.symbol, analysis);
 
+        // Analyze market conditions for trading suitability
+        const marketCondition = this.analyzeMarketCondition(tick.symbol, analysis);
+        this.marketConditions.set(tick.symbol, marketCondition);
+
         // Generate trend signal
         const signal = this.generateTrendSignal(tick.symbol, analysis);
-        
+
         // Store signal for tracking
         this.storeSignal(tick.symbol, signal);
-        
+
         return signal;
     }
 
@@ -68,10 +79,10 @@ export class DerivTickTrendAnalyzer {
         if (!this.tickHistory.has(tick.symbol)) {
             this.tickHistory.set(tick.symbol, []);
         }
-        
+
         const history = this.tickHistory.get(tick.symbol)!;
         history.push(tick);
-        
+
         // Keep buffer size manageable
         if (history.length > this.TICK_BUFFER_SIZE) {
             history.shift();
@@ -82,21 +93,21 @@ export class DerivTickTrendAnalyzer {
         const ticks = this.tickHistory.get(symbol)!;
         const prices = ticks.map(t => t.price);
         const timestamps = ticks.map(t => t.timestamp);
-        
+
         // Calculate ultra-fast EMAs for tick data
         const ema5 = this.calculateTickEMA(prices, 5);
         const ema13 = this.calculateTickEMA(prices, 13);
         const ema21 = this.calculateTickEMA(prices, 21);
-        
+
         // Calculate RSI on tick data (last 30 ticks)
         const rsi = this.calculateTickRSI(prices.slice(-30));
-        
+
         // Calculate momentum (rate of change over last 20 ticks)
         const momentum = this.calculateTickMomentum(prices, 20);
-        
+
         // Calculate tick velocity (price change per second)
         const tickVelocity = this.calculateTickVelocity(ticks.slice(-20));
-        
+
         // Analyze price action patterns
         const priceAction = this.analyzePriceAction(prices.slice(-40));
 
@@ -113,23 +124,23 @@ export class DerivTickTrendAnalyzer {
 
     private calculateTickEMA(prices: number[], period: number): number {
         if (prices.length < period) return prices[prices.length - 1];
-        
+
         const multiplier = 2 / (period + 1);
         let ema = prices[0];
-        
+
         for (let i = 1; i < prices.length; i++) {
             ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
         }
-        
+
         return ema;
     }
 
     private calculateTickRSI(prices: number[]): number {
         if (prices.length < 14) return 50; // Neutral RSI
-        
+
         let gains = 0;
         let losses = 0;
-        
+
         for (let i = 1; i < prices.length; i++) {
             const change = prices[i] - prices[i - 1];
             if (change > 0) {
@@ -138,51 +149,51 @@ export class DerivTickTrendAnalyzer {
                 losses += Math.abs(change);
             }
         }
-        
+
         const avgGain = gains / (prices.length - 1);
         const avgLoss = losses / (prices.length - 1);
-        
+
         if (avgLoss === 0) return 100;
-        
+
         const rs = avgGain / avgLoss;
         const rsi = 100 - (100 / (1 + rs));
-        
+
         return rsi;
     }
 
     private calculateTickMomentum(prices: number[], period: number): number {
         if (prices.length < period) return 0;
-        
+
         const currentPrice = prices[prices.length - 1];
         const pastPrice = prices[prices.length - period];
-        
+
         return ((currentPrice - pastPrice) / pastPrice) * 100;
     }
 
     private calculateTickVelocity(ticks: TickData[]): number {
         if (ticks.length < 2) return 0;
-        
+
         const timeSpan = (ticks[ticks.length - 1].timestamp - ticks[0].timestamp) / 1000; // seconds
         const priceChange = ticks[ticks.length - 1].price - ticks[0].price;
-        
+
         return priceChange / timeSpan; // price change per second
     }
 
     private analyzePriceAction(prices: number[]): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
         if (prices.length < 20) return 'NEUTRAL';
-        
+
         // Analyze recent candle patterns using tick data
         const recentPrices = prices.slice(-20);
         const midPoint = Math.floor(recentPrices.length / 2);
-        
+
         const firstHalf = recentPrices.slice(0, midPoint);
         const secondHalf = recentPrices.slice(midPoint);
-        
+
         const firstHalfAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
         const secondHalfAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-        
+
         const changePercent = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
-        
+
         if (changePercent > 0.01) return 'BULLISH';
         if (changePercent < -0.01) return 'BEARISH';
         return 'NEUTRAL';
@@ -192,7 +203,7 @@ export class DerivTickTrendAnalyzer {
         const reasons: string[] = [];
         let bullishPoints = 0;
         let bearishPoints = 0;
-        
+
         // EMA alignment analysis (25 points max)
         if (analysis.ema5 > analysis.ema13 && analysis.ema13 > analysis.ema21) {
             bullishPoints += 25;
@@ -207,7 +218,7 @@ export class DerivTickTrendAnalyzer {
             bearishPoints += 12;
             reasons.push('Short-term EMA bearish');
         }
-        
+
         // RSI analysis (20 points max)
         if (analysis.rsi > 70) {
             bearishPoints += 15;
@@ -222,7 +233,7 @@ export class DerivTickTrendAnalyzer {
             bearishPoints += 8;
             reasons.push('RSI bearish bias');
         }
-        
+
         // Momentum analysis (25 points max)
         if (analysis.momentum > 0.05) {
             bullishPoints += 20;
@@ -237,7 +248,7 @@ export class DerivTickTrendAnalyzer {
             bearishPoints += 10;
             reasons.push('Negative momentum');
         }
-        
+
         // Tick velocity analysis (15 points max)
         if (Math.abs(analysis.tickVelocity) > 0.001) {
             if (analysis.tickVelocity > 0) {
@@ -256,7 +267,7 @@ export class DerivTickTrendAnalyzer {
                 reasons.push('Moderate downward movement');
             }
         }
-        
+
         // Price action analysis (15 points max)
         if (analysis.priceAction === 'BULLISH') {
             bullishPoints += 15;
@@ -265,16 +276,16 @@ export class DerivTickTrendAnalyzer {
             bearishPoints += 15;
             reasons.push('Bearish price action');
         }
-        
+
         // Determine direction and confidence
         const totalPoints = bullishPoints + bearishPoints;
         const netBullish = bullishPoints - bearishPoints;
         const confidence = totalPoints > 0 ? Math.abs(netBullish) / totalPoints * 100 : 0;
-        
+
         let direction: 'UP' | 'DOWN' | 'NEUTRAL' = 'NEUTRAL';
         let recommendation: 'HIGHER' | 'LOWER' | 'HOLD' = 'HOLD';
         let strength: 'STRONG' | 'MEDIUM' | 'WEAK' = 'WEAK';
-        
+
         if (netBullish > 15 && confidence > 60) {
             direction = 'UP';
             recommendation = 'HIGHER';
@@ -284,7 +295,7 @@ export class DerivTickTrendAnalyzer {
             recommendation = 'LOWER';
             strength = confidence > 80 ? 'STRONG' : 'MEDIUM';
         }
-        
+
         return {
             direction,
             confidence: Math.min(95, confidence),
@@ -295,47 +306,7 @@ export class DerivTickTrendAnalyzer {
         };
     }
 
-    private storeSignal(symbol: string, signal: TrendSignal): void {
-        if (!this.signalHistory.has(symbol)) {
-            this.signalHistory.set(symbol, []);
-        }
-        
-        const history = this.signalHistory.get(symbol)!;
-        history.push(signal);
-        
-        // Keep only last 20 signals
-        if (history.length > 20) {
-            history.shift();
-        }
-    }
-
-    /**
-     * Get the most recent signal for a symbol
-     */
-    getLatestSignal(symbol: string): TrendSignal | null {
-        const history = this.signalHistory.get(symbol);
-        return history && history.length > 0 ? history[history.length - 1] : null;
-    }
-
-    /**
-     * Get current market conditions for decision making
-     */
-    getMarketCondition(symbol: string): {
-        trending: boolean;
-        volatility: 'HIGH' | 'MEDIUM' | 'LOW';
-        suitableForTrading: boolean;
-        reason: string;
-    } {
-        const analysis = this.analysisCache.get(symbol);
-        if (!analysis) {
-            return {
-                trending: false,
-                volatility: 'LOW',
-                suitableForTrading: false,
-                reason: 'Insufficient data'
-            };
-        }
-
+    private analyzeMarketCondition(symbol: string, analysis: TickAnalysis): MarketCondition {
         const ticks = this.tickHistory.get(symbol);
         if (!ticks) {
             return {
@@ -356,11 +327,11 @@ export class DerivTickTrendAnalyzer {
         if (volatilityPercent > 0.2) volatility = 'HIGH';
         else if (volatilityPercent > 0.05) volatility = 'MEDIUM';
 
-        // Check if market is trending
+        // Check if market is trending using EMA spreads
         const emaSpread = Math.abs(analysis.ema5 - analysis.ema21) / analysis.ema21 * 100;
         const trending = emaSpread > 0.02 && Math.abs(analysis.momentum) > 0.01;
 
-        // Determine if suitable for trading
+        // Determine if suitable for trading: trending, not low volatility, and has price movement
         const suitableForTrading = trending && volatility !== 'LOW' && Math.abs(analysis.tickVelocity) > 0.0003;
 
         let reason = '';
@@ -377,6 +348,35 @@ export class DerivTickTrendAnalyzer {
         };
     }
 
+    private storeSignal(symbol: string, signal: TrendSignal): void {
+        if (!this.signalHistory.has(symbol)) {
+            this.signalHistory.set(symbol, []);
+        }
+
+        const history = this.signalHistory.get(symbol)!;
+        history.push(signal);
+
+        // Keep only last 20 signals
+        if (history.length > 20) {
+            history.shift();
+        }
+    }
+
+    /**
+     * Get the most recent signal for a symbol
+     */
+    getLatestSignal(symbol: string): TrendSignal | null {
+        const history = this.signalHistory.get(symbol);
+        return history && history.length > 0 ? history[history.length - 1] : null;
+    }
+
+    /**
+     * Get current market conditions for decision making
+     */
+    getMarketCondition(symbol: string): MarketCondition | undefined {
+        return this.marketConditions.get(symbol);
+    }
+
     /**
      * Generate trading recommendation with risk management
      */
@@ -390,7 +390,7 @@ export class DerivTickTrendAnalyzer {
         const signal = this.getLatestSignal(symbol);
         const marketCondition = this.getMarketCondition(symbol);
 
-        if (!signal || !marketCondition.suitableForTrading) {
+        if (!signal || !marketCondition || !marketCondition.suitableForTrading) {
             return {
                 action: 'WAIT',
                 confidence: 0,
@@ -400,7 +400,7 @@ export class DerivTickTrendAnalyzer {
             };
         }
 
-        // Risk assessment
+        // Risk assessment based on signal confidence, strength, and market volatility
         let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM';
         if (signal.confidence > 80 && signal.strength === 'STRONG' && marketCondition.volatility === 'MEDIUM') {
             riskLevel = 'LOW';
@@ -408,12 +408,12 @@ export class DerivTickTrendAnalyzer {
             riskLevel = 'HIGH';
         }
 
-        // Only trade if confidence is high enough
-        if (signal.confidence < 60) {
+        // Only trade if confidence is high enough and market is trending
+        if (signal.confidence < 60 || !marketCondition.trending) {
             return {
                 action: 'WAIT',
                 confidence: signal.confidence,
-                reasoning: ['Confidence too low for trading', ...signal.reasons],
+                reasoning: ['Confidence too low or market not trending', ...signal.reasons, `Market: ${marketCondition.reason}`],
                 riskLevel: 'HIGH',
                 expiry: 0
             };
@@ -433,7 +433,7 @@ export class DerivTickTrendAnalyzer {
      */
     getDetailedAnalytics(symbol: string): {
         currentAnalysis: TickAnalysis | null;
-        marketCondition: any;
+        marketCondition: MarketCondition | undefined;
         recentSignals: TrendSignal[];
         ticksAnalyzed: number;
         signalAccuracy?: number;
@@ -466,6 +466,7 @@ export class DerivTickTrendAnalyzer {
         this.tickHistory.delete(symbol);
         this.analysisCache.delete(symbol);
         this.signalHistory.delete(symbol);
+        this.marketConditions.delete(symbol);
         console.log(`🔄 Reset analyzer for ${symbol}`);
     }
 
@@ -479,9 +480,8 @@ export class DerivTickTrendAnalyzer {
         memoryUsage: string;
     } {
         let totalTicks = 0;
-        let totalSignals = 0;
-
         this.tickHistory.forEach(ticks => totalTicks += ticks.length);
+        let totalSignals = 0;
         this.signalHistory.forEach(signals => totalSignals += signals.length);
 
         return {
@@ -489,6 +489,50 @@ export class DerivTickTrendAnalyzer {
             totalTicks,
             totalSignals,
             memoryUsage: `${Math.round((totalTicks + totalSignals) * 0.1 / 1024)} KB`
+        };
+    }
+
+    /**
+     * Clean up old data
+     */
+    cleanup(): void {
+        const now = Date.now();
+        const maxAge = 10 * 60 * 1000; // 10 minutes
+
+        for (const [symbol, ticks] of this.tickHistory.entries()) {
+            const filteredTicks = ticks.filter(tick => now - tick.timestamp < maxAge);
+            this.tickHistory.set(symbol, filteredTicks);
+        }
+
+        // Clean up old signals (keep only last hour)
+        const signalMaxAge = 60 * 60 * 1000; // 1 hour
+        for (const [symbol, signals] of this.signalHistory.entries()) {
+            const recentSignals = signals.slice(-20); // Keep last 20 signals
+            this.signalHistory.set(symbol, recentSignals);
+        }
+
+        console.log('🧹 Tick Trend Analyzer: Cleaned up old data');
+    }
+
+    /**
+     * Get comprehensive statistics for monitoring
+     */
+    getStats(): {
+        symbolsTracked: number;
+        totalTicks: number;
+        activeSignals: number;
+        marketConditions: number;
+    } {
+        let totalTicks = 0;
+        for (const ticks of this.tickHistory.values()) {
+            totalTicks += ticks.length;
+        }
+
+        return {
+            symbolsTracked: this.tickHistory.size,
+            totalTicks,
+            activeSignals: this.signalHistory.size,
+            marketConditions: this.marketConditions.size
         };
     }
 }
