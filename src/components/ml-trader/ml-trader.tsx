@@ -411,6 +411,17 @@ const MLTrader = observer(() => {
             const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
             const barrierOffsetValue = calculateBarrierOffset();
 
+            // Use default values: stakes = 0.5, duration = 5 ticks
+            const defaultStake = 0.5;
+            const defaultDuration = 5;
+            const defaultDurationUnit = 't'; // ticks
+            
+            // ROC sensitivity settings - use current settings as default, half for sensitive
+            const rocSensitive = false; // Default to false, can be toggled via UI later
+            const longTermROCPeriod = rocSensitive ? 10 : 20; // Half for sensitive
+            const shortTermROCPeriod = rocSensitive ? 2.5 : 5; // Half for sensitive (round to 3 for sensitive)
+            const actualShortTermROC = rocSensitive ? 3 : 5; // Rounded for actual use
+
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id=":yGQ!WYKA[R_sO1MkSjL">tick1</variable>
@@ -421,6 +432,9 @@ const MLTrader = observer(() => {
     <variable id="I4.{v(IzG;i#bX-6h(1#">win stake</variable>
     <variable id=".5ELQ4[J.e4czk,qPqKM">Martingale split</variable>
     <variable id="Result_is">Result_is</variable>
+    <variable id="ROC_Long_Period">ROC Long Period</variable>
+    <variable id="ROC_Short_Period">ROC Short Period</variable>
+    <variable id="ROC_Sensitive">ROC Sensitive</variable>
   </variables>
 
   <!-- Trade Definition Block -->
@@ -479,7 +493,7 @@ const MLTrader = observer(() => {
                 <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                 <value name="VALUE">
                   <block type="math_number" id="TDv/W;dNI84TFbp}8X8=">
-                    <field name="NUM">${stake}</field>
+                    <field name="NUM">${defaultStake}</field>
                   </block>
                 </value>
                 <next>
@@ -487,7 +501,7 @@ const MLTrader = observer(() => {
                     <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
                     <value name="VALUE">
                       <block type="math_number" id="9Z%4%dmqCp;/sSt8wGv#">
-                        <field name="NUM">${stake}</field>
+                        <field name="NUM">${defaultStake}</field>
                       </block>
                     </value>
                     <next>
@@ -499,22 +513,52 @@ const MLTrader = observer(() => {
                           </block>
                         </value>
                         <next>
-                          <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yzm">
-                            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                          <block type="variables_set" id="ROCLongPeriodSet">
+                            <field name="VAR" id="ROC_Long_Period">ROC Long Period</field>
                             <value name="VALUE">
-                              <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
-                                <value name="FROM">
-                                  <shadow type="math_number" id="$A^)*y7W0([+ckWE+BCo">
-                                    <field name="NUM">1</field>
-                                  </shadow>
-                                </value>
-                                <value name="TO">
-                                  <shadow type="math_number" id=",_;o3PUOp?^|_ffS^P8">
-                                    <field name="NUM">1</field>
-                                  </shadow>
-                                </value>
+                              <block type="math_number" id="ROCLongPeriodNum">
+                                <field name="NUM">${longTermROCPeriod}</field>
                               </block>
                             </value>
+                            <next>
+                              <block type="variables_set" id="ROCShortPeriodSet">
+                                <field name="VAR" id="ROC_Short_Period">ROC Short Period</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="ROCShortPeriodNum">
+                                    <field name="NUM">${actualShortTermROC}</field>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="variables_set" id="ROCSensitiveSet">
+                                    <field name="VAR" id="ROC_Sensitive">ROC Sensitive</field>
+                                    <value name="VALUE">
+                                      <block type="logic_boolean" id="ROCSensitiveBool">
+                                        <field name="BOOL">${rocSensitive ? 'TRUE' : 'FALSE'}</field>
+                                      </block>
+                                    </value>
+                                    <next>
+                                      <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yzm">
+                                        <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                                        <value name="VALUE">
+                                          <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
+                                            <value name="FROM">
+                                              <shadow type="math_number" id="$A^)*y7W0([+ckWE+BCo">
+                                                <field name="NUM">1</field>
+                                              </shadow>
+                                            </value>
+                                            <value name="TO">
+                                              <shadow type="math_number" id=",_;o3PUOp?^|_ffS^P8">
+                                                <field name="NUM">1</field>
+                                              </shadow>
+                                            </value>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
                           </block>
                         </next>
                       </block>
@@ -532,18 +576,18 @@ const MLTrader = observer(() => {
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
         <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${trade_mode === 'higher_lower' ? 'true' : 'false'}" has_second_barrier="false" has_prediction="false"></mutation>
-        <field name="DURATIONTYPE_LIST">${duration_unit}</field>
+        <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
         <value name="DURATION">
           <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
-            <field name="NUM">${duration}</field>
+            <field name="NUM">${defaultDuration}</field>
           </shadow>
           <block type="math_number" id="*l8K~H:oQ)^=Cn,A^N~s">
-            <field name="NUM">${duration}</field>
+            <field name="NUM">${defaultDuration}</field>
           </block>
         </value>
         <value name="AMOUNT">
           <shadow type="math_number" id="ziEt8|we%%I_ac)[?0aT">
-            <field name="NUM">1</field>
+            <field name="NUM">0.5</field>
           </shadow>
           <block type="variables_get" id="m3{*qF|69xv{GI:=Nr#R">
             <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
