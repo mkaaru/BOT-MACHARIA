@@ -135,11 +135,29 @@ export class TrendAnalysisEngine {
         // Calculate long-term trend strength
         const longTermStrength = this.calculateLongTermTrendStrengthMultiHMA(hmaData, currentPrice, symbol);
 
-        // Generate recommendation based on alignment
-        const recommendation = this.generateRecommendationByAlignment(direction, strength, confidence, alignment, symbol);
+        // Get SMA-based signal validation first
+        const smaSignal = this.validateSMABasedSignal(symbol);
         
-        // Calculate overall score based on alignment
-        const score = this.calculateTradingScoreByAlignment(direction, strength, confidence, alignment);
+        // Override direction based on SMA signal validation
+        let finalDirection = direction;
+        if (smaSignal === 'BULLISH') {
+            finalDirection = 'bullish';
+        } else if (smaSignal === 'BEARISH') {
+            finalDirection = 'bearish';
+        } else {
+            finalDirection = 'neutral'; // No valid signal
+        }
+
+        // Generate recommendation based on SMA validation
+        const recommendation = this.generateRecommendationByAlignment(finalDirection, strength, confidence, alignment, symbol);
+        
+        // Calculate overall score based on alignment and SMA validation
+        let score = this.calculateTradingScoreByAlignment(finalDirection, strength, confidence, alignment);
+        
+        // Boost score significantly for valid SMA signals
+        if (smaSignal === 'BULLISH' || smaSignal === 'BEARISH') {
+            score = Math.min(95, score + 25); // Add 25 points for valid SMA signal
+        }
 
         // Get Ehlers-based recommendations
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
@@ -174,7 +192,7 @@ export class TrendAnalysisEngine {
 
         const analysis: TrendAnalysis = {
             symbol,
-            direction,
+            direction: finalDirection,
             strength,
             confidence,
             hma5: hmaData.find(h => h.period === 5)?.value || null,
@@ -197,7 +215,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
         
-        console.log(`Multi-HMA Alignment Analysis for ${symbol}: ${direction.toUpperCase()} (${strength}) - Alignment: ${alignment.alignmentPercentage.toFixed(1)}% (${alignment.alignedCount}/${alignment.totalCount}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+        console.log(`SMA-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - SMA Signal: ${smaSignal || 'NONE'} - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
     }
 
     /**
@@ -290,7 +308,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate recommendation based on alignment
+     * Generate recommendation based on SMA conditions and candle patterns
      */
     private generateRecommendationByAlignment(
         direction: TrendDirection,
@@ -299,29 +317,21 @@ export class TrendAnalysisEngine {
         alignment: any,
         symbol?: string
     ): 'BUY' | 'SELL' | 'HOLD' {
-        // Require strong alignment for trading signals
-        if (!alignment.isAligned || alignment.alignmentPercentage < 80) {
+        if (!symbol) {
             return 'HOLD';
         }
 
-        // Require high confidence
-        if (confidence < 75) {
+        // Get specific signal validation using SMA and candle patterns
+        const signalValidation = this.validateSMABasedSignal(symbol);
+        
+        if (!signalValidation) {
             return 'HOLD';
         }
 
-        // Check candle color validation if symbol is provided
-        if (symbol) {
-            const candleColorValid = this.validateCandleColor(symbol, direction);
-            if (!candleColorValid) {
-                console.log(`${symbol}: Candle color validation failed for ${direction} signal - waiting for aligned candle`);
-                return 'HOLD';
-            }
-        }
-
-        // Generate signals based on aligned direction
-        if (direction === 'bullish' && strength !== 'weak') {
+        // Apply the validated signal
+        if (signalValidation === 'BULLISH') {
             return 'BUY';
-        } else if (direction === 'bearish' && strength !== 'weak') {
+        } else if (signalValidation === 'BEARISH') {
             return 'SELL';
         }
 
@@ -415,41 +425,91 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate that the last 1-minute candle color aligns with the signal direction
+     * Validate SMA-based trading signals with specific candle pattern requirements
      */
-    private validateCandleColor(symbol: string, direction: TrendDirection): boolean {
+    private validateSMABasedSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         
-        // Get the latest completed candle for this symbol
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 1);
+        // Get the latest candles for analysis (need at least 11 for SMA-10 calculation)
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 15);
         
-        if (recentCandles.length === 0) {
-            console.log(`${symbol}: No candle data available for validation`);
-            return false; // No candle data available
+        if (recentCandles.length < 11) {
+            console.log(`${symbol}: Insufficient candle data for SMA analysis (need 11, have ${recentCandles.length})`);
+            return null;
         }
         
+        // Get last two candles for comparison
         const lastCandle = recentCandles[recentCandles.length - 1];
-        const { open, close } = lastCandle;
+        const previousCandle = recentCandles[recentCandles.length - 2];
         
-        // Determine candle color
-        const isBullishCandle = close > open;  // Green/bullish candle
-        const isBearishCandle = close < open;  // Red/bearish candle
+        // Calculate 10-period SMA using the last 10 candles
+        const last10Candles = recentCandles.slice(-10);
+        const sma10 = last10Candles.reduce((sum, candle) => sum + candle.close, 0) / 10;
         
-        // Validate alignment
-        if (direction === 'bullish' && isBullishCandle) {
-            console.log(`${symbol}: ✅ Bullish signal validated - last candle was GREEN (${open.toFixed(5)} → ${close.toFixed(5)})`);
-            return true;
+        // Extract candle data
+        const { open: lastOpen, close: lastClose, high: lastHigh, low: lastLow } = lastCandle;
+        const { high: prevHigh, low: prevLow } = previousCandle;
+        
+        // Determine candle colors
+        const isLastCandleGreen = lastClose > lastOpen;
+        const isLastCandleRed = lastClose < lastOpen;
+        
+        // BULLISH SIGNAL CONDITIONS:
+        // 1. Last candle is green (close > open)
+        // 2. Closes above previous high
+        // 3. Price is above 10-period SMA
+        if (isLastCandleGreen && lastClose > prevHigh && lastClose > sma10) {
+            console.log(`${symbol}: ✅ BULLISH signal confirmed:
+                - Last candle GREEN: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
+                - Closes above prev high: ${lastClose.toFixed(5)} > ${prevHigh.toFixed(5)}
+                - Above SMA-10: ${lastClose.toFixed(5)} > ${sma10.toFixed(5)}`);
+            return 'BULLISH';
         }
         
-        if (direction === 'bearish' && isBearishCandle) {
-            console.log(`${symbol}: ✅ Bearish signal validated - last candle was RED (${open.toFixed(5)} → ${close.toFixed(5)})`);
-            return true;
+        // BEARISH SIGNAL CONDITIONS:
+        // 1. Last candle is red (close < open)
+        // 2. Closes below previous low
+        // 3. Close is below 10-period SMA
+        if (isLastCandleRed && lastClose < prevLow && lastClose < sma10) {
+            console.log(`${symbol}: ✅ BEARISH signal confirmed:
+                - Last candle RED: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
+                - Closes below prev low: ${lastClose.toFixed(5)} < ${prevLow.toFixed(5)}
+                - Below SMA-10: ${lastClose.toFixed(5)} < ${sma10.toFixed(5)}`);
+            return 'BEARISH';
         }
         
-        // Signal doesn't align with candle color
-        const candleType = isBullishCandle ? 'GREEN' : isBearishCandle ? 'RED' : 'DOJI';
-        console.log(`${symbol}: ❌ ${direction.toUpperCase()} signal blocked - last candle was ${candleType} (${open.toFixed(5)} → ${close.toFixed(5)})`);
+        // Log why signal was not generated
+        if (isLastCandleGreen) {
+            if (lastClose <= prevHigh) {
+                console.log(`${symbol}: ❌ Bullish signal blocked - close ${lastClose.toFixed(5)} not above prev high ${prevHigh.toFixed(5)}`);
+            } else if (lastClose <= sma10) {
+                console.log(`${symbol}: ❌ Bullish signal blocked - close ${lastClose.toFixed(5)} not above SMA-10 ${sma10.toFixed(5)}`);
+            }
+        } else if (isLastCandleRed) {
+            if (lastClose >= prevLow) {
+                console.log(`${symbol}: ❌ Bearish signal blocked - close ${lastClose.toFixed(5)} not below prev low ${prevLow.toFixed(5)}`);
+            } else if (lastClose >= sma10) {
+                console.log(`${symbol}: ❌ Bearish signal blocked - close ${lastClose.toFixed(5)} not below SMA-10 ${sma10.toFixed(5)}`);
+            }
+        } else {
+            console.log(`${symbol}: ❌ No signal - candle is neutral/doji: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}`);
+        }
+        
+        return null;
+    }
+
+    /**
+     * Legacy method - kept for compatibility but now calls SMA-based validation
+     */
+    private validateCandleColor(symbol: string, direction: TrendDirection): boolean {
+        const smaSignal = this.validateSMABasedSignal(symbol);
+        
+        if (direction === 'bullish' && smaSignal === 'BULLISH') {
+            return true;
+        } else if (direction === 'bearish' && smaSignal === 'BEARISH') {
+            return true;
+        }
         
         return false;
     }
