@@ -26,6 +26,7 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
+import ChartAnalyzer from '@/components/chart-analyzer/chart-analyzer';
 
 
 const Chart = lazy(() => import('../chart'));
@@ -1114,7 +1115,7 @@ const AppWrapper = observer(() => {
 
             const updatedScripts = [...savedScripts, newScript];
             setSavedScripts(updatedScripts);
-            localStorage.setItem('pythonTradingScripts', JSON.stringify(updatedScripts));
+            localStorage.setItem('pythonTradingScripts', JSON.JSON.parse(savedScripts));
             addOutput('success', `Script '${scriptName}' saved successfully`);
         }
     }, [pythonCode, savedScripts]);
@@ -1527,7 +1528,8 @@ if __name__ == "__main__":
                         </div>
                         <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
-                                <Chart show_digits_stats={false} />                            </Suspense>
+                                <Chart show_digits_stats={false} />
+                            </Suspense>
                         </div>
                         <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
@@ -1540,6 +1542,9 @@ if __name__ == "__main__":
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
                             <button onClick={handleOpen}>Load Bot</button>
+                        </div>
+                        <div label={<><ChartsIcon /><Localize i18n_default_text='Chart Analyzer' /></>} id='id-chart-analyzer'>
+                            <ChartAnalyzer />
                         </div>
                     </Tabs>
                 </div>
