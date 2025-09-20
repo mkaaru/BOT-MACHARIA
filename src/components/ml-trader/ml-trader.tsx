@@ -1042,6 +1042,11 @@ const MLTrader = observer(() => {
         return '➡️';
     };
 
+    const setStake = useCallback((newStake: number) => {
+        setModalStake(newStake);
+        baseStakeRef.current = newStake;
+    }, []);
+
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
@@ -1172,7 +1177,7 @@ const MLTrader = observer(() => {
                                     Trading Recommendations
                                 </Text>
                                 <Text size="xs" color="general">
-                                    {initial_scan_complete 
+                                    {initial_scan_complete
                                         ? `${recommendations.length} active signals`
                                         : `Scanning... ${Math.round(scanning_progress)}% complete`
                                     }
@@ -1193,13 +1198,13 @@ const MLTrader = observer(() => {
                                 <div className="empty-state">
                                     <div className="empty-icon">📊</div>
                                     <Text size="s" color="general">
-                                        {enable_trend_filter 
+                                        {enable_trend_filter
                                             ? `No recommendations match your trend filter criteria. Try adjusting the filter settings.`
                                             : 'No trading opportunities found at the moment. Market conditions may not be optimal for trading.'
                                         }
                                     </Text>
-                                    <button 
-                                        className="ml-trader__btn ml-trader__btn--scan" 
+                                    <button
+                                        className="ml-trader__btn ml-trader__btn--scan"
                                         onClick={startMarketScan}
                                         disabled={!is_scanner_initialized}
                                     >
@@ -1209,7 +1214,7 @@ const MLTrader = observer(() => {
                             ) : (
                                 <div className="recommendations-list">
                                     {recommendations.slice(0, 6).map((rec, index) => (
-                                        <div 
+                                        <div
                                             key={`${rec.symbol}-${index}`}
                                             className={`recommendation-card ${rec.direction.toLowerCase()} ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
                                             onClick={() => openRecommendationModal(rec)}
