@@ -105,7 +105,7 @@ const MLTrader = observer(() => {
     const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
 
-    
+
 
     // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
@@ -320,7 +320,7 @@ const MLTrader = observer(() => {
         }
     }, [updateTrendsFromScanner]);
 
-    
+
 
     // Apply a trading recommendation to the trading interface (not modal)
     const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
@@ -960,7 +960,6 @@ const MLTrader = observer(() => {
                 status: 'open',
             } as any);
 
-            run_panel.setHasOpenContract(true);
             run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
             setStatus(`Contract purchased: ${buy?.longcode}`);
@@ -1130,7 +1129,7 @@ const MLTrader = observer(() => {
                                                 </div>
                                             </div>
 
-                                            
+
                                         </>
                                     )}
                                 </div>
@@ -1187,43 +1186,17 @@ const MLTrader = observer(() => {
                                                         <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
                                                         <Text size="xs">{trend.strength} trend</Text>
                                                     </div>
-                                                    <div className="hma-data">
-                                                        <div className="hma-row">
-                                                            <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
-                                                            <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
-                                                        </div>
-                                                        <div className="hma-row">
-                                                            <Text size="xs">HMA200: {trend.hma200?.toFixed(5) || 'N/A'}</Text>
-                                                            {trend.longTermTrendStrength !== undefined && (
-                                                                <Text size="xs" weight="bold">
-                                                                    Strength: {trend.longTermTrendStrength.toFixed(1)}%
-                                                                </Text>
-                                                            )}
-                                                        </div>
-                                                        <div className="hma-slopes">
-                                                            <Text size="xs">
-                                                                Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
-                                                                {Math.abs(trend.hma5Slope || 0).toFixed(6)}
+                                                    <div className="indicator-data">
+                                                        <div className="indicator-row">
+                                                            <Text size="xs">Price: {trend.price?.toFixed(5) || 'N/A'}</Text>
+                                                            <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
+                                                                Trend: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
                                                             </Text>
                                                         </div>
-
-                                                        {/* Long-term trend indicator with strength percentage */}
-                                                        <div className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
-                                                            {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                        <div className="indicator-row">
+                                                            <Text size="xs">ROC: {trend.roc ? `${trend.roc.toFixed(3)}%` : 'N/A'}</Text>
+                                                            <Text size="xs">MACD: {trend.macd ? trend.macd.toFixed(6) : 'N/A'}</Text>
                                                         </div>
-
-                                                        {/* Visual trend strength bar */}
-                                                        {trend.longTermTrendStrength !== undefined && (
-                                                            <div className="trend-strength-bar">
-                                                                <div
-                                                                    className={`strength-fill ${
-                                                                        trend.longTermTrendStrength >= 70 ? 'strength-high' :
-                                                                        trend.longTermTrendStrength >= 40 ? 'strength-medium' : 'strength-low'
-                                                                    }`}
-                                                                    style={{ width: `${trend.longTermTrendStrength}%` }}
-                                                                />
-                                                            </div>
-                                                        )}
                                                     </div>
 
                                                     {/* Ehlers Signal Quality Indicators */}
@@ -1354,22 +1327,16 @@ const MLTrader = observer(() => {
                                                     </div>
                                                 </div>
 
-                                                <div className="hma-data">
-                                                    <div className="hma-row">
-                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
-                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
-                                                    </div>
-                                                    <div className="hma-row">
-                                                        <Text size="xs">HMA200: {trend.hma200?.toFixed(5) || 'N/A'}</Text>
+                                                <div className="indicator-data">
+                                                    <div className="indicator-row">
+                                                        <Text size="xs">Price: {trend.price?.toFixed(5) || 'N/A'}</Text>
                                                         <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
-                                                            Filter: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                            Trend: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
                                                         </Text>
                                                     </div>
-                                                    <div className="hma-slopes">
-                                                        <Text size="xs">
-                                                            Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
-                                                            {Math.abs(trend.hma5Slope || 0).toFixed(6)}
-                                                        </Text>
+                                                    <div className="indicator-row">
+                                                        <Text size="xs">ROC: {trend.roc ? `${trend.roc.toFixed(3)}%` : 'N/A'}</Text>
+                                                        <Text size="xs">MACD: {trend.macd ? trend.macd.toFixed(6) : 'N/A'}</Text>
                                                     </div>
                                                 </div>
 

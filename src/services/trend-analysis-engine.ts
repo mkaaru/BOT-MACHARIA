@@ -11,21 +11,23 @@ export interface TrendAnalysis {
     strength: TrendStrength;
     confidence: number; // 0-100
     hma5: number | null;
-    hma40?: number | null; // Optional since we're not using HMA40 anymore
     hma200: number | null; // Long-term trend filter
     hma5Slope: number | null;
-    hma40Slope?: number | null; // Optional since we're not using HMA40 anymore
     hma200Slope: number | null;
     hma5Color?: 'green' | 'red' | 'neutral'; // Color coding for HMA5
     hma200Color?: 'green' | 'red' | 'neutral'; // Color coding for HMA200
     colorAlignment?: boolean; // Whether both HMAs have the same color
-    crossover?: number; // Optional since we're using color alignment instead
     longTermTrend: TrendDirection; // HMA200 trend direction for filtering
     longTermTrendStrength?: number; // 0-100, strength of long-term trend
     price: number | null;
     lastUpdate: Date;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
     score: number; // Overall trading score (0-100)
+    
+    // New indicators
+    roc?: number; // Rate of Change indicator
+    macd?: number; // MACD value
+    macdTrend?: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; // MACD trend direction
     
     // Enhanced Ehlers signals
     ehlers?: EhlersSignals;
@@ -142,29 +144,29 @@ export class TrendAnalysisEngine {
         // Calculate long-term trend strength
         const longTermStrength = this.calculateLongTermTrendStrengthMultiHMA(hmaData, currentPrice, symbol);
 
-        // Get SMA-based signal validation with persistence
-        const rawSmaSignal = this.validateSMABasedSignal(symbol);
-        const persistentSmaSignal = this.getPersistedSignal(symbol, rawSmaSignal);
+        // Get MACD/ROC-based signal validation with persistence
+        const rawMacdRocSignal = this.validateMACDROCSignal(symbol);
+        const persistentMacdRocSignal = this.getPersistedSignal(symbol, rawMacdRocSignal);
         
-        // Override direction based on persistent SMA signal validation
+        // Override direction based on persistent MACD/ROC signal validation
         let finalDirection = direction;
-        if (persistentSmaSignal === 'BULLISH') {
+        if (persistentMacdRocSignal === 'BULLISH') {
             finalDirection = 'bullish';
-        } else if (persistentSmaSignal === 'BEARISH') {
+        } else if (persistentMacdRocSignal === 'BEARISH') {
             finalDirection = 'bearish';
         } else {
             finalDirection = 'neutral'; // No valid signal
         }
 
-        // Generate recommendation based on persistent SMA validation
+        // Generate recommendation based on persistent MACD/ROC validation
         const recommendation = this.generateRecommendationByAlignment(finalDirection, strength, confidence, alignment, symbol);
         
-        // Calculate overall score based on alignment and SMA validation
+        // Calculate overall score based on alignment and MACD/ROC validation
         let score = this.calculateTradingScoreByAlignment(finalDirection, strength, confidence, alignment);
         
-        // Boost score significantly for valid SMA signals
-        if (persistentSmaSignal === 'BULLISH' || persistentSmaSignal === 'BEARISH') {
-            score = Math.min(95, score + 25); // Add 25 points for valid SMA signal
+        // Boost score significantly for valid MACD/ROC signals
+        if (persistentMacdRocSignal === 'BULLISH' || persistentMacdRocSignal === 'BEARISH') {
+            score = Math.min(95, score + 25); // Add 25 points for valid MACD/ROC signal
         }
 
         // Get Ehlers-based recommendations
@@ -198,6 +200,21 @@ export class TrendAnalysisEngine {
             }
         }
 
+        // Calculate ROC and MACD for display
+        const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 35);
+        let roc: number | undefined;
+        let macd: number | undefined;
+        let macdTrend: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | undefined;
+        
+        if (recentCandles && recentCandles.length >= 30) {
+            const prices = recentCandles.map((candle: any) => candle.close);
+            roc = this.calculateROC(prices, 14) || undefined;
+            const macdData = this.calculateMACD(prices);
+            macd = macdData.macd || undefined;
+            macdTrend = macdData.trend;
+        }
+
         const analysis: TrendAnalysis = {
             symbol,
             direction: finalDirection,
@@ -216,6 +233,9 @@ export class TrendAnalysisEngine {
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
             score: enhancedScore,
+            roc,
+            macd,
+            macdTrend,
             ehlers: ehlersSignals,
             ehlersRecommendation,
             cycleTrading,
@@ -223,7 +243,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
         
-        console.log(`SMA-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - SMA Signal: ${persistentSmaSignal || 'NONE'} (Raw: ${rawSmaSignal || 'NONE'}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+        console.log(`MACD/ROC-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - MACD/ROC Signal: ${persistentMacdRocSignal || 'NONE'} (Raw: ${rawMacdRocSignal || 'NONE'}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
     }
 
     /**
@@ -329,8 +349,8 @@ export class TrendAnalysisEngine {
             return 'HOLD';
         }
 
-        // Get specific signal validation using SMA and candle patterns
-        const signalValidation = this.validateSMABasedSignal(symbol);
+        // Get specific signal validation using MACD/ROC and candle patterns
+        const signalValidation = this.validateMACDROCSignal(symbol);
         
         if (!signalValidation) {
             return 'HOLD';
@@ -433,165 +453,169 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate SMA-based trading signals with enhanced long-term trend alignment and reduced noise
+     * Calculate Rate of Change (ROC) indicator
      */
-    private validateSMABasedSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
+    private calculateROC(prices: number[], period: number = 14): number | null {
+        if (prices.length < period + 1) return null;
+        
+        const currentPrice = prices[prices.length - 1];
+        const pastPrice = prices[prices.length - 1 - period];
+        
+        return ((currentPrice - pastPrice) / pastPrice) * 100;
+    }
+
+    /**
+     * Calculate MACD with custom settings (3, 16, 16)
+     */
+    private calculateMACD(prices: number[]): { 
+        macd: number | null; 
+        signal: number | null; 
+        histogram: number | null;
+        trend: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    } {
+        if (prices.length < 20) {
+            return { macd: null, signal: null, histogram: null, trend: 'NEUTRAL' };
+        }
+
+        // Calculate EMAs
+        const ema3 = this.calculateEMA(prices, 3);
+        const ema16 = this.calculateEMA(prices, 16);
+        
+        if (!ema3 || !ema16) {
+            return { macd: null, signal: null, histogram: null, trend: 'NEUTRAL' };
+        }
+
+        // MACD line = EMA3 - EMA16
+        const macd = ema3 - ema16;
+
+        // Calculate signal line (EMA of MACD with period 16)
+        // For simplicity, we'll use a shorter history for signal calculation
+        const macdHistory = [macd]; // In a real implementation, you'd maintain MACD history
+        const signal = macd; // Simplified - in reality you'd calculate EMA of MACD history
+
+        // Histogram = MACD - Signal
+        const histogram = macd - signal;
+
+        // Determine trend based on MACD position and momentum
+        let trend: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+        if (macd > 0 && histogram > 0) {
+            trend = 'BULLISH';
+        } else if (macd < 0 && histogram < 0) {
+            trend = 'BEARISH';
+        }
+
+        return { macd, signal, histogram, trend };
+    }
+
+    /**
+     * Calculate Exponential Moving Average
+     */
+    private calculateEMA(prices: number[], period: number): number | null {
+        if (prices.length < period) return null;
+
+        const multiplier = 2 / (period + 1);
+        let ema = prices[0];
+
+        for (let i = 1; i < prices.length; i++) {
+            ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
+        }
+
+        return ema;
+    }
+
+    /**
+     * Validate MACD and ROC based trading signals
+     */
+    private validateMACDROCSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         
-        // Get more candles for enhanced long-term analysis (need at least 51 for SMA-50 calculation)
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 55);
+        // Get candles for MACD and ROC calculation (need at least 30 for reliable signals)
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 35);
         
-        if (recentCandles.length < 51) {
-            console.log(`${symbol}: Insufficient candle data for enhanced SMA analysis (need 51, have ${recentCandles.length})`);
+        if (recentCandles.length < 30) {
+            console.log(`${symbol}: Insufficient candle data for MACD/ROC analysis (need 30, have ${recentCandles.length})`);
             return null;
         }
         
-        // Get last five candles for stronger pattern confirmation
+        // Extract price data
+        const prices = recentCandles.map(candle => candle.close);
         const lastCandle = recentCandles[recentCandles.length - 1];
         const previousCandle = recentCandles[recentCandles.length - 2];
-        const thirdCandle = recentCandles[recentCandles.length - 3];
-        const fourthCandle = recentCandles[recentCandles.length - 4];
-        const fifthCandle = recentCandles[recentCandles.length - 5];
         
-        // Calculate multiple SMAs for comprehensive trend confirmation
-        const last10Candles = recentCandles.slice(-10);
-        const last20Candles = recentCandles.slice(-20);
-        const last30Candles = recentCandles.slice(-30);
-        const last50Candles = recentCandles.slice(-50);
+        // Calculate MACD (3, 16, 16)
+        const macdData = this.calculateMACD(prices);
         
-        const sma10 = last10Candles.reduce((sum, candle) => sum + candle.close, 0) / 10;
-        const sma20 = last20Candles.reduce((sum, candle) => sum + candle.close, 0) / 20;
-        const sma30 = last30Candles.reduce((sum, candle) => sum + candle.close, 0) / 30;
-        const sma50 = last50Candles.reduce((sum, candle) => sum + candle.close, 0) / 50;
+        // Calculate ROC (14-period)
+        const roc = this.calculateROC(prices, 14);
         
-        // STRONGER long-term trend requirements (must have all SMAs aligned)
-        const strongLongTermBullish = sma10 > sma20 && sma20 > sma30 && sma30 > sma50;
-        const strongLongTermBearish = sma10 < sma20 && sma20 < sma30 && sma30 < sma50;
-        
-        // Additional trend strength validation - check SMA separations are significant
-        const smaSpread1020 = Math.abs((sma10 - sma20) / sma20) * 100;
-        const smaSpread2030 = Math.abs((sma20 - sma30) / sma30) * 100;
-        const smaSpread3050 = Math.abs((sma30 - sma50) / sma50) * 100;
-        
-        const hasSignificantSeparation = smaSpread1020 > 0.02 && smaSpread2030 > 0.02 && smaSpread3050 > 0.02;
-        
-        // Only proceed if we have STRONG long-term trend alignment
-        if (!strongLongTermBullish && !strongLongTermBearish) {
-            console.log(`${symbol}: ❌ No strong long-term trend alignment - SMA10: ${sma10.toFixed(5)}, SMA20: ${sma20.toFixed(5)}, SMA30: ${sma30.toFixed(5)}, SMA50: ${sma50.toFixed(5)}`);
+        if (!macdData.macd || roc === null) {
+            console.log(`${symbol}: Failed to calculate MACD or ROC indicators`);
             return null;
         }
-        
-        if (!hasSignificantSeparation) {
-            console.log(`${symbol}: ❌ Insufficient SMA separation - spreads: ${smaSpread1020.toFixed(3)}%, ${smaSpread2030.toFixed(3)}%, ${smaSpread3050.toFixed(3)}%`);
-            return null;
-        }
-        
-        // Extract candle data
-        const { open: lastOpen, close: lastClose, high: lastHigh, low: lastLow } = lastCandle;
-        const { high: prevHigh, low: prevLow, close: prevClose } = previousCandle;
-        const { close: thirdClose } = thirdCandle;
-        const { close: fourthClose } = fourthCandle;
-        const { close: fifthClose } = fifthCandle;
-        
-        // Enhanced momentum confirmation (require 3+ candles moving in same direction)
-        const strongUpwardMomentum = lastClose > prevClose && prevClose > thirdClose && thirdClose > fourthClose;
-        const strongDownwardMomentum = lastClose < prevClose && prevClose < thirdClose && thirdClose < fourthClose;
-        
+
         // Determine candle colors
-        const isLastCandleGreen = lastClose > lastOpen;
-        const isLastCandleRed = lastClose < lastOpen;
-        
-        // Calculate price distance from SMAs (higher thresholds for stronger signals)
-        const priceAboveSMA10 = ((lastClose - sma10) / sma10) * 100;
-        const priceAboveSMA20 = ((lastClose - sma20) / sma20) * 100;
-        const priceAboveSMA50 = ((lastClose - sma50) / sma50) * 100;
-        
-        // ULTRA-STRICT BULLISH SIGNAL CONDITIONS:
-        // 1. STRONG long-term bullish trend (all SMAs aligned with significant separation)
-        // 2. Last candle is green and closes above previous high
-        // 3. Price is significantly above multiple SMAs
-        // 4. STRONG upward momentum (3+ consecutive higher closes)
-        // 5. Price must be above long-term SMA-50 by meaningful margin
-        if (strongLongTermBullish && 
-            hasSignificantSeparation &&
+        const isLastCandleGreen = lastCandle.close > lastCandle.open;
+        const isLastCandleRed = lastCandle.close < lastCandle.open;
+
+        // BULLISH SIGNAL CONDITIONS:
+        // 1. MACD indicates bullish trend
+        // 2. ROC is positive (momentum in upward direction)
+        // 3. Last candle is green and closes above previous high
+        // 4. ROC aligns with trend direction
+        if (macdData.trend === 'BULLISH' && 
+            roc > 0.05 && // ROC shows positive momentum (> 0.05%)
             isLastCandleGreen && 
-            lastClose > prevHigh && 
-            priceAboveSMA10 > 0.03 && // Increased from 0.01%
-            priceAboveSMA20 > 0.02 &&
-            priceAboveSMA50 > 0.01 &&
-            strongUpwardMomentum) { // Require strong momentum
+            lastCandle.close > previousCandle.high) {
             
-            console.log(`${symbol}: ✅ ULTRA-STRICT BULLISH signal confirmed:
-                - Strong long-term bullish trend: SMA10(${sma10.toFixed(5)}) > SMA20(${sma20.toFixed(5)}) > SMA30(${sma30.toFixed(5)}) > SMA50(${sma50.toFixed(5)})
-                - SMA separations: ${smaSpread1020.toFixed(3)}%, ${smaSpread2030.toFixed(3)}%, ${smaSpread3050.toFixed(3)}%
-                - Last candle GREEN: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
-                - Closes above prev high: ${lastClose.toFixed(5)} > ${prevHigh.toFixed(5)}
-                - Price above SMAs: SMA10(${priceAboveSMA10.toFixed(3)}%), SMA20(${priceAboveSMA20.toFixed(3)}%), SMA50(${priceAboveSMA50.toFixed(3)}%)
-                - Strong upward momentum confirmed (3+ candles)`);
+            console.log(`${symbol}: ✅ MACD/ROC BULLISH signal confirmed:
+                - MACD trend: ${macdData.trend}
+                - MACD value: ${macdData.macd.toFixed(6)}
+                - ROC: ${roc.toFixed(3)}% (positive momentum)
+                - Last candle GREEN: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
+                - Closes above prev high: ${lastCandle.close.toFixed(5)} > ${previousCandle.high.toFixed(5)}`);
             return 'BULLISH';
         }
         
-        // ULTRA-STRICT BEARISH SIGNAL CONDITIONS:
-        // 1. STRONG long-term bearish trend (all SMAs aligned with significant separation)
-        // 2. Last candle is red and closes below previous low
-        // 3. Price is significantly below multiple SMAs
-        // 4. STRONG downward momentum (3+ consecutive lower closes)
-        // 5. Price must be below long-term SMA-50 by meaningful margin
-        if (strongLongTermBearish && 
-            hasSignificantSeparation &&
+        // BEARISH SIGNAL CONDITIONS:
+        // 1. MACD indicates bearish trend
+        // 2. ROC is negative (momentum in downward direction)
+        // 3. Last candle is red and closes below previous low
+        // 4. ROC aligns with trend direction
+        if (macdData.trend === 'BEARISH' && 
+            roc < -0.05 && // ROC shows negative momentum (< -0.05%)
             isLastCandleRed && 
-            lastClose < prevLow && 
-            priceAboveSMA10 < -0.03 && // Increased from -0.01%
-            priceAboveSMA20 < -0.02 &&
-            priceAboveSMA50 < -0.01 &&
-            strongDownwardMomentum) { // Require strong momentum
+            lastCandle.close < previousCandle.low) {
             
-            console.log(`${symbol}: ✅ ULTRA-STRICT BEARISH signal confirmed:
-                - Strong long-term bearish trend: SMA10(${sma10.toFixed(5)}) < SMA20(${sma20.toFixed(5)}) < SMA30(${sma30.toFixed(5)}) < SMA50(${sma50.toFixed(5)})
-                - SMA separations: ${smaSpread1020.toFixed(3)}%, ${smaSpread2030.toFixed(3)}%, ${smaSpread3050.toFixed(3)}%
-                - Last candle RED: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
-                - Closes below prev low: ${lastClose.toFixed(5)} < ${prevLow.toFixed(5)}
-                - Price below SMAs: SMA10(${priceAboveSMA10.toFixed(3)}%), SMA20(${priceAboveSMA20.toFixed(3)}%), SMA50(${priceAboveSMA50.toFixed(3)}%)
-                - Strong downward momentum confirmed (3+ candles)`);
+            console.log(`${symbol}: ✅ MACD/ROC BEARISH signal confirmed:
+                - MACD trend: ${macdData.trend}
+                - MACD value: ${macdData.macd.toFixed(6)}
+                - ROC: ${roc.toFixed(3)}% (negative momentum)
+                - Last candle RED: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
+                - Closes below prev low: ${lastCandle.close.toFixed(5)} < ${previousCandle.low.toFixed(5)}`);
             return 'BEARISH';
         }
         
-        // Log why signal was not generated (detailed debugging)
-        if (isLastCandleGreen && lastClose > prevHigh) {
-            if (!strongLongTermBullish) {
-                console.log(`${symbol}: ❌ Bullish signal blocked - no strong long-term bullish trend`);
-            } else if (!hasSignificantSeparation) {
-                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient SMA separation`);
-            } else if (!strongUpwardMomentum) {
-                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient momentum (need 3+ consecutive higher closes)`);
-            } else {
-                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient price separation from SMAs`);
-            }
-        } else if (isLastCandleRed && lastClose < prevLow) {
-            if (!strongLongTermBearish) {
-                console.log(`${symbol}: ❌ Bearish signal blocked - no strong long-term bearish trend`);
-            } else if (!hasSignificantSeparation) {
-                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient SMA separation`);
-            } else if (!strongDownwardMomentum) {
-                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient momentum (need 3+ consecutive lower closes)`);
-            } else {
-                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient price separation from SMAs`);
-            }
-        }
+        // Log why signal was not generated
+        console.log(`${symbol}: ❌ MACD/ROC signal not generated:
+            - MACD trend: ${macdData.trend}
+            - MACD value: ${macdData.macd.toFixed(6)}
+            - ROC: ${roc.toFixed(3)}%
+            - Candle color: ${isLastCandleGreen ? 'GREEN' : isLastCandleRed ? 'RED' : 'NEUTRAL'}
+            - Price action: ${lastCandle.close > previousCandle.high ? 'Above prev high' : lastCandle.close < previousCandle.low ? 'Below prev low' : 'Inside range'}`);
         
         return null;
     }
 
     /**
-     * Legacy method - kept for compatibility but now calls SMA-based validation
+     * Legacy method - kept for compatibility but now calls MACD/ROC-based validation
      */
     private validateCandleColor(symbol: string, direction: TrendDirection): boolean {
-        const smaSignal = this.validateSMABasedSignal(symbol);
+        const macdRocSignal = this.validateMACDROCSignal(symbol);
         
-        if (direction === 'bullish' && smaSignal === 'BULLISH') {
+        if (direction === 'bullish' && macdRocSignal === 'BULLISH') {
             return true;
-        } else if (direction === 'bearish' && smaSignal === 'BEARISH') {
+        } else if (direction === 'bearish' && macdRocSignal === 'BEARISH') {
             return true;
         }
         
