@@ -7,6 +7,7 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
+import { Button } from '@deriv-com/ui';
 
 import './ml-trader.scss';
 
@@ -61,7 +62,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-const MLTrader = observer(() => {
+const MLTrader: React.FC = observer(() => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
