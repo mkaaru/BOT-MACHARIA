@@ -482,13 +482,13 @@ const MLTrader = observer(() => {
   <block type="trade_definition" id="=;b|aw3,G(o+jI6HNU0_" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="GrbKdLI=66(KGnSGl*=_" deletable="false" movable="false">
-        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="MARKET_LIST">derived</field>
         <field name="SUBMARKET_LIST">continuous_indices</field>
         <field name="SYMBOL_LIST">${recommendation.symbol}</field>
         <next>
           <block type="trade_definition_tradetype" id="F)ky6X[Pq]/Anl_CQ%)" deletable="false" movable="false">
-            <field name="TRADETYPECAT_LIST">${tradeTypeCategory}</field>
-            <field name="TRADETYPE_LIST">${tradeTypeList}</field>
+            <field name="TRADETYPECAT_LIST">updown</field>
+            <field name="TRADETYPE_LIST">risefall</field>
             <next>
               <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
                 <field name="TYPE_LIST">${contractTypeField}</field>
@@ -526,7 +526,7 @@ const MLTrader = observer(() => {
           <block type="text_print" id="H5S$R8eJ,8_xuO2;w07T">
             <value name="TEXT">
               <shadow type="text" id="-(O49Z%3:}onz_i%UInT">
-                <field name="TEXT">${selectedSymbol?.display_name || recommendation.symbol} - ${(recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase()}</field>
+                <field name="TEXT">${selectedSymbol?.display_name || recommendation.symbol} - CALL</field>
               </shadow>
             </value>
             <next>
@@ -534,7 +534,7 @@ const MLTrader = observer(() => {
                 <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                 <value name="VALUE">
                   <block type="math_number" id="TDv/W;dNI84TFbp}8X8=">
-                    <field name="NUM">${stake}</field>
+                    <field name="NUM">1</field>
                   </block>
                 </value>
                 <next>
@@ -542,7 +542,7 @@ const MLTrader = observer(() => {
                     <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
                     <value name="VALUE">
                       <block type="math_number" id="9Z%4%dmqCp;/sSt8wGv#">
-                        <field name="NUM">${stake}</field>
+                        <field name="NUM">1</field>
                       </block>
                     </value>
                     <next>
@@ -550,7 +550,7 @@ const MLTrader = observer(() => {
                         <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
                         <value name="VALUE">
                           <block type="math_number" id="Ib,KrcnUJzn1KMo9)A">
-                            <field name="NUM">1.5</field>
+                            <field name="NUM">1</field>
                           </block>
                         </value>
                         <next>
@@ -586,14 +586,14 @@ const MLTrader = observer(() => {
     <!-- Trade options -->
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${trade_mode === 'higher_lower' ? 'true' : 'false'}" has_second_barrier="false" has_prediction="false"></mutation>
-        <field name="DURATIONTYPE_LIST">${duration_unit}</field>
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
+        <field name="DURATIONTYPE_LIST">s</field>
         <value name="DURATION">
           <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
-            <field name="NUM">${duration}</field>
+            <field name="NUM">20</field>
           </shadow>
           <block type="math_number" id="*l8K~H:oQ)^=Cn,A^N~s">
-            <field name="NUM">${duration}</field>
+            <field name="NUM">20</field>
           </block>
         </value>
         <value name="AMOUNT">
@@ -604,13 +604,6 @@ const MLTrader = observer(() => {
             <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
           </block>
         </value>
-        ${trade_mode === 'higher_lower' ? `
-        <value name="BARRIEROFFSET">
-          <shadow type="math_number" id="barrierOffsetBlock">
-            <field name="NUM">${barrier_offset}</field>
-          </shadow>
-        </value>
-        <field name="BARRIEROFFSETTYPE_LIST">${contract_type === 'CALL' ? '+' : '-'}</field>` : ''}
       </block>
     </statement>
   </block>
@@ -718,24 +711,8 @@ const MLTrader = observer(() => {
                   <block type="variables_set" id="H%Y3[M]r3F};XmOP/iSt">
                     <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                     <value name="VALUE">
-                      <block type="math_arithmetic" id="0(2SFhVd_f3.w;,4CdAW">
-                        <field name="OP">MULTIPLY</field>
-                        <value name="A">
-                          <shadow type="math_number" id=")X~,;|04N,b=v{cA?n:y">
-                            <field name="NUM">1</field>
-                          </shadow>
-                          <block type="variables_get" id="%#Fuv537r?g4g-8#ZNu7">
-                            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
-                          </block>
-                        </value>
-                        <value name="B">
-                          <shadow type="math_number" id="D-kN(N|~hTit;*Q-HF3L">
-                            <field name="NUM">1</field>
-                          </shadow>
-                          <block type="variables_get" id="W;ZaB.*3OzGGyV2PDE$L">
-                            <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
-                          </block>
-                        </value>
+                      <block type="variables_get" id="stakemultiplier">
+                        <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                       </block>
                     </value>
                     <next>
