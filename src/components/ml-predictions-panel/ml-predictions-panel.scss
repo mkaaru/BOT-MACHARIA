@@ -1,0 +1,330 @@
+
+.ml-predictions-panel {
+    background: var(--general-section-1);
+    border: 1px solid var(--border-normal);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    min-height: 400px;
+
+    &--minimized {
+        min-height: auto;
+        padding: 8px 16px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+
+        &:hover {
+            background: var(--general-hover);
+        }
+    }
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-normal);
+    }
+
+    &__minimize {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+
+        &:hover {
+            background: var(--general-hover);
+        }
+    }
+
+    &__content {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    &__top-picks {
+        .top-picks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .top-pick {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-normal);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &:hover, &.selected {
+                border-color: var(--brand-blue);
+                background: var(--general-hover);
+            }
+
+            &__rank {
+                font-weight: bold;
+                color: var(--text-prominent);
+                min-width: 24px;
+                text-align: center;
+            }
+
+            &__info {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            &__signal {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+
+                .direction-icon {
+                    font-size: 14px;
+                    
+                    &.bullish {
+                        color: var(--status-success);
+                    }
+                    
+                    &.bearish {
+                        color: var(--status-danger);
+                    }
+                    
+                    &.neutral {
+                        color: var(--text-general);
+                    }
+                }
+            }
+        }
+    }
+
+    &__selector {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .symbol-selector {
+            padding: 8px 12px;
+            border: 1px solid var(--border-normal);
+            border-radius: 4px;
+            background: var(--general-main-1);
+            color: var(--text-prominent);
+            font-size: 14px;
+
+            &:focus {
+                outline: none;
+                border-color: var(--brand-blue);
+            }
+        }
+    }
+
+    &__details {
+        .prediction-card {
+            border: 1px solid var(--border-normal);
+            border-radius: 8px;
+            padding: 16px;
+            background: var(--general-main-1);
+
+            &__header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+
+                .model-info {
+                    text-align: right;
+                }
+            }
+
+            &__main {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+
+                .prediction-direction {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 8px;
+
+                    .direction-display {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        
+                        &.bullish {
+                            background: rgba(76, 175, 80, 0.1);
+                            border: 1px solid var(--status-success);
+                        }
+                        
+                        &.bearish {
+                            background: rgba(244, 67, 54, 0.1);
+                            border: 1px solid var(--status-danger);
+                        }
+                        
+                        &.neutral {
+                            background: rgba(158, 158, 158, 0.1);
+                            border: 1px solid var(--text-general);
+                        }
+
+                        .direction-icon {
+                            font-size: 18px;
+                        }
+                    }
+                }
+
+                .prediction-recommendation {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    gap: 8px;
+
+                    .rec-action {
+                        text-align: right;
+                    }
+
+                    .rec-details {
+                        text-align: right;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                    }
+                }
+            }
+
+            &__features {
+                margin-bottom: 12px;
+
+                .feature-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 8px;
+                    margin-top: 8px;
+
+                    .feature-item {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 4px 8px;
+                        background: var(--general-section-1);
+                        border-radius: 4px;
+                    }
+                }
+            }
+
+            &__move {
+                padding: 8px;
+                background: var(--general-section-1);
+                border-radius: 4px;
+                text-align: center;
+            }
+        }
+    }
+
+    &__summary {
+        .predictions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+
+            .prediction-summary {
+                padding: 8px 12px;
+                border: 1px solid var(--border-normal);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:hover, &.selected {
+                    border-color: var(--brand-blue);
+                    background: var(--general-hover);
+                }
+
+                &__symbol {
+                    margin-bottom: 4px;
+                }
+
+                &__signal {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 4px;
+
+                    .direction-icon {
+                        font-size: 12px;
+                        
+                        &.bullish {
+                            color: var(--status-success);
+                        }
+                        
+                        &.bearish {
+                            color: var(--status-danger);
+                        }
+                        
+                        &.neutral {
+                            color: var(--text-general);
+                        }
+                    }
+                }
+
+                &__action {
+                    text-align: center;
+                }
+            }
+        }
+    }
+}
+
+// Mobile responsiveness
+@media screen and (max-width: 768px) {
+    .ml-predictions-panel {
+        padding: 12px;
+        margin: 12px 0;
+
+        &__details .prediction-card {
+            padding: 12px;
+
+            &__main {
+                flex-direction: column;
+                gap: 16px;
+                align-items: stretch;
+
+                .prediction-recommendation {
+                    align-items: flex-start;
+
+                    .rec-action, .rec-details {
+                        text-align: left;
+                    }
+                }
+            }
+
+            &__features .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        &__summary .predictions-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        &__top-picks .top-pick {
+            padding: 6px 8px;
+            gap: 8px;
+
+            &__signal {
+                gap: 6px;
+            }
+        }
+    }
+}

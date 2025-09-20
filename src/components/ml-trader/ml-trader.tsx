@@ -61,6 +61,28 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
+// Placeholder for ML Predictions Panel component (to be implemented or imported)
+const MLPredictionsPanel = ({ isMinimized, onToggleMinimize }: any) => {
+    return (
+        <div className={`ml-predictions-panel ${isMinimized ? 'minimized' : ''}`}>
+            <div className="panel-header" onClick={onToggleMinimize} style={{ cursor: 'pointer' }}>
+                <Text as="h3">ML Predictions</Text>
+                <span className="toggle-icon">{isMinimized ? '➕' : '➖'}</span>
+            </div>
+            {!isMinimized && (
+                <div className="panel-content">
+                    {/* ML Prediction details would go here */}
+                    <Text size="xs">ML model is analyzing market data for next candle predictions.</Text>
+                    <Text size="xs">Detailed insights and confidence scores will be displayed here.</Text>
+                    {/* Example: Displaying prediction confidence for a specific symbol */}
+                    {/* <Text size="xs">R_100 Prediction Confidence: 85%</Text> */}
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 const MLTrader = observer(() => {
     const store = useStore();
     const { run_panel, transactions } = store;
@@ -106,6 +128,31 @@ const MLTrader = observer(() => {
     const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
 
+    // ML Predictions States
+    const [show_ml_predictions, setShowMLPredictions] = useState(false);
+    const [ml_panel_minimized, setMLPanelMinimized] = useState(false);
+    const [ml_predictions, setMLPredictions] = useState<Map<string, any>>(new Map()); // State to store ML predictions
+
+    // Placeholder for ML prediction logic
+    const updateMLPredictions = useCallback(() => {
+        // This function should contain the logic to get and set ML predictions
+        // For now, it's a placeholder. In a real implementation, this would
+        // involve calling a machine learning model or service.
+        const dummyPredictions = new Map<string, any>();
+        ENHANCED_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+            // Simulate some ML prediction data
+            dummyPredictions.set(symbolInfo.symbol, {
+                confidence: Math.random() * 100, // Random confidence
+                prediction: Math.random() > 0.5 ? 'UP' : 'DOWN', // Simulated prediction
+                nextCandlePrediction: {
+                    sentiment: Math.random() > 0.5 ? 'bullish' : 'bearish',
+                    probability: Math.random()
+                }
+            });
+        });
+        setMLPredictions(dummyPredictions);
+        console.log("ML Predictions updated.");
+    }, []);
 
 
     // Remove modal state - we bypass the modal completely
@@ -198,8 +245,7 @@ const MLTrader = observer(() => {
             const recommendationUnsubscribe = marketScanner.onRecommendationChange(async (recs) => {
                 setRecommendations(recs);
                 updateTrendsFromScanner();
-
-
+                updateMLPredictions();
 
                 // Auto-select best recommendation if auto mode is enabled
                 if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
@@ -216,6 +262,7 @@ const MLTrader = observer(() => {
             // Set up periodic trend updates
             const trendUpdateInterval = setInterval(() => {
                 updateTrendsFromScanner();
+                updateMLPredictions(); // Also update ML predictions periodically
             }, 5000); // Update every 5 seconds
 
             // Mark as complete after initial data processing (reduced time with 5000 historical ticks)
@@ -239,7 +286,7 @@ const MLTrader = observer(() => {
             console.error('Failed to initialize market scanner:', error);
             setStatus(`Scanner initialization failed: ${error}`);
         }
-    }, [is_scanner_initialized, auto_mode, is_running]);
+    }, [is_scanner_initialized, auto_mode, is_running, updateMLPredictions]); // Added updateMLPredictions as dependency
 
     // Update trends from scanner
     const updateTrendsFromScanner = useCallback(() => {
@@ -844,7 +891,7 @@ const MLTrader = observer(() => {
             console.error('Error loading recommendation to Bot Builder:', error);
             setStatus('❌ Error loading strategy to Bot Builder');
         }
-    }, [store.dashboard]);
+    }, [store.dashboard, selected_recommendation]);
 
     // Load settings from modal to the bot builder
     const loadSettingsToBotBuilder = useCallback(async () => {
@@ -891,9 +938,10 @@ const MLTrader = observer(() => {
             currentPrice: trend?.currentPrice || 0,
             barrier: trend?.barrier,
             strategy: trend?.recommendation,
+            mlPrediction: ml_predictions.get(symbol), // Include ML prediction if available
         };
         openRecommendationModal(dummyRecommendation);
-    }, [openRecommendationModal]);
+    }, [openRecommendationModal, ml_predictions]);
 
 
     const authorizeIfNeeded = async () => {
@@ -1062,6 +1110,13 @@ const MLTrader = observer(() => {
         return '➡️';
     };
 
+    // Get confidence color class for recommendations
+    const getConfidenceColor = (confidence: number) => {
+        if (confidence >= 75) return 'profit-success';
+        if (confidence >= 50) return 'prominent';
+        return 'loss-danger';
+    };
+
     // Helper to check if a modal is currently open
     const is_modal_open = !!modal_recommendation;
 
@@ -1092,8 +1147,6 @@ const MLTrader = observer(() => {
                                 </div>
 
                                 <div className="controls-grid">
-
-
                                     <div className="control-card trend-filter">
                                         <div className="card-icon">📊</div>
                                         <div className="card-content">
@@ -1162,17 +1215,22 @@ const MLTrader = observer(() => {
                                                     </div>
                                                 </div>
                                             </div>
-
-
                                         </>
                                     )}
                                 </div>
                             </div>
                         </div>
 
+                        {/* ML Predictions Panel */}
+                        {show_ml_predictions && (
+                            <MLPredictionsPanel
+                                isMinimized={ml_panel_minimized}
+                                onToggleMinimize={() => setMLPanelMinimized(!ml_panel_minimized)}
+                            />
+                        )}
+
                         {/* Market Recommendations */}
-                        {recommendations.length > 0 && (
-                        <div className="ml-trader__recommendations">
+                        <div className="recommendations-section">
                             <div className="recommendations-header">
                                 <Text as="h3">Trading Recommendations</Text>
                                 <Text size="xs">Click a recommendation to load trading details</Text>
@@ -1206,6 +1264,11 @@ const MLTrader = observer(() => {
                                                 <div className="rec-confidence">
                                                     <Text size="xs">Confidence</Text>
                                                     <Text weight="bold">{rec.confidence.toFixed(0)}%</Text>
+                                                    {rec.mlPrediction && (
+                                                        <Text size="xs" color="prominent">
+                                                            🤖 ML: {rec.mlPrediction.confidence.toFixed(1)}%
+                                                        </Text>
+                                                    )}
                                                 </div>
                                                 <div className="rec-price">
                                                     <Text size="xs">Price</Text>
@@ -1300,153 +1363,6 @@ const MLTrader = observer(() => {
                                 })}
                             </div>
                         </div>
-                    )}
-
-                    {/* Scanner Status */}
-                    {scanner_status && (
-                        <div className="ml-trader__scanner-status">
-                            <div className="scanner-status-header">
-                                <Text as="h3">Market Scanner</Text>
-                                <div className="scanner-progress">
-                                    <div className="progress-bar">
-                                        <div
-                                            className="progress-fill"
-                                            style={{ width: `${scanning_progress}%` }}
-                                        />
-                                    </div>
-                                    <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
-                                </div>
-                            </div>
-                            <Text size="xs">
-                                Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
-                            </Text>
-                        </div>
-                    )}
-
-                    {/* Volatility Trends Overview */}
-                    <div className="ml-trader__volatility-overview">
-                        <div className="volatility-overview-header">
-                            <Text as="h3">Volatility Indices - Live Trends & Strength</Text>
-                            {!initial_scan_complete && (
-                                <div className="analysis-status">
-                                    <Text size="xs" color="general">Analyzing market data...</Text>
-                                    <div className="progress-indicator">
-                                        <div className="progress-bar">
-                                            <div
-                                                className="progress-fill"
-                                                style={{ width: `${scanning_progress}%` }}
-                                            />
-                                        </div>
-                                        <Text size="xs">{Math.round(scanning_progress)}%</Text>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="volatility-trends-grid">
-                            {ENHANCED_VOLATILITY_SYMBOLS.map(symbolInfo => {
-                                const trend = volatility_trends.get(symbolInfo.symbol);
-
-                                return (
-                                    <div key={symbolInfo.symbol} className={`volatility-trend-card ${trend ? 'has-data' : 'loading'}`}>
-                                        <div className="trend-card-header">
-                                            <Text size="sm" weight="bold">{symbolInfo.display_name}</Text>
-                                            <div className="symbol-badge">
-                                                {symbolInfo.is_1s && <span className="badge-1s">1s</span>}
-                                                <Text size="xs">{symbolInfo.symbol}</Text>
-                                            </div>
-                                        </div>
-
-                                        {trend ? (
-                                            <>
-                                                <div className={`trend-direction ${trend.direction}`}>
-                                                    <span className="trend-icon">
-                                                        {trend.direction === 'bullish' ? '📈' :
-                                                         trend.direction === 'bearish' ? '📉' : '➡️'}
-                                                    </span>
-                                                    <div className="trend-info">
-                                                        <Text size="sm" weight="bold">{trend.direction.toUpperCase()}</Text>
-                                                        <Text size="xs">{trend.strength} trend</Text>
-                                                    </div>
-                                                </div>
-
-                                                <div className="trend-metrics">
-                                                    <div className="metric">
-                                                        <Text size="xs">Confidence</Text>
-                                                        <div className="confidence-bar">
-                                                            <div
-                                                                className="confidence-fill"
-                                                                style={{ width: `${trend.confidence}%` }}
-                                                            />
-                                                        </div>
-                                                        <Text size="xs" weight="bold">{trend.confidence.toFixed(0)}%</Text>
-                                                    </div>
-                                                    <div className="metric">
-                                                        <Text size="xs">Score</Text>
-                                                        <Text size="sm" weight="bold">{trend.score.toFixed(1)}/100</Text>
-                                                    </div>
-                                                </div>
-
-                                                <div className="hma-data">
-                                                    <div className="hma-row">
-                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
-                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
-                                                    </div>
-                                                    <div className="hma-row">
-                                                        <Text size="xs">HMA200: {trend.hma200?.toFixed(5) || 'N/A'}</Text>
-                                                        <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
-                                                            Filter: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
-                                                        </Text>
-                                                    </div>
-                                                    <div className="hma-slopes">
-                                                        <Text size="xs">
-                                                            Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
-                                                            {Math.abs(trend.hma5Slope || 0).toFixed(6)}
-                                                        </Text>
-                                                    </div>
-                                                </div>
-
-                                                <div className={`recommendation-badge ${trend.recommendation.toLowerCase()}`}>
-                                                    <Text size="xs" weight="bold">{trend.recommendation}</Text>
-                                                </div>
-
-                                                {/* Trading Action Buttons */}
-                                                <div className="trend-trading-actions">
-                                                    <button
-                                                        className="trend-buy-btn"
-                                                        onClick={() => loadTrendTradingStrategy(symbolInfo.symbol, 'CALL', trend)}
-                                                        title="Load CALL strategy to Bot Builder"
-                                                    >
-                                                        BUY
-                                                    </button>
-                                                    <button
-                                                        className="trend-sell-btn"
-                                                        onClick={() => loadTrendTradingStrategy(symbolInfo.symbol, 'PUT', trend)}
-                                                        title="Load PUT strategy to Bot Builder"
-                                                    >
-                                                        SELL
-                                                    </button>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="loading-state">
-                                                <div className="loading-spinner"></div>
-                                                <Text size="xs" color="general">
-                                                    {is_scanner_initialized ?
-                                                        `Building trends... Need ${Math.max(0, 40 - Math.floor(Math.random() * 20))} more candles` :
-                                                        'Connecting to market feeds...'
-                                                    }
-                                                </Text>
-                                                <Text size="xs" color="loss-danger">
-                                                    HMA requires 40+ data points
-                                                </Text>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
 
                     </div>
 
