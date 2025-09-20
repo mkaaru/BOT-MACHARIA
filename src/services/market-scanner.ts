@@ -1,21 +1,21 @@
-import { 
-    tickStreamManager, 
-    VOLATILITY_SYMBOLS, 
-    TickData, 
-    SymbolInfo 
+import {
+    tickStreamManager,
+    VOLATILITY_SYMBOLS,
+    TickData,
+    SymbolInfo
 } from './tick-stream-manager';
-import { 
-    candleReconstructionEngine, 
-    CandleData 
+import {
+    candleReconstructionEngine,
+    CandleData
 } from './candle-reconstruction-engine';
-import { 
-    efficientHMACalculator, 
-    EfficientHMACalculator 
+import {
+    efficientHMACalculator,
+    EfficientHMACalculator
 } from './efficient-hma-calculator';
-import { 
-    TrendAnalysisEngine, 
-    TrendAnalysis, 
-    MarketScanResult 
+import {
+    TrendAnalysisEngine,
+    TrendAnalysis,
+    MarketScanResult
 } from './trend-analysis-engine';
 
 export interface ScannerStatus {
@@ -34,14 +34,17 @@ export interface TradingRecommendation {
     direction: 'CALL' | 'PUT';
     confidence: number;
     score: number;
+    currentPrice: number;
     reason: string;
     hma5: number;
     hma40: number;
-    currentPrice: number;
-    trendStrength: string;
     suggestedStake: number;
     suggestedDuration: number;
     suggestedDurationUnit: 't' | 's' | 'm';
+    // Long-term trend alignment fields
+    longTermTrend?: 'bullish' | 'bearish' | 'neutral';
+    longTermStrength?: number;
+    trendAlignment?: boolean;
 }
 
 export class MarketScanner {
@@ -67,7 +70,7 @@ export class MarketScanner {
 
         // Update recommendations periodically
         setInterval(() => this.updateRecommendations(), 60 * 1000); // Every minute
-        
+
         // Update status periodically
         setInterval(() => this.updateStatus(), 10 * 1000); // Every 10 seconds
     }
@@ -92,7 +95,7 @@ export class MarketScanner {
             // Subscribe to all volatility indices with retry logic
             let retries = 3;
             let subscribed = false;
-            
+
             while (retries > 0 && !subscribed) {
                 try {
                     await tickStreamManager.subscribeToAllVolatilities();
@@ -113,15 +116,15 @@ export class MarketScanner {
 
             // Start periodic status updates immediately
             this.startStatusUpdates();
-            
+
             // Wait for initial data processing (reduced time since we get 5000 ticks immediately)
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             this.isInitialized = true;
             this.updateStatus();
-            
+
             console.log('Market Scanner initialized successfully with historical data');
-            
+
         } catch (error) {
             console.error('Failed to initialize Market Scanner:', error);
             this.scannerStatus.errors.push(`Initialization failed: ${error}`);
@@ -176,7 +179,7 @@ export class MarketScanner {
             // Register callbacks
             tickStreamManager.addTickCallback(symbol, tickCallback);
             candleReconstructionEngine.addCandleCallback(symbol, candleCallback);
-            
+
             // Store callbacks for cleanup
             this.tickCallbacks.set(symbol, tickCallback);
             this.candleCallbacks.set(symbol, candleCallback);
@@ -210,7 +213,7 @@ export class MarketScanner {
         }
 
         const opportunities = this.trendAnalysisEngine.getTopOpportunities(count * 2);
-        
+
         return opportunities
             .filter(opp => opp.trend.recommendation !== 'HOLD')
             .slice(0, count)
@@ -222,13 +225,13 @@ export class MarketScanner {
      */
     private convertToTradingRecommendation(scanResult: MarketScanResult): TradingRecommendation {
         const { trend } = scanResult;
-        
+
         // Determine direction based on recommendation
         const direction: 'CALL' | 'PUT' = trend.recommendation === 'BUY' ? 'CALL' : 'PUT';
-        
+
         // Generate reason
         const reason = this.generateRecommendationReason(trend);
-        
+
         // Suggest optimal trading parameters
         const suggestedStake = this.calculateOptimalStake(trend.confidence, trend.strength);
         const { duration, durationUnit } = this.calculateOptimalDuration(trend.strength, scanResult.symbol);
@@ -247,6 +250,10 @@ export class MarketScanner {
             suggestedStake,
             suggestedDuration: duration,
             suggestedDurationUnit: durationUnit,
+            // Long-term trend alignment fields
+            longTermTrend: trend.longTermTrend,
+            longTermStrength: trend.longTermTrendStrength,
+            trendAlignment: trend.colorAlignment === true // Assuming colorAlignment implies trend alignment for this context
         };
     }
 
@@ -255,7 +262,7 @@ export class MarketScanner {
      */
     private generateRecommendationReason(trend: TrendAnalysis): string {
         const reasons: string[] = [];
-        
+
         // Prioritize Ehlers signals
         if (trend.ehlersRecommendation?.anticipatory) {
             reasons.push(`🎯 ${trend.ehlersRecommendation.reason}`);
@@ -265,37 +272,37 @@ export class MarketScanner {
         } else if (trend.ehlersRecommendation) {
             reasons.push(trend.ehlersRecommendation.reason);
         }
-        
+
         // Add traditional signals
         if (trend.crossover === 1) {
             reasons.push('Bullish HMA crossover detected');
         } else if (trend.crossover === -1) {
             reasons.push('Bearish HMA crossover detected');
         }
-        
+
         if (trend.direction === 'bullish' && trend.hma5Slope && trend.hma5Slope > 0) {
             reasons.push('Strong upward momentum');
         } else if (trend.direction === 'bearish' && trend.hma5Slope && trend.hma5Slope < 0) {
             reasons.push('Strong downward momentum');
         }
-        
+
         if (trend.strength === 'strong') {
             reasons.push(`${trend.strength} trend strength`);
         }
-        
+
         // Add cycle trading suitability
         if (trend.cycleTrading?.suitable) {
             reasons.push('✅ Good cycle conditions');
         } else if (trend.cycleTrading) {
             reasons.push(`⚠️ ${trend.cycleTrading.reason}`);
         }
-        
+
         if (trend.confidence > 80) {
             reasons.push('High confidence signal');
         } else if (trend.confidence > 70) {
             reasons.push('Good confidence signal');
         }
-        
+
         return reasons.length > 0 ? reasons.join(', ') : `${trend.direction} trend with ${trend.confidence.toFixed(0)}% confidence`;
     }
 
@@ -304,7 +311,7 @@ export class MarketScanner {
      */
     private calculateOptimalStake(confidence: number, strength: string): number {
         let baseStake = 1.0;
-        
+
         // Adjust based on confidence
         if (confidence > 80) {
             baseStake = 2.0;
@@ -313,14 +320,14 @@ export class MarketScanner {
         } else if (confidence < 60) {
             baseStake = 0.5;
         }
-        
+
         // Adjust based on strength
         if (strength === 'strong') {
             baseStake *= 1.2;
         } else if (strength === 'weak') {
             baseStake *= 0.8;
         }
-        
+
         return Math.round(baseStake * 100) / 100; // Round to 2 decimal places
     }
 
@@ -329,7 +336,7 @@ export class MarketScanner {
      */
     private calculateOptimalDuration(strength: string, symbol: string): { duration: number; durationUnit: 't' | 's' | 'm' } {
         const is1sVolatility = symbol.startsWith('1HZ');
-        
+
         if (is1sVolatility) {
             // For 1-second volatilities, use shorter durations
             switch (strength) {
@@ -370,12 +377,12 @@ export class MarketScanner {
     private updateStatus(): void {
         this.scannerStatus.connectedSymbols = tickStreamManager.getSubscribedSymbols().length;
         this.scannerStatus.lastUpdate = new Date();
-        
+
         // Clean old errors (keep last 10)
         if (this.scannerStatus.errors.length > 10) {
             this.scannerStatus.errors = this.scannerStatus.errors.slice(-10);
         }
-        
+
         this.notifyStatusChange();
     }
 
@@ -384,7 +391,7 @@ export class MarketScanner {
      */
     private updateRecommendations(): void {
         if (!this.isInitialized) return;
-        
+
         try {
             const recommendations = this.getTradingRecommendations();
             this.notifyRecommendationChange(recommendations);
@@ -471,19 +478,19 @@ export class MarketScanner {
      */
     async refresh(): Promise<void> {
         console.log('Refreshing market scanner...');
-        
+
         try {
             // Re-subscribe to any missing symbols
             await tickStreamManager.subscribeToAllVolatilities();
-            
+
             // Update status
             this.updateStatus();
-            
+
             // Update recommendations
             this.updateRecommendations();
-            
+
             console.log('Market scanner refreshed successfully');
-            
+
         } catch (error) {
             console.error('Error refreshing market scanner:', error);
             this.addError(`Refresh error: ${error}`);
@@ -496,24 +503,24 @@ export class MarketScanner {
      */
     async stop(): Promise<void> {
         console.log('Stopping market scanner...');
-        
+
         this.scannerStatus.isScanning = false;
-        
+
         // Remove all callbacks
         this.tickCallbacks.forEach((callback, symbol) => {
             tickStreamManager.removeTickCallback(symbol, callback);
         });
-        
+
         this.candleCallbacks.forEach((callback, symbol) => {
             candleReconstructionEngine.removeCandleCallback(symbol, callback);
         });
-        
+
         // Unsubscribe from all symbols
         await tickStreamManager.unsubscribeFromAll();
-        
+
         this.isInitialized = false;
         this.updateStatus();
-        
+
         console.log('Market scanner stopped');
     }
 
@@ -527,6 +534,70 @@ export class MarketScanner {
         this.tickCallbacks.clear();
         this.candleCallbacks.clear();
         this.trendAnalysisEngine.destroy();
+    }
+
+    /**
+     * Generate trading recommendations based on trend analysis with long-term alignment
+     */
+    private generateRecommendations(): TradingRecommendation[] {
+        const recommendations: TradingRecommendation[] = [];
+
+        VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+            const trend = this.trendAnalysisEngine.getTrendAnalysis(symbolInfo.symbol);
+            if (!trend || trend.recommendation === 'HOLD') return;
+
+            // Enhanced filtering for better long-term alignment
+
+            // 1. Require high score and confidence
+            if (trend.score < 75 || trend.confidence < 70) return;
+
+            // 2. Require strong long-term trend alignment
+            if (!trend.longTermTrendStrength || trend.longTermTrendStrength < 60) return;
+
+            // 3. Ensure short-term and long-term trends align
+            const shortTermDirection = trend.direction;
+            const longTermDirection = trend.longTermTrend;
+            if (shortTermDirection !== longTermDirection || longTermDirection === 'neutral') return;
+
+            // 4. Require color alignment for HMA consistency
+            if (trend.colorAlignment !== true) return;
+
+            // 5. Additional validation for trend strength
+            if (trend.strength === 'weak') return;
+
+            // 6. Check for Ehlers signal quality if available
+            if (trend.ehlers && trend.ehlers.snr < 3) return; // Require decent signal-to-noise ratio
+
+            const recommendation: TradingRecommendation = {
+                symbol: symbolInfo.symbol,
+                displayName: symbolInfo.display_name,
+                direction: trend.recommendation === 'BUY' ? 'CALL' : 'PUT',
+                confidence: trend.confidence,
+                score: trend.score,
+                currentPrice: trend.price || 0,
+                reason: this.generateRecommendationReason(trend),
+                timestamp: Date.now(),
+                suggestedStake: this.calculateSuggestedStake(trend),
+                suggestedDuration: this.calculateSuggestedDuration(trend),
+                suggestedDurationUnit: 's',
+                // Additional metadata for long-term alignment
+                longTermTrend: longTermDirection,
+                longTermStrength: trend.longTermTrendStrength,
+                trendAlignment: true
+            };
+
+            recommendations.push(recommendation);
+        });
+
+        // Sort by combined score considering long-term alignment
+        return recommendations
+            .sort((a, b) => {
+                // Prioritize recommendations with stronger long-term alignment
+                const scoreA = a.score + (a.longTermStrength || 0) * 0.2;
+                const scoreB = b.score + (b.longTermStrength || 0) * 0.2;
+                return scoreB - scoreA;
+            })
+            .slice(0, Math.min(5, recommendations.length));
     }
 }
 

@@ -53,6 +53,13 @@ export class TrendAnalysisEngine {
     private hmaCalculator: EfficientHMACalculator;
     private trendData: Map<string, TrendAnalysis> = new Map();
     private updateTimer: NodeJS.Timeout;
+    private signalCache: Map<string, {
+        signal: 'BULLISH' | 'BEARISH' | null;
+        timestamp: number;
+        confirmationCount: number;
+    }> = new Map();
+    private readonly SIGNAL_PERSISTENCE_MS = 5 * 60 * 1000; // 5 minutes
+    private readonly MIN_CONFIRMATION_COUNT = 3; // Require 3 confirmations before changing signal
 
     constructor(hmaCalculator: EfficientHMACalculator) {
         this.hmaCalculator = hmaCalculator;
@@ -135,27 +142,28 @@ export class TrendAnalysisEngine {
         // Calculate long-term trend strength
         const longTermStrength = this.calculateLongTermTrendStrengthMultiHMA(hmaData, currentPrice, symbol);
 
-        // Get SMA-based signal validation first
-        const smaSignal = this.validateSMABasedSignal(symbol);
+        // Get SMA-based signal validation with persistence
+        const rawSmaSignal = this.validateSMABasedSignal(symbol);
+        const persistentSmaSignal = this.getPersistedSignal(symbol, rawSmaSignal);
         
-        // Override direction based on SMA signal validation
+        // Override direction based on persistent SMA signal validation
         let finalDirection = direction;
-        if (smaSignal === 'BULLISH') {
+        if (persistentSmaSignal === 'BULLISH') {
             finalDirection = 'bullish';
-        } else if (smaSignal === 'BEARISH') {
+        } else if (persistentSmaSignal === 'BEARISH') {
             finalDirection = 'bearish';
         } else {
             finalDirection = 'neutral'; // No valid signal
         }
 
-        // Generate recommendation based on SMA validation
+        // Generate recommendation based on persistent SMA validation
         const recommendation = this.generateRecommendationByAlignment(finalDirection, strength, confidence, alignment, symbol);
         
         // Calculate overall score based on alignment and SMA validation
         let score = this.calculateTradingScoreByAlignment(finalDirection, strength, confidence, alignment);
         
         // Boost score significantly for valid SMA signals
-        if (smaSignal === 'BULLISH' || smaSignal === 'BEARISH') {
+        if (persistentSmaSignal === 'BULLISH' || persistentSmaSignal === 'BEARISH') {
             score = Math.min(95, score + 25); // Add 25 points for valid SMA signal
         }
 
@@ -215,7 +223,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
         
-        console.log(`SMA-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - SMA Signal: ${smaSignal || 'NONE'} - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+        console.log(`SMA-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - SMA Signal: ${persistentSmaSignal || 'NONE'} (Raw: ${rawSmaSignal || 'NONE'}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
     }
 
     /**
@@ -425,75 +433,112 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate SMA-based trading signals with specific candle pattern requirements
+     * Validate SMA-based trading signals with long-term trend alignment and reduced noise
      */
     private validateSMABasedSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         
-        // Get the latest candles for analysis (need at least 11 for SMA-10 calculation)
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 15);
+        // Get more candles for better trend analysis (need at least 31 for SMA-30 calculation)
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 35);
         
-        if (recentCandles.length < 11) {
-            console.log(`${symbol}: Insufficient candle data for SMA analysis (need 11, have ${recentCandles.length})`);
+        if (recentCandles.length < 31) {
+            console.log(`${symbol}: Insufficient candle data for enhanced SMA analysis (need 31, have ${recentCandles.length})`);
             return null;
         }
         
-        // Get last two candles for comparison
+        // Get last three candles for pattern confirmation
         const lastCandle = recentCandles[recentCandles.length - 1];
         const previousCandle = recentCandles[recentCandles.length - 2];
+        const thirdCandle = recentCandles[recentCandles.length - 3];
         
-        // Calculate 10-period SMA using the last 10 candles
+        // Calculate multiple SMAs for trend confirmation
         const last10Candles = recentCandles.slice(-10);
+        const last20Candles = recentCandles.slice(-20);
+        const last30Candles = recentCandles.slice(-30);
+        
         const sma10 = last10Candles.reduce((sum, candle) => sum + candle.close, 0) / 10;
+        const sma20 = last20Candles.reduce((sum, candle) => sum + candle.close, 0) / 20;
+        const sma30 = last30Candles.reduce((sum, candle) => sum + candle.close, 0) / 30;
+        
+        // Check long-term trend alignment (SMA10 > SMA20 > SMA30 for bullish, reverse for bearish)
+        const longTermBullish = sma10 > sma20 && sma20 > sma30;
+        const longTermBearish = sma10 < sma20 && sma20 < sma30;
         
         // Extract candle data
         const { open: lastOpen, close: lastClose, high: lastHigh, low: lastLow } = lastCandle;
-        const { high: prevHigh, low: prevLow } = previousCandle;
+        const { high: prevHigh, low: prevLow, close: prevClose } = previousCandle;
+        const { close: thirdClose } = thirdCandle;
+        
+        // Check for momentum continuation (price moving in same direction for 2+ candles)
+        const upwardMomentum = lastClose > prevClose && prevClose > thirdClose;
+        const downwardMomentum = lastClose < prevClose && prevClose < thirdClose;
         
         // Determine candle colors
         const isLastCandleGreen = lastClose > lastOpen;
         const isLastCandleRed = lastClose < lastOpen;
         
-        // BULLISH SIGNAL CONDITIONS:
-        // 1. Last candle is green (close > open)
-        // 2. Closes above previous high
-        // 3. Price is above 10-period SMA
-        if (isLastCandleGreen && lastClose > prevHigh && lastClose > sma10) {
-            console.log(`${symbol}: ✅ BULLISH signal confirmed:
+        // Calculate price distance from SMAs (for signal strength)
+        const priceAboveSMA10 = ((lastClose - sma10) / sma10) * 100;
+        const priceAboveSMA20 = ((lastClose - sma20) / sma20) * 100;
+        
+        // ENHANCED BULLISH SIGNAL CONDITIONS:
+        // 1. Long-term trend must be bullish (SMA alignment)
+        // 2. Last candle is green and closes above previous high
+        // 3. Price is significantly above SMA-10 (at least 0.01%)
+        // 4. Upward momentum present OR strong SMA alignment
+        if (longTermBullish && 
+            isLastCandleGreen && 
+            lastClose > prevHigh && 
+            priceAboveSMA10 > 0.01 &&
+            (upwardMomentum || (sma10 > sma20 * 1.0005))) { // 0.05% SMA separation minimum
+            
+            console.log(`${symbol}: ✅ ENHANCED BULLISH signal confirmed:
+                - Long-term bullish trend: SMA10(${sma10.toFixed(5)}) > SMA20(${sma20.toFixed(5)}) > SMA30(${sma30.toFixed(5)})
                 - Last candle GREEN: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
                 - Closes above prev high: ${lastClose.toFixed(5)} > ${prevHigh.toFixed(5)}
-                - Above SMA-10: ${lastClose.toFixed(5)} > ${sma10.toFixed(5)}`);
+                - Price above SMA-10: ${priceAboveSMA10.toFixed(3)}%
+                - Momentum: ${upwardMomentum ? 'Confirmed' : 'SMA-based'}`);
             return 'BULLISH';
         }
         
-        // BEARISH SIGNAL CONDITIONS:
-        // 1. Last candle is red (close < open)
-        // 2. Closes below previous low
-        // 3. Close is below 10-period SMA
-        if (isLastCandleRed && lastClose < prevLow && lastClose < sma10) {
-            console.log(`${symbol}: ✅ BEARISH signal confirmed:
+        // ENHANCED BEARISH SIGNAL CONDITIONS:
+        // 1. Long-term trend must be bearish (SMA alignment)
+        // 2. Last candle is red and closes below previous low
+        // 3. Price is significantly below SMA-10 (at least 0.01%)
+        // 4. Downward momentum present OR strong SMA separation
+        if (longTermBearish && 
+            isLastCandleRed && 
+            lastClose < prevLow && 
+            priceAboveSMA10 < -0.01 &&
+            (downwardMomentum || (sma10 < sma20 * 0.9995))) { // 0.05% SMA separation minimum
+            
+            console.log(`${symbol}: ✅ ENHANCED BEARISH signal confirmed:
+                - Long-term bearish trend: SMA10(${sma10.toFixed(5)}) < SMA20(${sma20.toFixed(5)}) < SMA30(${sma30.toFixed(5)})
                 - Last candle RED: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
                 - Closes below prev low: ${lastClose.toFixed(5)} < ${prevLow.toFixed(5)}
-                - Below SMA-10: ${lastClose.toFixed(5)} < ${sma10.toFixed(5)}`);
+                - Price below SMA-10: ${priceAboveSMA10.toFixed(3)}%
+                - Momentum: ${downwardMomentum ? 'Confirmed' : 'SMA-based'}`);
             return 'BEARISH';
         }
         
-        // Log why signal was not generated
-        if (isLastCandleGreen) {
-            if (lastClose <= prevHigh) {
-                console.log(`${symbol}: ❌ Bullish signal blocked - close ${lastClose.toFixed(5)} not above prev high ${prevHigh.toFixed(5)}`);
-            } else if (lastClose <= sma10) {
-                console.log(`${symbol}: ❌ Bullish signal blocked - close ${lastClose.toFixed(5)} not above SMA-10 ${sma10.toFixed(5)}`);
+        // Log why signal was not generated (only for debugging)
+        if (isLastCandleGreen && lastClose > prevHigh) {
+            if (!longTermBullish) {
+                console.log(`${symbol}: ❌ Bullish signal blocked - no long-term bullish trend (SMA10: ${sma10.toFixed(5)}, SMA20: ${sma20.toFixed(5)}, SMA30: ${sma30.toFixed(5)})`);
+            } else if (priceAboveSMA10 <= 0.01) {
+                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient price separation from SMA-10: ${priceAboveSMA10.toFixed(3)}%`);
+            } else {
+                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient momentum confirmation`);
             }
-        } else if (isLastCandleRed) {
-            if (lastClose >= prevLow) {
-                console.log(`${symbol}: ❌ Bearish signal blocked - close ${lastClose.toFixed(5)} not below prev low ${prevLow.toFixed(5)}`);
-            } else if (lastClose >= sma10) {
-                console.log(`${symbol}: ❌ Bearish signal blocked - close ${lastClose.toFixed(5)} not below SMA-10 ${sma10.toFixed(5)}`);
+        } else if (isLastCandleRed && lastClose < prevLow) {
+            if (!longTermBearish) {
+                console.log(`${symbol}: ❌ Bearish signal blocked - no long-term bearish trend (SMA10: ${sma10.toFixed(5)}, SMA20: ${sma20.toFixed(5)}, SMA30: ${sma30.toFixed(5)})`);
+            } else if (priceAboveSMA10 >= -0.01) {
+                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient price separation from SMA-10: ${priceAboveSMA10.toFixed(3)}%`);
+            } else {
+                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient momentum confirmation`);
             }
-        } else {
-            console.log(`${symbol}: ❌ No signal - candle is neutral/doji: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}`);
         }
         
         return null;
@@ -1155,6 +1200,92 @@ export class TrendAnalysisEngine {
     }
 
     /**
+     * Get persisted signal to reduce frequent changes
+     */
+    private getPersistedSignal(symbol: string, newSignal: 'BULLISH' | 'BEARISH' | null): 'BULLISH' | 'BEARISH' | null {
+        const now = Date.now();
+        const cached = this.signalCache.get(symbol);
+        
+        // If no cache entry, create one
+        if (!cached) {
+            this.signalCache.set(symbol, {
+                signal: newSignal,
+                timestamp: now,
+                confirmationCount: newSignal ? 1 : 0
+            });
+            return newSignal;
+        }
+        
+        // Check if cache is expired
+        if (now - cached.timestamp > this.SIGNAL_PERSISTENCE_MS) {
+            // Cache expired, reset
+            this.signalCache.set(symbol, {
+                signal: newSignal,
+                timestamp: now,
+                confirmationCount: newSignal ? 1 : 0
+            });
+            return newSignal;
+        }
+        
+        // If new signal matches cached signal, increment confirmation
+        if (newSignal === cached.signal && newSignal !== null) {
+            cached.confirmationCount++;
+            cached.timestamp = now;
+            return cached.signal;
+        }
+        
+        // If new signal is different from cached signal
+        if (newSignal !== cached.signal) {
+            // If cached signal has enough confirmations, stick with it unless new signal is strong
+            if (cached.confirmationCount >= this.MIN_CONFIRMATION_COUNT && cached.signal !== null) {
+                // Only change if new signal persists for multiple confirmations
+                if (newSignal !== null) {
+                    cached.confirmationCount = Math.max(0, cached.confirmationCount - 1);
+                    console.log(`${symbol}: Signal persistence - keeping ${cached.signal} (confirmations: ${cached.confirmationCount}, new signal: ${newSignal})`);
+                }
+                return cached.signal;
+            } else {
+                // Not enough confirmations yet, switch to new signal
+                this.signalCache.set(symbol, {
+                    signal: newSignal,
+                    timestamp: now,
+                    confirmationCount: newSignal ? 1 : 0
+                });
+                return newSignal;
+            }
+        }
+        
+        // Default: return cached signal
+        return cached.signal;
+    }
+
+    /**
+     * Clear signal cache for a symbol (useful for manual resets)
+     */
+    public clearSignalCache(symbol?: string): void {
+        if (symbol) {
+            this.signalCache.delete(symbol);
+            console.log(`Signal cache cleared for ${symbol}`);
+        } else {
+            this.signalCache.clear();
+            console.log('All signal caches cleared');
+        }
+    }
+
+    /**
+     * Get signal cache status for debugging
+     */
+    public getSignalCacheStatus(): Array<{symbol: string; signal: string | null; confirmations: number; age: number}> {
+        const now = Date.now();
+        return Array.from(this.signalCache.entries()).map(([symbol, data]) => ({
+            symbol,
+            signal: data.signal,
+            confirmations: data.confirmationCount,
+            age: Math.round((now - data.timestamp) / 1000) // age in seconds
+        }));
+    }
+
+    /**
      * Destroy the engine and clean up resources
      */
     destroy(): void {
@@ -1162,6 +1293,7 @@ export class TrendAnalysisEngine {
             clearInterval(this.updateTimer);
         }
         this.trendData.clear();
+        this.signalCache.clear();
     }
 }
 
