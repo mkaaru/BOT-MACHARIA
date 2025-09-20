@@ -94,7 +94,6 @@ const MLTrader = observer(() => {
     const [recommendations, setRecommendations] = useState<TradingRecommendation[]>([]);
     const [market_trends, setMarketTrends] = useState<Map<string, TrendAnalysis>>(new Map());
     const [is_scanner_initialized, setIsScannerInitialized] = useState(false);
-    const [auto_mode, setAutoMode] = useState(false);
     const [show_trend_analysis, setShowTrendAnalysis] = useState(true);
     const [scanning_progress, setScanningProgress] = useState(0);
     const [selected_recommendation, setSelectedRecommendation] = useState<TradingRecommendation | null>(null);
@@ -198,13 +197,6 @@ const MLTrader = observer(() => {
             const recommendationUnsubscribe = marketScanner.onRecommendationChange(async (recs) => {
                 setRecommendations(recs);
                 updateTrendsFromScanner();
-
-                
-
-                // Auto-select best recommendation if auto mode is enabled
-                if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
-                    applyRecommendation(recs[0]);
-                }
             });
 
             setIsScannerInitialized(true);
@@ -239,7 +231,7 @@ const MLTrader = observer(() => {
             console.error('Failed to initialize market scanner:', error);
             setStatus(`Scanner initialization failed: ${error}`);
         }
-    }, [is_scanner_initialized, auto_mode, is_running]);
+    }, [is_scanner_initialized, is_running]);
 
     // Update trends from scanner
     const updateTrendsFromScanner = useCallback(() => {
@@ -1069,26 +1061,6 @@ const MLTrader = observer(() => {
                                 </div>
 
                                 <div className="controls-grid">
-                                    <div className="control-card auto-mode">
-                                        <div className="card-icon">🤖</div>
-                                        <div className="card-content">
-                                            <label className="card-title">Auto Mode</label>
-                                            <p className="card-description">Automatically execute top recommendations</p>
-                                            <div className="toggle-container">
-                                                <input
-                                                    type="checkbox"
-                                                    id="auto-mode-top"
-                                                    className="toggle-input"
-                                                    checked={auto_mode}
-                                                    onChange={(e) => setAutoMode(e.target.checked)}
-                                                />
-                                                <label htmlFor="auto-mode-top" className="toggle-label">
-                                                    <span className="toggle-switch"></span>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <div className="control-card trend-filter">
                                         <div className="card-icon">📊</div>
                                         <div className="card-content">
