@@ -815,7 +815,7 @@
                     border-radius: 8px;
                     border: 1px solid #e2e8f0;
                     font-size: 1.1rem;
-                    
+
                     .detail-label {
                         font-size: 1rem;
                         font-weight: 600;
@@ -835,11 +835,11 @@
 
             .trend-indicator {
                 display: flex;
-                align-items: center;
-                gap: 1.2rem;
-                padding: 1.2rem;
+                flex-direction: column;
+                gap: 0.8rem;
+                padding: 1rem;
                 border-radius: 8px;
-                margin-bottom: 1.2rem;
+                margin-bottom: 1rem;
                 transition: all 0.3s ease;
 
                 &.trend-bullish {
@@ -861,17 +861,43 @@
                 }
 
                 .trend-icon {
-                    font-size: 2rem;
+                    font-size: 1.5rem;
+                    display: inline-block;
+                    margin-right: 0.5rem;
                 }
 
                 .trend-details {
-                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
                 }
 
-                .hma-values {
-                    font-family: 'Monaco', monospace;
-                    font-size: 1rem;
-                    text-align: right;
+                .indicator-data {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.3rem;
+                    font-size: 0.85rem;
+
+                    .indicator-row {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        font-family: 'Monaco', monospace;
+                    }
+
+                    .long-term-trend {
+                        font-weight: 600;
+
+                        &.bullish { color: #22c55e; }
+                        &.bearish { color: #ef4444; }
+                        &.neutral { color: #f59e0b; }
+                    }
+
+                    .roc-status {
+                        &.bullish { color: #22c55e; }
+                        &.bearish { color: #ef4444; }
+                        &.neutral { color: #f59e0b; }
+                    }
                 }
             }
 
