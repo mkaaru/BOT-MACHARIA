@@ -1083,7 +1083,7 @@ const MLTrader = observer(() => {
                         <div className="ml-trader__top-controls">
                             <div className="top-controls-container">
                                 <div className="controls-header">
-                                    <h3 className="controls-title">Trading Filters & Configuration</h3>
+                                    <h3 className="controls-title">Long-Term Trend Filter</h3>
                                     <div className="controls-status">
                                         <span className={`status-indicator ${enable_trend_filter ? 'active' : 'inactive'}`}>
                                             {enable_trend_filter ? '🟢 Filtering Active' : '⚫ Filtering Disabled'}
@@ -1092,25 +1092,7 @@ const MLTrader = observer(() => {
                                 </div>
 
                                 <div className="controls-grid">
-                                    <div className="control-card auto-mode">
-                                        <div className="card-icon">🤖</div>
-                                        <div className="card-content">
-                                            <label className="card-title">Auto Mode</label>
-                                            <p className="card-description">Automatically execute top recommendations</p>
-                                            <div className="toggle-container">
-                                                <input
-                                                    type="checkbox"
-                                                    id="auto-mode-top"
-                                                    className="toggle-input"
-                                                    checked={auto_mode}
-                                                    onChange={(e) => setAutoMode(e.target.checked)}
-                                                />
-                                                <label htmlFor="auto-mode-top" className="toggle-label">
-                                                    <span className="toggle-switch"></span>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
+
 
                                     <div className="control-card trend-filter">
                                         <div className="card-icon">📊</div>
