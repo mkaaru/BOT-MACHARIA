@@ -25,9 +25,9 @@ export interface TrendAnalysis {
     score: number; // Overall trading score (0-100)
     
     // New indicators
-    roc?: number; // Rate of Change indicator
-    macd?: number; // MACD value
-    macdTrend?: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; // MACD trend direction
+    roc?: number; // Short-term Rate of Change indicator (5-period)
+    longTermROC?: number; // Long-term Rate of Change indicator (20-period)
+    shortTermROC?: number; // Short-term Rate of Change indicator (5-period)
     
     // Enhanced Ehlers signals
     ehlers?: EhlersSignals;
@@ -144,29 +144,29 @@ export class TrendAnalysisEngine {
         // Calculate long-term trend strength
         const longTermStrength = this.calculateLongTermTrendStrengthMultiHMA(hmaData, currentPrice, symbol);
 
-        // Get MACD/ROC-based signal validation with persistence
-        const rawMacdRocSignal = this.validateMACDROCSignal(symbol);
-        const persistentMacdRocSignal = this.getPersistedSignal(symbol, rawMacdRocSignal);
+        // Get dual ROC-based signal validation with persistence
+        const rawDualROCSignal = this.validateDualROCSignal(symbol);
+        const persistentDualROCSignal = this.getPersistedSignal(symbol, rawDualROCSignal);
         
-        // Override direction based on persistent MACD/ROC signal validation
+        // Override direction based on persistent dual ROC signal validation
         let finalDirection = direction;
-        if (persistentMacdRocSignal === 'BULLISH') {
+        if (persistentDualROCSignal === 'BULLISH') {
             finalDirection = 'bullish';
-        } else if (persistentMacdRocSignal === 'BEARISH') {
+        } else if (persistentDualROCSignal === 'BEARISH') {
             finalDirection = 'bearish';
         } else {
             finalDirection = 'neutral'; // No valid signal
         }
 
-        // Generate recommendation based on persistent MACD/ROC validation
+        // Generate recommendation based on persistent dual ROC validation
         const recommendation = this.generateRecommendationByAlignment(finalDirection, strength, confidence, alignment, symbol);
         
-        // Calculate overall score based on alignment and MACD/ROC validation
+        // Calculate overall score based on alignment and dual ROC validation
         let score = this.calculateTradingScoreByAlignment(finalDirection, strength, confidence, alignment);
         
-        // Boost score significantly for valid MACD/ROC signals
-        if (persistentMacdRocSignal === 'BULLISH' || persistentMacdRocSignal === 'BEARISH') {
-            score = Math.min(95, score + 25); // Add 25 points for valid MACD/ROC signal
+        // Boost score significantly for valid dual ROC signals
+        if (persistentDualROCSignal === 'BULLISH' || persistentDualROCSignal === 'BEARISH') {
+            score = Math.min(95, score + 25); // Add 25 points for valid dual ROC signal
         }
 
         // Get Ehlers-based recommendations
@@ -200,19 +200,18 @@ export class TrendAnalysisEngine {
             }
         }
 
-        // Calculate ROC and MACD for display
+        // Calculate dual ROC for display
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 35);
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 30);
         let roc: number | undefined;
-        let macd: number | undefined;
-        let macdTrend: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | undefined;
+        let longTermROC: number | undefined;
+        let shortTermROC: number | undefined;
         
-        if (recentCandles && recentCandles.length >= 30) {
+        if (recentCandles && recentCandles.length >= 25) {
             const prices = recentCandles.map((candle: any) => candle.close);
-            roc = this.calculateROC(prices, 14) || undefined;
-            const macdData = this.calculateMACD(prices);
-            macd = macdData.macd || undefined;
-            macdTrend = macdData.trend;
+            longTermROC = this.calculateROC(prices, 20) || undefined;
+            shortTermROC = this.calculateROC(prices, 5) || undefined;
+            roc = shortTermROC; // Use short-term ROC as primary display value
         }
 
         const analysis: TrendAnalysis = {
@@ -234,8 +233,8 @@ export class TrendAnalysisEngine {
             recommendation: finalRecommendation,
             score: enhancedScore,
             roc,
-            macd,
-            macdTrend,
+            longTermROC,
+            shortTermROC,
             ehlers: ehlersSignals,
             ehlersRecommendation,
             cycleTrading,
@@ -243,7 +242,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
         
-        console.log(`MACD/ROC-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - MACD/ROC Signal: ${persistentMacdRocSignal || 'NONE'} (Raw: ${rawMacdRocSignal || 'NONE'}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+        console.log(`Dual ROC-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - Dual ROC Signal: ${persistentDualROCSignal || 'NONE'} (Raw: ${rawDualROCSignal || 'NONE'}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
     }
 
     /**
@@ -349,8 +348,8 @@ export class TrendAnalysisEngine {
             return 'HOLD';
         }
 
-        // Get specific signal validation using MACD/ROC and candle patterns
-        const signalValidation = this.validateMACDROCSignal(symbol);
+        // Get specific signal validation using dual ROC and candle patterns
+        const signalValidation = this.validateDualROCSignal(symbol);
         
         if (!signalValidation) {
             return 'HOLD';
@@ -524,17 +523,17 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate MACD and ROC based trading signals
+     * Validate dual ROC alignment based trading signals
      */
-    private validateMACDROCSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
+    private validateDualROCSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         
-        // Get candles for MACD and ROC calculation (need at least 30 for reliable signals)
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 35);
+        // Get candles for ROC calculation (need at least 25 for reliable signals)
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 30);
         
-        if (recentCandles.length < 30) {
-            console.log(`${symbol}: Insufficient candle data for MACD/ROC analysis (need 30, have ${recentCandles.length})`);
+        if (recentCandles.length < 25) {
+            console.log(`${symbol}: Insufficient candle data for dual ROC analysis (need 25, have ${recentCandles.length})`);
             return null;
         }
         
@@ -543,14 +542,12 @@ export class TrendAnalysisEngine {
         const lastCandle = recentCandles[recentCandles.length - 1];
         const previousCandle = recentCandles[recentCandles.length - 2];
         
-        // Calculate MACD (3, 16, 16)
-        const macdData = this.calculateMACD(prices);
+        // Calculate Long-term ROC (20-period) and Short-term ROC (5-period)
+        const longTermROC = this.calculateROC(prices, 20);
+        const shortTermROC = this.calculateROC(prices, 5);
         
-        // Calculate ROC (14-period)
-        const roc = this.calculateROC(prices, 14);
-        
-        if (!macdData.macd || roc === null) {
-            console.log(`${symbol}: Failed to calculate MACD or ROC indicators`);
+        if (longTermROC === null || shortTermROC === null) {
+            console.log(`${symbol}: Failed to calculate ROC indicators`);
             return null;
         }
 
@@ -559,48 +556,48 @@ export class TrendAnalysisEngine {
         const isLastCandleRed = lastCandle.close < lastCandle.open;
 
         // BULLISH SIGNAL CONDITIONS:
-        // 1. MACD indicates bullish trend
-        // 2. ROC is positive (momentum in upward direction)
+        // 1. Both long-term and short-term ROC are positive (aligned bullish momentum)
+        // 2. Short-term ROC > long-term ROC (accelerating upward momentum)
         // 3. Last candle is green and closes above previous high
-        // 4. ROC aligns with trend direction
-        if (macdData.trend === 'BULLISH' && 
-            roc > 0.05 && // ROC shows positive momentum (> 0.05%)
+        if (longTermROC > 0.02 && // Long-term positive momentum (> 0.02%)
+            shortTermROC > 0.05 && // Short-term positive momentum (> 0.05%)
+            shortTermROC > longTermROC && // Short-term stronger than long-term (acceleration)
             isLastCandleGreen && 
             lastCandle.close > previousCandle.high) {
             
-            console.log(`${symbol}: ✅ MACD/ROC BULLISH signal confirmed:
-                - MACD trend: ${macdData.trend}
-                - MACD value: ${macdData.macd.toFixed(6)}
-                - ROC: ${roc.toFixed(3)}% (positive momentum)
+            console.log(`${symbol}: ✅ Dual ROC BULLISH signal confirmed:
+                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (positive)
+                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (positive & accelerating)
+                - ROC alignment: SHORT > LONG (${shortTermROC.toFixed(3)}% > ${longTermROC.toFixed(3)}%)
                 - Last candle GREEN: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes above prev high: ${lastCandle.close.toFixed(5)} > ${previousCandle.high.toFixed(5)}`);
             return 'BULLISH';
         }
         
         // BEARISH SIGNAL CONDITIONS:
-        // 1. MACD indicates bearish trend
-        // 2. ROC is negative (momentum in downward direction)
+        // 1. Both long-term and short-term ROC are negative (aligned bearish momentum)
+        // 2. Short-term ROC < long-term ROC (accelerating downward momentum)
         // 3. Last candle is red and closes below previous low
-        // 4. ROC aligns with trend direction
-        if (macdData.trend === 'BEARISH' && 
-            roc < -0.05 && // ROC shows negative momentum (< -0.05%)
+        if (longTermROC < -0.02 && // Long-term negative momentum (< -0.02%)
+            shortTermROC < -0.05 && // Short-term negative momentum (< -0.05%)
+            shortTermROC < longTermROC && // Short-term more negative than long-term (acceleration)
             isLastCandleRed && 
             lastCandle.close < previousCandle.low) {
             
-            console.log(`${symbol}: ✅ MACD/ROC BEARISH signal confirmed:
-                - MACD trend: ${macdData.trend}
-                - MACD value: ${macdData.macd.toFixed(6)}
-                - ROC: ${roc.toFixed(3)}% (negative momentum)
+            console.log(`${symbol}: ✅ Dual ROC BEARISH signal confirmed:
+                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (negative)
+                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (negative & accelerating)
+                - ROC alignment: SHORT < LONG (${shortTermROC.toFixed(3)}% < ${longTermROC.toFixed(3)}%)
                 - Last candle RED: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes below prev low: ${lastCandle.close.toFixed(5)} < ${previousCandle.low.toFixed(5)}`);
             return 'BEARISH';
         }
         
         // Log why signal was not generated
-        console.log(`${symbol}: ❌ MACD/ROC signal not generated:
-            - MACD trend: ${macdData.trend}
-            - MACD value: ${macdData.macd.toFixed(6)}
-            - ROC: ${roc.toFixed(3)}%
+        console.log(`${symbol}: ❌ Dual ROC signal not generated:
+            - Long-term ROC (20): ${longTermROC.toFixed(3)}%
+            - Short-term ROC (5): ${shortTermROC.toFixed(3)}%
+            - ROC alignment: ${shortTermROC > longTermROC ? 'SHORT > LONG' : shortTermROC < longTermROC ? 'SHORT < LONG' : 'EQUAL'}
             - Candle color: ${isLastCandleGreen ? 'GREEN' : isLastCandleRed ? 'RED' : 'NEUTRAL'}
             - Price action: ${lastCandle.close > previousCandle.high ? 'Above prev high' : lastCandle.close < previousCandle.low ? 'Below prev low' : 'Inside range'}`);
         
@@ -608,14 +605,14 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Legacy method - kept for compatibility but now calls MACD/ROC-based validation
+     * Legacy method - kept for compatibility but now calls dual ROC-based validation
      */
     private validateCandleColor(symbol: string, direction: TrendDirection): boolean {
-        const macdRocSignal = this.validateMACDROCSignal(symbol);
+        const dualROCSignal = this.validateDualROCSignal(symbol);
         
-        if (direction === 'bullish' && macdRocSignal === 'BULLISH') {
+        if (direction === 'bullish' && dualROCSignal === 'BULLISH') {
             return true;
-        } else if (direction === 'bearish' && macdRocSignal === 'BEARISH') {
+        } else if (direction === 'bearish' && dualROCSignal === 'BEARISH') {
             return true;
         }
         
