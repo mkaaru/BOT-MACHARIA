@@ -1,0 +1,83 @@
+ the system is prioritizing short-term signals over the larger trend context. Here are several suggestions to better align with the larger trend:
+1. Strengthen Long-Term Trend Filtering
+Currently, you calculate longTermTrend but don't use it effectively in the final recommendation. Modify the recommendation logic:
+typescript// In generateRecommendationByAlignment method, add this check:
+if (longTermTrend === 'bearish' && recommendation === 'BUY') {
+    return 'HOLD'; // Don't buy against major trend
+}
+if (longTermTrend === 'bullish' && recommendation === 'SELL') {
+    return 'HOLD'; // Don't sell against major trend
+}
+2. Add Trend Hierarchy Weighting
+Create a weighted system where longer-term HMAs have more influence:
+typescriptprivate calculateTrendWithHierarchy(hmaData: Array<{period: number, color: string}>): TrendDirection {
+    let bullishScore = 0;
+    let bearishScore = 0;
+    
+    for (const hma of hmaData) {
+        // Longer periods get higher weights
+        const weight = Math.log(hma.period + 1) / Math.log(2);
+        
+        if (hma.color === 'green') bullishScore += weight;
+        if (hma.color === 'red') bearishScore += weight;
+    }
+    
+    if (bullishScore > bearishScore * 1.2) return 'bullish'; // Need 20% edge
+    if (bearishScore > bullishScore * 1.2) return 'bearish';
+    return 'neutral';
+}
+3. Modify Ehlers Signal Priority
+Currently, Ehlers signals can override everything. Add trend context:
+typescript// In the recommendation combination logic:
+if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
+    // Only take counter-trend Ehlers signals if they're VERY strong and long-term trend is weak
+    if ((ehlersRecommendation.action === 'BUY' && longTermTrend === 'bearish') ||
+        (ehlersRecommendation.action === 'SELL' && longTermTrend === 'bullish')) {
+        
+        if (longTermTrendStrength > 60) {
+            // Strong opposing trend - reduce or ignore signal
+            enhancedScore = Math.min(75, score + 10);
+        } else {
+            // Weak opposing trend - allow but reduce bonus
+            enhancedScore = Math.min(85, score + 15);
+        }
+    } else {
+        // Signal aligns with trend - full bonus
+        finalRecommendation = ehlersRecommendation.action;
+        enhancedScore = Math.min(98, score + 25);
+    }
+}
+4. Add Trend Confirmation Requirement
+Require multiple timeframes to agree:
+typescriptprivate requireTrendConfirmation(hmaData: Array<{period: number, color: string}>): boolean {
+    const shortTerm = hmaData.filter(h => h.period <= 15);
+    const mediumTerm = hmaData.filter(h => h.period > 15 && h.period <= 42);
+    const longTerm = hmaData.filter(h => h.period > 42);
+    
+    const shortBullish = shortTerm.filter(h => h.color === 'green').length / shortTerm.length;
+    const mediumBullish = mediumTerm.filter(h => h.color === 'green').length / mediumTerm.length;
+    const longBullish = longTerm.filter(h => h.color === 'green').length / longTerm.length;
+    
+    // All timeframes should generally agree (allow some flexibility for short-term)
+    return Math.abs(shortBullish - longBullish) < 0.4 && 
+           Math.abs(mediumBullish - longBullish) < 0.3;
+}
+5. Add Market Structure Analysis
+Consider adding higher highs/lower lows confirmation:
+typescriptprivate analyzeMarketStructure(symbol: string, currentPrice: number): 'uptrend' | 'downtrend' | 'sideways' {
+    // Get recent price history and analyze swing points
+    // This would require storing recent high/low data
+    // Return overall market structure independent of moving averages
+}
+6. Implement Trend Strength Thresholds
+Only take signals when they align with or when the opposing trend is weak:
+typescript// In the final recommendation logic:
+if (longTermTrendStrength > 70) {
+    // Strong trend - only take aligned signals
+    if ((recommendation === 'BUY' && longTermTrend !== 'bullish') ||
+        (recommendation === 'SELL' && longTermTrend !== 'bearish')) {
+        finalRecommendation = 'HOLD';
+        enhancedScore *= 0.5; // Heavily penalize counter-trend signals
+    }
+}
+The key is to make the long-term trend a gatekeeper rather than just an informational component. Would you like me to help implement any of these specific modifications?RetryClaude does not have the ability to run the code it generates yet.M
