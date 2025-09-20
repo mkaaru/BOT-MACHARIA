@@ -537,7 +537,7 @@ export class MarketScanner {
     }
 
     /**
-     * Generate trading recommendations based on trend analysis with long-term alignment
+     * Generate trading recommendations based on trend analysis with ultra-strict long-term alignment
      */
     private generateRecommendations(): TradingRecommendation[] {
         const recommendations: TradingRecommendation[] = [];
@@ -546,27 +546,35 @@ export class MarketScanner {
             const trend = this.trendAnalysisEngine.getTrendAnalysis(symbolInfo.symbol);
             if (!trend || trend.recommendation === 'HOLD') return;
 
-            // Enhanced filtering for better long-term alignment
+            // ULTRA-STRICT filtering for maximum long-term alignment
 
-            // 1. Require high score and confidence
-            if (trend.score < 75 || trend.confidence < 70) return;
+            // 1. Require VERY high score and confidence
+            if (trend.score < 85 || trend.confidence < 80) return; // Increased thresholds
 
-            // 2. Require strong long-term trend alignment
-            if (!trend.longTermTrendStrength || trend.longTermTrendStrength < 60) return;
+            // 2. Require VERY strong long-term trend alignment
+            if (!trend.longTermTrendStrength || trend.longTermTrendStrength < 75) return; // Increased from 60
 
-            // 3. Ensure short-term and long-term trends align
+            // 3. Ensure short-term and long-term trends align perfectly
             const shortTermDirection = trend.direction;
             const longTermDirection = trend.longTermTrend;
             if (shortTermDirection !== longTermDirection || longTermDirection === 'neutral') return;
 
-            // 4. Require color alignment for HMA consistency
+            // 4. Require PERFECT color alignment for HMA consistency
             if (trend.colorAlignment !== true) return;
 
-            // 5. Additional validation for trend strength
-            if (trend.strength === 'weak') return;
+            // 5. Only allow STRONG trends (no moderate or weak)
+            if (trend.strength !== 'strong') return; // Only strong trends allowed
 
-            // 6. Check for Ehlers signal quality if available
-            if (trend.ehlers && trend.ehlers.snr < 3) return; // Require decent signal-to-noise ratio
+            // 6. Stricter Ehlers signal quality requirements
+            if (trend.ehlers && trend.ehlers.snr < 6) return; // Increased from 3 to 6 dB
+
+            // 7. Additional validation: require very recent signal confirmation
+            const signalAge = Date.now() - trend.lastUpdate.getTime();
+            if (signalAge > 2 * 60 * 1000) return; // Signal must be less than 2 minutes old
+
+            // 8. Ensure HMA slopes are significantly strong
+            if (trend.hma5Slope && Math.abs(trend.hma5Slope) < 0.0005) return; // Require meaningful slope
+            if (trend.hma200Slope && Math.abs(trend.hma200Slope) < 0.0002) return; // Require meaningful long-term slope
 
             const recommendation: TradingRecommendation = {
                 symbol: symbolInfo.symbol,
@@ -589,15 +597,15 @@ export class MarketScanner {
             recommendations.push(recommendation);
         });
 
-        // Sort by combined score considering long-term alignment
+        // Sort by combined score with heavy weighting on long-term alignment
         return recommendations
             .sort((a, b) => {
-                // Prioritize recommendations with stronger long-term alignment
-                const scoreA = a.score + (a.longTermStrength || 0) * 0.2;
-                const scoreB = b.score + (b.longTermStrength || 0) * 0.2;
+                // Heavy weighting on long-term strength (50% vs previous 20%)
+                const scoreA = a.score + (a.longTermStrength || 0) * 0.5;
+                const scoreB = b.score + (b.longTermStrength || 0) * 0.5;
                 return scoreB - scoreA;
             })
-            .slice(0, Math.min(5, recommendations.length));
+            .slice(0, Math.min(3, recommendations.length)); // Reduced from 5 to 3 for highest quality only
     }
 }
 

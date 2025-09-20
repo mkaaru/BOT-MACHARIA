@@ -58,8 +58,8 @@ export class TrendAnalysisEngine {
         timestamp: number;
         confirmationCount: number;
     }> = new Map();
-    private readonly SIGNAL_PERSISTENCE_MS = 5 * 60 * 1000; // 5 minutes
-    private readonly MIN_CONFIRMATION_COUNT = 3; // Require 3 confirmations before changing signal
+    private readonly SIGNAL_PERSISTENCE_MS = 10 * 60 * 1000; // 10 minutes (increased from 5)
+    private readonly MIN_CONFIRMATION_COUNT = 5; // Require 5 confirmations before changing signal (increased from 3)
 
     constructor(hmaCalculator: EfficientHMACalculator) {
         this.hmaCalculator = hmaCalculator;
@@ -433,111 +433,150 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate SMA-based trading signals with long-term trend alignment and reduced noise
+     * Validate SMA-based trading signals with enhanced long-term trend alignment and reduced noise
      */
     private validateSMABasedSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         
-        // Get more candles for better trend analysis (need at least 31 for SMA-30 calculation)
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 35);
+        // Get more candles for enhanced long-term analysis (need at least 51 for SMA-50 calculation)
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 55);
         
-        if (recentCandles.length < 31) {
-            console.log(`${symbol}: Insufficient candle data for enhanced SMA analysis (need 31, have ${recentCandles.length})`);
+        if (recentCandles.length < 51) {
+            console.log(`${symbol}: Insufficient candle data for enhanced SMA analysis (need 51, have ${recentCandles.length})`);
             return null;
         }
         
-        // Get last three candles for pattern confirmation
+        // Get last five candles for stronger pattern confirmation
         const lastCandle = recentCandles[recentCandles.length - 1];
         const previousCandle = recentCandles[recentCandles.length - 2];
         const thirdCandle = recentCandles[recentCandles.length - 3];
+        const fourthCandle = recentCandles[recentCandles.length - 4];
+        const fifthCandle = recentCandles[recentCandles.length - 5];
         
-        // Calculate multiple SMAs for trend confirmation
+        // Calculate multiple SMAs for comprehensive trend confirmation
         const last10Candles = recentCandles.slice(-10);
         const last20Candles = recentCandles.slice(-20);
         const last30Candles = recentCandles.slice(-30);
+        const last50Candles = recentCandles.slice(-50);
         
         const sma10 = last10Candles.reduce((sum, candle) => sum + candle.close, 0) / 10;
         const sma20 = last20Candles.reduce((sum, candle) => sum + candle.close, 0) / 20;
         const sma30 = last30Candles.reduce((sum, candle) => sum + candle.close, 0) / 30;
+        const sma50 = last50Candles.reduce((sum, candle) => sum + candle.close, 0) / 50;
         
-        // Check long-term trend alignment (SMA10 > SMA20 > SMA30 for bullish, reverse for bearish)
-        const longTermBullish = sma10 > sma20 && sma20 > sma30;
-        const longTermBearish = sma10 < sma20 && sma20 < sma30;
+        // STRONGER long-term trend requirements (must have all SMAs aligned)
+        const strongLongTermBullish = sma10 > sma20 && sma20 > sma30 && sma30 > sma50;
+        const strongLongTermBearish = sma10 < sma20 && sma20 < sma30 && sma30 < sma50;
+        
+        // Additional trend strength validation - check SMA separations are significant
+        const smaSpread1020 = Math.abs((sma10 - sma20) / sma20) * 100;
+        const smaSpread2030 = Math.abs((sma20 - sma30) / sma30) * 100;
+        const smaSpread3050 = Math.abs((sma30 - sma50) / sma50) * 100;
+        
+        const hasSignificantSeparation = smaSpread1020 > 0.02 && smaSpread2030 > 0.02 && smaSpread3050 > 0.02;
+        
+        // Only proceed if we have STRONG long-term trend alignment
+        if (!strongLongTermBullish && !strongLongTermBearish) {
+            console.log(`${symbol}: ❌ No strong long-term trend alignment - SMA10: ${sma10.toFixed(5)}, SMA20: ${sma20.toFixed(5)}, SMA30: ${sma30.toFixed(5)}, SMA50: ${sma50.toFixed(5)}`);
+            return null;
+        }
+        
+        if (!hasSignificantSeparation) {
+            console.log(`${symbol}: ❌ Insufficient SMA separation - spreads: ${smaSpread1020.toFixed(3)}%, ${smaSpread2030.toFixed(3)}%, ${smaSpread3050.toFixed(3)}%`);
+            return null;
+        }
         
         // Extract candle data
         const { open: lastOpen, close: lastClose, high: lastHigh, low: lastLow } = lastCandle;
         const { high: prevHigh, low: prevLow, close: prevClose } = previousCandle;
         const { close: thirdClose } = thirdCandle;
+        const { close: fourthClose } = fourthCandle;
+        const { close: fifthClose } = fifthCandle;
         
-        // Check for momentum continuation (price moving in same direction for 2+ candles)
-        const upwardMomentum = lastClose > prevClose && prevClose > thirdClose;
-        const downwardMomentum = lastClose < prevClose && prevClose < thirdClose;
+        // Enhanced momentum confirmation (require 3+ candles moving in same direction)
+        const strongUpwardMomentum = lastClose > prevClose && prevClose > thirdClose && thirdClose > fourthClose;
+        const strongDownwardMomentum = lastClose < prevClose && prevClose < thirdClose && thirdClose < fourthClose;
         
         // Determine candle colors
         const isLastCandleGreen = lastClose > lastOpen;
         const isLastCandleRed = lastClose < lastOpen;
         
-        // Calculate price distance from SMAs (for signal strength)
+        // Calculate price distance from SMAs (higher thresholds for stronger signals)
         const priceAboveSMA10 = ((lastClose - sma10) / sma10) * 100;
         const priceAboveSMA20 = ((lastClose - sma20) / sma20) * 100;
+        const priceAboveSMA50 = ((lastClose - sma50) / sma50) * 100;
         
-        // ENHANCED BULLISH SIGNAL CONDITIONS:
-        // 1. Long-term trend must be bullish (SMA alignment)
+        // ULTRA-STRICT BULLISH SIGNAL CONDITIONS:
+        // 1. STRONG long-term bullish trend (all SMAs aligned with significant separation)
         // 2. Last candle is green and closes above previous high
-        // 3. Price is significantly above SMA-10 (at least 0.01%)
-        // 4. Upward momentum present OR strong SMA alignment
-        if (longTermBullish && 
+        // 3. Price is significantly above multiple SMAs
+        // 4. STRONG upward momentum (3+ consecutive higher closes)
+        // 5. Price must be above long-term SMA-50 by meaningful margin
+        if (strongLongTermBullish && 
+            hasSignificantSeparation &&
             isLastCandleGreen && 
             lastClose > prevHigh && 
-            priceAboveSMA10 > 0.01 &&
-            (upwardMomentum || (sma10 > sma20 * 1.0005))) { // 0.05% SMA separation minimum
+            priceAboveSMA10 > 0.03 && // Increased from 0.01%
+            priceAboveSMA20 > 0.02 &&
+            priceAboveSMA50 > 0.01 &&
+            strongUpwardMomentum) { // Require strong momentum
             
-            console.log(`${symbol}: ✅ ENHANCED BULLISH signal confirmed:
-                - Long-term bullish trend: SMA10(${sma10.toFixed(5)}) > SMA20(${sma20.toFixed(5)}) > SMA30(${sma30.toFixed(5)})
+            console.log(`${symbol}: ✅ ULTRA-STRICT BULLISH signal confirmed:
+                - Strong long-term bullish trend: SMA10(${sma10.toFixed(5)}) > SMA20(${sma20.toFixed(5)}) > SMA30(${sma30.toFixed(5)}) > SMA50(${sma50.toFixed(5)})
+                - SMA separations: ${smaSpread1020.toFixed(3)}%, ${smaSpread2030.toFixed(3)}%, ${smaSpread3050.toFixed(3)}%
                 - Last candle GREEN: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
                 - Closes above prev high: ${lastClose.toFixed(5)} > ${prevHigh.toFixed(5)}
-                - Price above SMA-10: ${priceAboveSMA10.toFixed(3)}%
-                - Momentum: ${upwardMomentum ? 'Confirmed' : 'SMA-based'}`);
+                - Price above SMAs: SMA10(${priceAboveSMA10.toFixed(3)}%), SMA20(${priceAboveSMA20.toFixed(3)}%), SMA50(${priceAboveSMA50.toFixed(3)}%)
+                - Strong upward momentum confirmed (3+ candles)`);
             return 'BULLISH';
         }
         
-        // ENHANCED BEARISH SIGNAL CONDITIONS:
-        // 1. Long-term trend must be bearish (SMA alignment)
+        // ULTRA-STRICT BEARISH SIGNAL CONDITIONS:
+        // 1. STRONG long-term bearish trend (all SMAs aligned with significant separation)
         // 2. Last candle is red and closes below previous low
-        // 3. Price is significantly below SMA-10 (at least 0.01%)
-        // 4. Downward momentum present OR strong SMA separation
-        if (longTermBearish && 
+        // 3. Price is significantly below multiple SMAs
+        // 4. STRONG downward momentum (3+ consecutive lower closes)
+        // 5. Price must be below long-term SMA-50 by meaningful margin
+        if (strongLongTermBearish && 
+            hasSignificantSeparation &&
             isLastCandleRed && 
             lastClose < prevLow && 
-            priceAboveSMA10 < -0.01 &&
-            (downwardMomentum || (sma10 < sma20 * 0.9995))) { // 0.05% SMA separation minimum
+            priceAboveSMA10 < -0.03 && // Increased from -0.01%
+            priceAboveSMA20 < -0.02 &&
+            priceAboveSMA50 < -0.01 &&
+            strongDownwardMomentum) { // Require strong momentum
             
-            console.log(`${symbol}: ✅ ENHANCED BEARISH signal confirmed:
-                - Long-term bearish trend: SMA10(${sma10.toFixed(5)}) < SMA20(${sma20.toFixed(5)}) < SMA30(${sma30.toFixed(5)})
+            console.log(`${symbol}: ✅ ULTRA-STRICT BEARISH signal confirmed:
+                - Strong long-term bearish trend: SMA10(${sma10.toFixed(5)}) < SMA20(${sma20.toFixed(5)}) < SMA30(${sma30.toFixed(5)}) < SMA50(${sma50.toFixed(5)})
+                - SMA separations: ${smaSpread1020.toFixed(3)}%, ${smaSpread2030.toFixed(3)}%, ${smaSpread3050.toFixed(3)}%
                 - Last candle RED: ${lastOpen.toFixed(5)} → ${lastClose.toFixed(5)}
                 - Closes below prev low: ${lastClose.toFixed(5)} < ${prevLow.toFixed(5)}
-                - Price below SMA-10: ${priceAboveSMA10.toFixed(3)}%
-                - Momentum: ${downwardMomentum ? 'Confirmed' : 'SMA-based'}`);
+                - Price below SMAs: SMA10(${priceAboveSMA10.toFixed(3)}%), SMA20(${priceAboveSMA20.toFixed(3)}%), SMA50(${priceAboveSMA50.toFixed(3)}%)
+                - Strong downward momentum confirmed (3+ candles)`);
             return 'BEARISH';
         }
         
-        // Log why signal was not generated (only for debugging)
+        // Log why signal was not generated (detailed debugging)
         if (isLastCandleGreen && lastClose > prevHigh) {
-            if (!longTermBullish) {
-                console.log(`${symbol}: ❌ Bullish signal blocked - no long-term bullish trend (SMA10: ${sma10.toFixed(5)}, SMA20: ${sma20.toFixed(5)}, SMA30: ${sma30.toFixed(5)})`);
-            } else if (priceAboveSMA10 <= 0.01) {
-                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient price separation from SMA-10: ${priceAboveSMA10.toFixed(3)}%`);
+            if (!strongLongTermBullish) {
+                console.log(`${symbol}: ❌ Bullish signal blocked - no strong long-term bullish trend`);
+            } else if (!hasSignificantSeparation) {
+                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient SMA separation`);
+            } else if (!strongUpwardMomentum) {
+                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient momentum (need 3+ consecutive higher closes)`);
             } else {
-                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient momentum confirmation`);
+                console.log(`${symbol}: ❌ Bullish signal blocked - insufficient price separation from SMAs`);
             }
         } else if (isLastCandleRed && lastClose < prevLow) {
-            if (!longTermBearish) {
-                console.log(`${symbol}: ❌ Bearish signal blocked - no long-term bearish trend (SMA10: ${sma10.toFixed(5)}, SMA20: ${sma20.toFixed(5)}, SMA30: ${sma30.toFixed(5)})`);
-            } else if (priceAboveSMA10 >= -0.01) {
-                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient price separation from SMA-10: ${priceAboveSMA10.toFixed(3)}%`);
+            if (!strongLongTermBearish) {
+                console.log(`${symbol}: ❌ Bearish signal blocked - no strong long-term bearish trend`);
+            } else if (!hasSignificantSeparation) {
+                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient SMA separation`);
+            } else if (!strongDownwardMomentum) {
+                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient momentum (need 3+ consecutive lower closes)`);
             } else {
-                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient momentum confirmation`);
+                console.log(`${symbol}: ❌ Bearish signal blocked - insufficient price separation from SMAs`);
             }
         }
         
