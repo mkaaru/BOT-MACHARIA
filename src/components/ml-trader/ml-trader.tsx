@@ -7,7 +7,6 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
-import { Button } from '@deriv-com/ui';
 
 import './ml-trader.scss';
 
@@ -62,7 +61,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-const MLTrader: React.FC = observer(() => {
+const MLTrader = observer(() => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
@@ -107,11 +106,10 @@ const MLTrader: React.FC = observer(() => {
     const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
 
-
+    
 
     // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
-    const [is_modal_open, setIsModalOpen] = useState(false);
 
     // Super Elite Bot Logic Adaptation
     const baseStake = baseStakeRef.current; // Use baseStake from ref for calculations
@@ -201,7 +199,7 @@ const MLTrader: React.FC = observer(() => {
                 setRecommendations(recs);
                 updateTrendsFromScanner();
 
-
+                
 
                 // Auto-select best recommendation if auto mode is enabled
                 if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
@@ -294,7 +292,7 @@ const MLTrader: React.FC = observer(() => {
 
             // Mark initial scan as complete when we have trends for at least 2 symbols (reasonable with 5000 ticks)
             if (trendsMap.size >= 2 && !initial_scan_complete) {
-                console.log('✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols using historical data');
+                console.log(`✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols using historical data`);
                 setInitialScanComplete(true);
                 setStatus(`Market analysis ready - ${trendsMap.size} symbols analyzed with historical trends`);
             }
@@ -330,7 +328,7 @@ const MLTrader: React.FC = observer(() => {
         }
     }, [updateTrendsFromScanner]);
 
-
+    
 
     // Apply a trading recommendation to the trading interface (not modal)
     const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
@@ -418,7 +416,7 @@ const MLTrader: React.FC = observer(() => {
 
             const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
             const tradeTypeList = trade_mode === 'higher_lower' ? 'highlow' : 'risefall';
-            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALL') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUT');
+            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
             const barrierOffsetValue = calculateBarrierOffset();
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -1044,11 +1042,6 @@ const MLTrader: React.FC = observer(() => {
         return '➡️';
     };
 
-    const setStake = useCallback((newStake: number) => {
-        setModalStake(newStake);
-        baseStakeRef.current = newStake;
-    }, []);
-
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
@@ -1165,7 +1158,7 @@ const MLTrader: React.FC = observer(() => {
                                                 </div>
                                             </div>
 
-
+                                            
                                         </>
                                     )}
                                 </div>
@@ -1173,103 +1166,136 @@ const MLTrader: React.FC = observer(() => {
                         </div>
 
                         {/* Market Recommendations */}
+                        {recommendations.length > 0 && (
                         <div className="ml-trader__recommendations">
                             <div className="recommendations-header">
-                                <Text as="h3" weight="bold" color="prominent">
-                                    Trading Recommendations
-                                </Text>
-                                <Text size="xs" color="general">
-                                    {initial_scan_complete
-                                        ? `${recommendations.length} active signals`
-                                        : `Scanning... ${Math.round(scanning_progress)}% complete`
-                                    }
-                                </Text>
+                                <Text as="h3">Trading Recommendations</Text>
+                                <Text size="xs">Click a recommendation to load trading details</Text>
                             </div>
 
-                            {!initial_scan_complete ? (
-                                <div className="loading-state">
-                                    <div className="loading-spinner"></div>
-                                    <Text size="s" color="general">
-                                        Analyzing market conditions... {Math.round(scanning_progress)}%
-                                    </Text>
-                                    <div className="progress-bar">
-                                        <div className="progress-fill" style={{ width: `${scanning_progress}%` }}></div>
-                                    </div>
-                                </div>
-                            ) : recommendations.length === 0 ? (
-                                <div className="empty-state">
-                                    <div className="empty-icon">📊</div>
-                                    <Text size="s" color="general">
-                                        {enable_trend_filter
-                                            ? `No recommendations match your trend filter criteria. Try adjusting the filter settings.`
-                                            : 'No trading opportunities found at the moment. Market conditions may not be optimal for trading.'
-                                        }
-                                    </Text>
-                                    <button
-                                        className="ml-trader__btn ml-trader__btn--scan"
-                                        onClick={startMarketScan}
-                                        disabled={!is_scanner_initialized}
-                                    >
-                                        Refresh Scan
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="recommendations-list">
-                                    {recommendations.slice(0, 6).map((rec, index) => (
+                            <div className="recommendations-grid">
+                                {recommendations.slice(0, 6).map((rec, index) => {
+                                    const trend = market_trends.get(rec.symbol);
+                                    const isSelected = selected_recommendation?.symbol === rec.symbol;
+
+                                    return (
                                         <div
-                                            key={`${rec.symbol}-${index}`}
-                                            className={`recommendation-card ${rec.direction.toLowerCase()} ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
+                                            key={rec.symbol}
+                                            className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
                                             onClick={() => openRecommendationModal(rec)}
+                                            style={{ cursor: 'pointer' }}
                                         >
                                             <div className="rec-header">
                                                 <div className="rec-rank">#{index + 1}</div>
-                                                <div className="rec-symbol">{ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === rec.symbol)?.display_name || rec.symbol}</div>
+                                                <div className="rec-symbol">{rec.displayName}</div>
                                                 <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
                                                     {rec.direction}
                                                 </div>
                                             </div>
 
                                             <div className="rec-details">
-                                                <div>
-                                                    <Text size="xs" color="general">Score</Text>
-                                                    <Text weight="bold" color="prominent">{rec.score.toFixed(0)}%</Text>
+                                                <div className="rec-score">
+                                                    <Text size="xs">Score</Text>
+                                                    <Text weight="bold">{rec.score.toFixed(0)}</Text>
                                                 </div>
-                                                <div>
-                                                    <Text size="xs" color="general">Confidence</Text>
-                                                    <Text weight="bold" color="prominent">{rec.confidence.toFixed(0)}%</Text>
+                                                <div className="rec-confidence">
+                                                    <Text size="xs">Confidence</Text>
+                                                    <Text weight="bold">{rec.confidence.toFixed(0)}%</Text>
                                                 </div>
-                                                <div>
-                                                    <Text size="xs" color="general">Stake</Text>
-                                                    <Text weight="bold" color="prominent">${rec.suggestedStake}</Text>
+                                                <div className="rec-price">
+                                                    <Text size="xs">Price</Text>
+                                                    <Text weight="bold">{rec.currentPrice.toFixed(5)}</Text>
                                                 </div>
                                             </div>
 
-                                            <div className={`trend-indicator ${getTrendColorClass(market_trends.get(rec.symbol) || {} as TrendAnalysis)}`}>
-                                                <div className="trend-icon">{getTrendIcon(market_trends.get(rec.symbol) || {} as TrendAnalysis)}</div>
-                                                <div className="trend-details">
-                                                    <Text size="xs" weight="bold">
-                                                        {(market_trends.get(rec.symbol)?.direction || 'neutral').toUpperCase()}
-                                                    </Text>
-                                                    <Text size="xs" color="general">
-                                                        {market_trends.get(rec.symbol)?.strength || 'unknown'} trend
-                                                    </Text>
+                                            {trend && (
+                                                <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
+                                                    <span className="trend-icon">{getTrendIcon(trend)}</span>
+                                                    <div className="trend-details">
+                                                        <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.strength} trend</Text>
+                                                    </div>
+                                                    <div className="hma-data">
+                                                        <div className="hma-row">
+                                                            <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
+                                                            <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                        </div>
+                                                        <div className="hma-row">
+                                                            <Text size="xs">HMA200: {trend.hma200?.toFixed(5) || 'N/A'}</Text>
+                                                            {trend.longTermTrendStrength !== undefined && (
+                                                                <Text size="xs" weight="bold">
+                                                                    Strength: {trend.longTermTrendStrength.toFixed(1)}%
+                                                                </Text>
+                                                            )}
+                                                        </div>
+                                                        <div className="hma-slopes">
+                                                            <Text size="xs">
+                                                                Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
+                                                                {Math.abs(trend.hma5Slope || 0).toFixed(6)}
+                                                            </Text>
+                                                        </div>
+
+                                                        {/* Long-term trend indicator with strength percentage */}
+                                                        <div className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
+                                                            {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                        </div>
+
+                                                        {/* Visual trend strength bar */}
+                                                        {trend.longTermTrendStrength !== undefined && (
+                                                            <div className="trend-strength-bar">
+                                                                <div
+                                                                    className={`strength-fill ${
+                                                                        trend.longTermTrendStrength >= 70 ? 'strength-high' :
+                                                                        trend.longTermTrendStrength >= 40 ? 'strength-medium' : 'strength-low'
+                                                                    }`}
+                                                                    style={{ width: `${trend.longTermTrendStrength}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Ehlers Signal Quality Indicators */}
+                                                    {trend.ehlers && (
+                                                        <div className="ehlers-signals">
+                                                            <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
+                                                            <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
+                                                            <Text size="xs">ANTIC: {trend.ehlers.anticipatorySignal.toFixed(2)}</Text>
+                                                            {trend.ehlersRecommendation?.anticipatory && (
+                                                                <div className={`anticipatory-signal ${trend.ehlersRecommendation.signalStrength}`}>
+                                                                    {trend.ehlersRecommendation.signalStrength === 'strong' && (
+                                                                        <Text size="xs" color="profit-success">🎯 STRONG PULLBACK</Text>
+                                                                    )}
+                                                                    {trend.ehlersRecommendation.signalStrength === 'medium' && (
+                                                                        <Text size="xs" color="prominent">⚡ EARLY SIGNAL</Text>
+                                                                    )}
+                                                                    {trend.ehlersRecommendation.signalStrength === 'weak' && (
+                                                                        <Text size="xs" color="general">📊 POTENTIAL</Text>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Cycle Trading Suitability */}
+                                                    {trend.cycleTrading && (
+                                                        <div className={`cycle-status ${trend.cycleTrading.suitable ? 'suitable' : 'unsuitable'}`}>
+                                                            <Text size="xs">
+                                                                {trend.cycleTrading.suitable ? '✅ Good for cycles' : '❌ Poor cycle conditions'}
+                                                            </Text>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="hma-values">
-                                                    <Text size="xs" color="general">
-                                                        HMA5: {rec.hma5.toFixed(4)}
-                                                    </Text>
-                                                </div>
-                                            </div>
+                                            )}
 
                                             <div className="rec-reason">
-                                                <Text size="xs" color="general">{rec.reason}</Text>
+                                                <Text size="xs">{rec.reason}</Text>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Scanner Status */}
                     {scanner_status && (
