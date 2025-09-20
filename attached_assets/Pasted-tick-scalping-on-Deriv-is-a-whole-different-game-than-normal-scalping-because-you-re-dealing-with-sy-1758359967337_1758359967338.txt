@@ -1,0 +1,99 @@
+tick scalping on Deriv is a whole different game than normal scalping because you’re dealing with synthetic indices or Volatility / Crash & Boom markets that run 24/7 and generate ticks every ~200ms.
+
+Here’s a structured breakdown of how you can approach tick scalping:
+
+🔹 1. Core Idea of Tick Scalping
+
+Instead of waiting for long candles, you use micro price movements (1–5 ticks) to capture small edges.
+
+You’re usually aiming for a very small profit per trade but with many trades per session.
+
+Must keep losses small and fast because tick reversals happen quickly.
+
+🔹 2. Methods to Detect Direction
+✅ (a) Simple Consecutive Tick Logic
+
+If you see 3–5 consecutive higher ticks, probability is higher next tick = rise.
+
+If you see 3–5 consecutive lower ticks, probability is higher next tick = fall.
+
+Very fast, but noisy.
+
+✅ (b) Micro-Candle Scalping
+
+Convert ticks into 1-second or 5-tick candles.
+
+If last 2–3 candles are bullish → scalp rise.
+
+If last 2–3 candles are bearish → scalp fall.
+
+Add a rule to exit quickly if opposite candle appears.
+
+✅ (c) Indicator-Based Scalping
+
+Run fast indicators directly on ticks or micro candles:
+
+Hull Moving Average (HMA) → follow slope for direction.
+
+Ehlers Decycler / MAMA → filter cycles, catch smooth short-term trend.
+
+Rate of Change (ROC) → detect momentum bursts.
+
+🔹 3. Entry & Exit Rules for Tick Scalping
+
+Example playbook (5-tick trade):
+
+Entry:
+
+Direction confirmed by last 3–5 ticks OR micro-candle + indicator slope.
+
+Enter immediately when trend aligns.
+
+Exit:
+
+Close at +1 to +3 ticks profit (you don’t aim for big moves).
+
+Exit if 1–2 ticks go against you.
+
+⚡ The secret is: small win, small loss, but consistent edge.
+
+🔹 4. Risk Management
+
+Use fixed stake per trade (not martingale if you want safety).
+
+Limit losses per session (e.g., stop if -10 losses in a row).
+
+Aim for many small wins, not big jackpots.
+
+🔹 5. Example Tick Scalping Bot Flow
+
+Pseudo-code:
+
+ticks = get_last_ticks(10)
+
+if last 3 ticks are higher:
+    buy("rise", duration=5 ticks)
+elif last 3 ticks are lower:
+    buy("fall", duration=5 ticks)
+
+
+Add filters:
+
+Only trade when volatility is smooth (not spiky).
+
+Confirm with short HMA slope.
+
+Exit early if reversal detected.
+
+🔹 6. Pro Tips
+
+Tick scalping works best on Volatility 100 Index, Volatility 75, or Crash & Boom.
+
+Avoid major spikes (check micro-candle wicks).
+
+Use fast execution (API or Deriv Bot Builder) — don’t click manually, ticks move too fast.
+
+Focus on probabilities, not certainty → your edge comes from consistency.
+
+⚠️ Key difference vs normal trading:
+In tick scalping, you’re not trying to predict big moves — you’re surfing the smallest waves in price.
