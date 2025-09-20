@@ -110,6 +110,7 @@ const MLTrader = observer(() => {
 
     // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
+    const [is_modal_open, setIsModalOpen] = useState(false);
 
     // Super Elite Bot Logic Adaptation
     const baseStake = baseStakeRef.current; // Use baseStake from ref for calculations
