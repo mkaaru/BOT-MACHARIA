@@ -1722,6 +1722,7 @@
                                 -webkit-background-clip: text;
                                 -webkit-text-fill-color: transparent;
                                 background-clip: text;
+                                text-transform: uppercase;
                             }
 
                             &::before {
@@ -2369,3 +2370,46 @@
         }
     }
 }
+
+.ml-predictions-panel,
+    .tick-scalping-panel {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: linear-gradient(135deg, #1a1a2a 0%, #2a2a3a 100%);
+        border-radius: 8px;
+        border: 1px solid #3a3a4a;
+
+        &.minimized {
+            padding: 10px 15px;
+            cursor: pointer;
+
+            .panel-content {
+                display: none;
+            }
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+
+            .toggle-icon {
+                font-size: 14px;
+                color: #888888;
+            }
+        }
+
+        .panel-content {
+            color: #cccccc;
+        }
+    }
+
+    .tick-scalping-panel {
+        border: 1px solid #4a4a5a;
+
+        &.minimized {
+            background: linear-gradient(135deg, #2a1a1a 0%, #3a2a2a 100%);
+            border-color: #ef4444;
+        }
+    }

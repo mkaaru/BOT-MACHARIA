@@ -7,6 +7,7 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
+import { Button } from '@deriv/ui';
 
 import './ml-trader.scss';
 
@@ -82,6 +83,25 @@ const MLPredictionsPanel = ({ isMinimized, onToggleMinimize }: any) => {
     );
 };
 
+// Placeholder for Tick Scalping Panel component (to be implemented or imported)
+const TickScalpingPanel = ({ isMinimized, onToggleMinimize }: any) => {
+    return (
+        <div className={`tick-scalping-panel ${isMinimized ? 'minimized' : ''}`}>
+            <div className="panel-header" onClick={onToggleMinimize} style={{ cursor: 'pointer' }}>
+                <Text as="h3">Tick Scalping</Text>
+                <span className="toggle-icon">{isMinimized ? '➕' : '➖'}</span>
+            </div>
+            {!isMinimized && (
+                <div className="panel-content">
+                    {/* Tick Scalping details would go here */}
+                    <Text size="xs">Ultra-fast tick data analysis for micro-profit opportunities.</Text>
+                    <Text size="xs">Scalping parameters and performance metrics will be displayed here.</Text>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const MLTrader = observer(() => {
     const store = useStore();
@@ -133,6 +153,11 @@ const MLTrader = observer(() => {
     const [ml_panel_minimized, setMLPanelMinimized] = useState(false);
     const [ml_predictions, setMLPredictions] = useState<Map<string, any>>(new Map()); // State to store ML predictions
 
+    // Tick Scalping States
+    const [show_tick_scalping, setShowTickScalping] = useState(false);
+    const [tick_scalping_panel_minimized, setTickScalpingPanelMinimized] = useState(false);
+    const [tick_scalping_params, setTickScalpingParams] = useState<any>({}); // State to store tick scalping parameters
+
     // Placeholder for ML prediction logic
     const updateMLPredictions = useCallback(() => {
         // This function should contain the logic to get and set ML predictions
@@ -152,6 +177,20 @@ const MLTrader = observer(() => {
         });
         setMLPredictions(dummyPredictions);
         console.log("ML Predictions updated.");
+    }, []);
+
+    // Placeholder for Tick Scalping logic
+    const updateTickScalpingParams = useCallback(() => {
+        // This function should contain the logic to get and set tick scalping parameters
+        // For now, it's a placeholder. In a real implementation, this would
+        // involve fetching configuration or analyzing market conditions.
+        const dummyParams = {
+            lookback_period: 10,
+            threshold: 0.0005,
+            strategy: Math.random() > 0.5 ? 'mean_reversion' : 'momentum',
+        };
+        setTickScalpingParams(dummyParams);
+        console.log("Tick Scalping parameters updated.");
     }, []);
 
 
@@ -256,6 +295,7 @@ const MLTrader = observer(() => {
                 setRecommendations(recs);
                 updateTrendsFromScanner();
                 updateMLPredictions();
+                updateTickScalpingParams(); // Update tick scalping params as well
 
                 // Auto-select best recommendation if auto mode is enabled
                 if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
@@ -273,6 +313,7 @@ const MLTrader = observer(() => {
             const trendUpdateInterval = setInterval(() => {
                 updateTrendsFromScanner();
                 updateMLPredictions(); // Also update ML predictions periodically
+                updateTickScalpingParams(); // Also update tick scalping params periodically
             }, 5000); // Update every 5 seconds
 
             // Mark as complete after initial data processing (reduced time with 5000 historical ticks)
@@ -296,7 +337,7 @@ const MLTrader = observer(() => {
             console.error('Failed to initialize market scanner:', error);
             setStatus(`Scanner initialization failed: ${error}`);
         }
-    }, [is_scanner_initialized, auto_mode, is_running, updateMLPredictions]); // Added updateMLPredictions as dependency
+    }, [is_scanner_initialized, auto_mode, is_running, updateMLPredictions, updateTickScalpingParams]); // Added updateMLPredictions and updateTickScalpingParams as dependencies
 
     // Update trends from scanner
     const updateTrendsFromScanner = useCallback(() => {
@@ -1117,6 +1158,24 @@ const MLTrader = observer(() => {
                     <Text className="ml-trader__subtitle">
                         {localize('AI-powered real-time trading signals')}
                     </Text>
+                    <div className="ml-trader__header-buttons">
+                        <Button
+                            onClick={() => setShowMLPredictions(!show_ml_predictions)}
+                            color={show_ml_predictions ? 'red' : 'green'}
+                            variant="outlined"
+                            size="small"
+                        >
+                            {show_ml_predictions ? 'Hide ML Predictions' : 'Show ML Predictions'}
+                        </Button>
+                        <Button
+                            onClick={() => setShowTickScalping(!show_tick_scalping)}
+                            color={show_tick_scalping ? 'red' : 'green'}
+                            variant="outlined"
+                            size="small"
+                        >
+                            {show_tick_scalping ? 'Hide Tick Scalping' : 'Show Tick Scalping'}
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="ml-trader__content">
@@ -1213,6 +1272,14 @@ const MLTrader = observer(() => {
                             <MLPredictionsPanel
                                 isMinimized={ml_panel_minimized}
                                 onToggleMinimize={() => setMLPanelMinimized(!ml_panel_minimized)}
+                            />
+                        )}
+
+                        {/* Tick Scalping Panel */}
+                        {show_tick_scalping && (
+                            <TickScalpingPanel
+                                isMinimized={tick_scalping_panel_minimized}
+                                onToggleMinimize={() => setTickScalpingPanelMinimized(!tick_scalping_panel_minimized)}
                             />
                         )}
 

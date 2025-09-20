@@ -123,6 +123,11 @@ export class TickStreamManager {
             microCandleEngine.processTick(tick);
         });
         
+        // Process tick through scalping engine for ultra-fast signals
+        import('./tick-scalping-engine').then(({ tickScalpingEngine }) => {
+            tickScalpingEngine.processTick(tick);
+        });
+        
         const callbacks = this.tickCallbacks.get(tick.symbol);
         if (callbacks) {
             callbacks.forEach(callback => {
