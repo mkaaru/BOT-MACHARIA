@@ -106,7 +106,7 @@ const MLTrader = observer(() => {
     const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
 
-    
+
 
     // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
@@ -199,7 +199,7 @@ const MLTrader = observer(() => {
                 setRecommendations(recs);
                 updateTrendsFromScanner();
 
-                
+
 
                 // Auto-select best recommendation if auto mode is enabled
                 if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
@@ -328,7 +328,7 @@ const MLTrader = observer(() => {
         }
     }, [updateTrendsFromScanner]);
 
-    
+
 
     // Apply a trading recommendation to the trading interface (not modal)
     const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
@@ -623,7 +623,7 @@ const MLTrader = observer(() => {
                 <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                 <value name="VALUE">
                   <block type="variables_get" id="evk@VL!Cns23Tt-YO#i">
-                    <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
+                    <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                   </block>
                 </value>
                 <next>
@@ -875,6 +875,26 @@ const MLTrader = observer(() => {
         }
     }, [modal_recommendation, modal_symbol, modal_trade_mode, modal_contract_type, modal_duration, modal_duration_unit, modal_stake, modal_barrier_offset]);
 
+    // Function to load trend trading strategy to Bot Builder
+    const loadTrendTradingStrategy = useCallback((symbol: string, contractType: string, trend: TrendAnalysis) => {
+        // Construct a dummy recommendation object for openRecommendationModal
+        const dummyRecommendation: TradingRecommendation = {
+            symbol: symbol,
+            displayName: ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === symbol)?.display_name || symbol,
+            direction: contractType,
+            score: trend?.score || 50,
+            confidence: trend?.confidence || 50,
+            suggestedDuration: trend?.suggestedDuration || 20,
+            suggestedDurationUnit: trend?.suggestedDurationUnit || 's',
+            suggestedStake: trend?.suggestedStake || 1.0,
+            reason: trend?.recommendation || 'Trend-based strategy',
+            currentPrice: trend?.currentPrice || 0,
+            barrier: trend?.barrier,
+            strategy: trend?.recommendation,
+        };
+        openRecommendationModal(dummyRecommendation);
+    }, [openRecommendationModal]);
+
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
@@ -1042,6 +1062,9 @@ const MLTrader = observer(() => {
         return '➡️';
     };
 
+    // Helper to check if a modal is currently open
+    const is_modal_open = !!modal_recommendation;
+
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
@@ -1158,7 +1181,7 @@ const MLTrader = observer(() => {
                                                 </div>
                                             </div>
 
-                                            
+
                                         </>
                                     )}
                                 </div>
@@ -1403,6 +1426,24 @@ const MLTrader = observer(() => {
 
                                                 <div className={`recommendation-badge ${trend.recommendation.toLowerCase()}`}>
                                                     <Text size="xs" weight="bold">{trend.recommendation}</Text>
+                                                </div>
+
+                                                {/* Trading Action Buttons */}
+                                                <div className="trend-trading-actions">
+                                                    <button
+                                                        className="trend-buy-btn"
+                                                        onClick={() => loadTrendTradingStrategy(symbolInfo.symbol, 'CALL', trend)}
+                                                        title="Load CALL strategy to Bot Builder"
+                                                    >
+                                                        BUY
+                                                    </button>
+                                                    <button
+                                                        className="trend-sell-btn"
+                                                        onClick={() => loadTrendTradingStrategy(symbolInfo.symbol, 'PUT', trend)}
+                                                        title="Load PUT strategy to Bot Builder"
+                                                    >
+                                                        SELL
+                                                    </button>
                                                 </div>
                                             </>
                                         ) : (
