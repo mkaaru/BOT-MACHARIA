@@ -26,7 +26,18 @@ export interface TrendAnalysis {
     lastUpdate: Date;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
     score: number; // Overall trading score (0-100)
-    
+
+    // Enhanced fields for better trend analysis
+    trendHierarchy?: {
+        shortTerm: TrendDirection;
+        mediumTerm: TrendDirection;
+        longTerm: TrendDirection;
+        alignment: number; // 0-100, how well timeframes align
+    };
+    marketStructure?: 'uptrend' | 'downtrend' | 'sideways';
+    trendConfirmation?: boolean;
+    signalQuality?: 'excellent' | 'good' | 'fair' | 'poor';
+
     // Enhanced Ehlers signals
     ehlers?: EhlersSignals;
     ehlersRecommendation?: {
@@ -52,11 +63,12 @@ export interface MarketScanResult {
 export class TrendAnalysisEngine {
     private hmaCalculator: EfficientHMACalculator;
     private trendData: Map<string, TrendAnalysis> = new Map();
+    private priceHistory: Map<string, Array<{price: number, timestamp: Date}>> = new Map();
     private updateTimer: NodeJS.Timeout;
 
     constructor(hmaCalculator: EfficientHMACalculator) {
         this.hmaCalculator = hmaCalculator;
-        
+
         // Update trend analysis periodically
         this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000); // Every 30 seconds
     }
@@ -67,31 +79,51 @@ export class TrendAnalysisEngine {
     addCandleData(candle: CandleData): void {
         const { symbol, close, timestamp } = candle;
 
+        // Store price history for market structure analysis
+        this.storePriceHistory(symbol, close, new Date(timestamp));
+
         // Use multiple HMA periods that divide evenly into 210 candles
         // 210 = 2×3×5×7, so we use periods: 5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105
         const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
         this.hmaCalculator.addCandleData(candle, hmaPeriods);
-        
+
         // Process through Ehlers signal processing pipeline
         const ehlersSignals = ehlersProcessor.processPrice(symbol, close, timestamp);
-        
+
         // Update trend analysis when all HMA periods are ready
         const allPeriodsReady = hmaPeriods.every(period => 
             this.hmaCalculator.isReady(symbol, period)
         );
-        
+
         if (allPeriodsReady) {
             this.updateTrendAnalysis(symbol, close, ehlersSignals);
         }
     }
 
     /**
-     * Update trend analysis for a specific symbol
+     * Store price history for market structure analysis
+     */
+    private storePriceHistory(symbol: string, price: number, timestamp: Date): void {
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+        }
+
+        const history = this.priceHistory.get(symbol)!;
+        history.push({ price, timestamp });
+
+        // Keep only last 200 price points for analysis
+        if (history.length > 200) {
+            history.shift();
+        }
+    }
+
+    /**
+     * Update trend analysis for a specific symbol with enhanced hierarchy
      */
     private updateTrendAnalysis(symbol: string, currentPrice: number, ehlersSignals?: EhlersSignals): void {
         // Multiple HMA periods for comprehensive analysis
         const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
-        
+
         // Get all HMA values and slopes
         const hmaData: Array<{
             period: number;
@@ -106,7 +138,7 @@ export class TrendAnalysisEngine {
 
             const slope = this.hmaCalculator.getHMASlope(symbol, period, Math.min(5, Math.floor(period / 10) + 2));
             const color = this.getHMAColor(slope);
-            
+
             hmaData.push({
                 period,
                 value: hma.value,
@@ -115,62 +147,53 @@ export class TrendAnalysisEngine {
             });
         }
 
-        // Analyze HMA alignment
-        const alignment = this.analyzeHMAAlignment(hmaData);
-        
-        // Determine trend direction based on HMA alignment
-        const direction = this.determineTrendDirectionByAlignment(alignment);
-        
-        // Calculate trend strength based on alignment score
-        const strength = this.calculateTrendStrengthByAlignment(alignment);
-        
-        // Calculate confidence based on alignment consistency
-        const confidence = this.calculateConfidenceByAlignment(alignment);
-        
+        // Enhanced trend hierarchy analysis
+        const trendHierarchy = this.analyzeTrendHierarchy(hmaData);
+
+        // Market structure analysis
+        const marketStructure = this.analyzeMarketStructure(symbol, currentPrice);
+
+        // Trend confirmation check
+        const trendConfirmation = this.requireTrendConfirmation(hmaData, trendHierarchy);
+
+        // Enhanced trend direction using hierarchical weighting
+        const direction = this.calculateTrendWithHierarchy(hmaData);
+
+        // Calculate strength and confidence with new factors
+        const strength = this.calculateEnhancedTrendStrength(trendHierarchy, marketStructure, trendConfirmation);
+        const confidence = this.calculateEnhancedConfidence(trendHierarchy, marketStructure, trendConfirmation);
+
         // Long-term trend from longest HMA (105 period)
         const longTermHMA = hmaData.find(h => h.period === 105);
         const longTermTrend = longTermHMA?.color === 'green' ? 'bullish' : 
                              longTermHMA?.color === 'red' ? 'bearish' : 'neutral';
-        
+
         // Calculate long-term trend strength
         const longTermStrength = this.calculateLongTermTrendStrengthMultiHMA(hmaData, currentPrice, symbol);
 
-        // Generate recommendation based on alignment
-        const recommendation = this.generateRecommendationByAlignment(direction, strength, confidence, alignment, symbol);
-        
-        // Calculate overall score based on alignment
-        const score = this.calculateTradingScoreByAlignment(direction, strength, confidence, alignment);
+        // Generate base recommendation with strong trend filtering
+        const baseRecommendation = this.generateTrendAlignedRecommendation(
+            direction, strength, confidence, longTermTrend, longTermStrength, trendHierarchy, symbol
+        );
+
+        // Calculate base score
+        const baseScore = this.calculateEnhancedTradingScore(
+            direction, strength, confidence, trendHierarchy, marketStructure
+        );
+
+        // Apply Ehlers signals with trend context filtering
+        const { finalRecommendation, enhancedScore } = this.applyEhlersWithTrendContext(
+            baseRecommendation, baseScore, ehlersSignals, longTermTrend, longTermStrength, symbol
+        );
+
+        // Determine signal quality
+        const signalQuality = this.assessSignalQuality(
+            trendHierarchy, marketStructure, trendConfirmation, confidence
+        );
 
         // Get Ehlers-based recommendations
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
-
-        // Combine traditional and Ehlers recommendations with priority for early signals
-        let finalRecommendation = recommendation;
-        let enhancedScore = score;
-
-        if (ehlersSignals) {
-            // Prioritize strong anticipatory signals regardless of cycle conditions
-            if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
-                finalRecommendation = ehlersRecommendation.action;
-                enhancedScore = Math.min(98, score + 25); // High bonus for strong pullback signals
-            } 
-            // Medium priority for medium strength anticipatory signals
-            else if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'medium') {
-                finalRecommendation = ehlersRecommendation.action;
-                enhancedScore = Math.min(90, score + 18); // Good bonus for medium anticipatory signals
-            }
-            // Consider weak anticipatory signals only in good cycle conditions
-            else if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'weak' && cycleTrading.suitable) {
-                finalRecommendation = ehlersRecommendation.action;
-                enhancedScore = Math.min(80, score + 10); // Small bonus for weak anticipatory signals
-            }
-            // Standard Ehlers signals as backup
-            else if (cycleTrading.suitable && ehlersRecommendation.confidence > confidence) {
-                finalRecommendation = ehlersRecommendation.action;
-                enhancedScore = Math.max(score, ehlersRecommendation.confidence);
-            }
-        }
 
         const analysis: TrendAnalysis = {
             symbol,
@@ -183,9 +206,13 @@ export class TrendAnalysisEngine {
             hma200Slope: hmaData.find(h => h.period === 105)?.slope || null,
             hma5Color: hmaData.find(h => h.period === 5)?.color,
             hma200Color: hmaData.find(h => h.period === 105)?.color,
-            colorAlignment: alignment.isAligned,
+            colorAlignment: trendHierarchy.alignment > 70,
             longTermTrend,
             longTermTrendStrength: longTermStrength,
+            trendHierarchy,
+            marketStructure,
+            trendConfirmation,
+            signalQuality,
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
@@ -196,116 +223,275 @@ export class TrendAnalysisEngine {
         };
 
         this.trendData.set(symbol, analysis);
-        
-        console.log(`Multi-HMA Alignment Analysis for ${symbol}: ${direction.toUpperCase()} (${strength}) - Alignment: ${alignment.alignmentPercentage.toFixed(1)}% (${alignment.alignedCount}/${alignment.totalCount}) - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+
+        console.log(`Enhanced Trend Analysis for ${symbol}: ${direction.toUpperCase()} (${strength}) - ` +
+                   `Hierarchy: ${trendHierarchy.alignment.toFixed(1)}% - Structure: ${marketStructure} - ` +
+                   `Quality: ${signalQuality} - Score: ${enhancedScore.toFixed(1)} - Recommendation: ${finalRecommendation}`);
     }
 
     /**
-     * Analyze HMA alignment across all periods
+     * Analyze trend hierarchy across different timeframes
      */
-    private analyzeHMAAlignment(hmaData: Array<{period: number; value: number; slope: number | null; color: 'green' | 'red' | 'neutral'}>): {
-        alignedCount: number;
-        totalCount: number;
-        alignmentPercentage: number;
-        dominantColor: 'green' | 'red' | 'neutral';
-        isAligned: boolean;
-        shortTermAlignment: number; // 0-100
-        longTermAlignment: number; // 0-100
+    private analyzeTrendHierarchy(hmaData: Array<{period: number, color: string}>): {
+        shortTerm: TrendDirection;
+        mediumTerm: TrendDirection;
+        longTerm: TrendDirection;
+        alignment: number;
     } {
-        const totalCount = hmaData.length;
-        const colorCounts = {
-            green: hmaData.filter(h => h.color === 'green').length,
-            red: hmaData.filter(h => h.color === 'red').length,
-            neutral: hmaData.filter(h => h.color === 'neutral').length
+        const shortTerm = hmaData.filter(h => h.period <= 15);
+        const mediumTerm = hmaData.filter(h => h.period > 15 && h.period <= 42);
+        const longTerm = hmaData.filter(h => h.period > 42);
+
+        const getTimeframeTrend = (timeframe: typeof shortTerm): TrendDirection => {
+            if (timeframe.length === 0) return 'neutral';
+            const bullish = timeframe.filter(h => h.color === 'green').length / timeframe.length;
+            if (bullish > 0.6) return 'bullish';
+            if (bullish < 0.4) return 'bearish';
+            return 'neutral';
         };
 
-        const dominantColor = colorCounts.green > colorCounts.red && colorCounts.green > colorCounts.neutral ? 'green' :
-                             colorCounts.red > colorCounts.green && colorCounts.red > colorCounts.neutral ? 'red' : 'neutral';
+        const shortTrendDir = getTimeframeTrend(shortTerm);
+        const mediumTrendDir = getTimeframeTrend(mediumTerm);
+        const longTrendDir = getTimeframeTrend(longTerm);
 
-        const alignedCount = colorCounts[dominantColor];
-        const alignmentPercentage = (alignedCount / totalCount) * 100;
-        
-        // Short-term alignment (periods <= 21)
-        const shortTermHMAs = hmaData.filter(h => h.period <= 21);
-        const shortTermAligned = shortTermHMAs.filter(h => h.color === dominantColor).length;
-        const shortTermAlignment = (shortTermAligned / shortTermHMAs.length) * 100;
+        // Calculate alignment score - higher weight for longer-term agreement
+        let alignmentScore = 0;
+        if (shortTrendDir === mediumTrendDir && shortTrendDir !== 'neutral') alignmentScore += 30;
+        if (mediumTrendDir === longTrendDir && mediumTrendDir !== 'neutral') alignmentScore += 50; // Higher weight for medium-long agreement
+        if (shortTrendDir === longTrendDir && shortTrendDir !== 'neutral') alignmentScore += 20;
 
-        // Long-term alignment (periods > 21)
-        const longTermHMAs = hmaData.filter(h => h.period > 21);
-        const longTermAligned = longTermHMAs.filter(h => h.color === dominantColor).length;
-        const longTermAlignment = longTermHMAs.length > 0 ? (longTermAligned / longTermHMAs.length) * 100 : 0;
+        // Adjust score based on overall consensus across all three
+        if (shortTrendDir !== 'neutral' && mediumTrendDir !== 'neutral' && longTrendDir !== 'neutral') {
+            if (shortTrendDir === mediumTrendDir && mediumTrendDir === longTrendDir) {
+                alignmentScore = 100; // Perfect alignment
+            } else if (shortTrendDir === mediumTrendDir || mediumTrendDir === longTrendDir || shortTrendDir === longTrendDir) {
+                alignmentScore = Math.max(alignmentScore, 75); // Good alignment if two agree
+            } else {
+                alignmentScore = Math.max(alignmentScore, 50); // Fair alignment if none agree perfectly
+            }
+        } else if (shortTrendDir !== 'neutral' && mediumTrendDir !== 'neutral') {
+            alignmentScore = Math.max(alignmentScore, 60);
+        } else if (mediumTrendDir !== 'neutral' && longTrendDir !== 'neutral') {
+            alignmentScore = Math.max(alignmentScore, 70);
+        } else if (shortTrendDir !== 'neutral' && longTrendDir !== 'neutral') {
+            alignmentScore = Math.max(alignmentScore, 65);
+        }
+
 
         return {
-            alignedCount,
-            totalCount,
-            alignmentPercentage,
-            dominantColor,
-            isAligned: alignmentPercentage >= 75 && dominantColor !== 'neutral', // Require 75% alignment
-            shortTermAlignment,
-            longTermAlignment
+            shortTerm: shortTrendDir,
+            mediumTerm: mediumTrendDir,
+            longTerm: longTrendDir,
+            alignment: Math.min(100, alignmentScore) // Ensure alignment doesn't exceed 100
         };
     }
 
     /**
-     * Determine trend direction based on HMA alignment
+     * Calculate trend direction with hierarchical weighting (longer periods get more weight)
      */
-    private determineTrendDirectionByAlignment(alignment: any): TrendDirection {
-        if (alignment.isAligned) {
-            return alignment.dominantColor === 'green' ? 'bullish' : 'bearish';
+    private calculateTrendWithHierarchy(hmaData: Array<{period: number, color: string}>): TrendDirection {
+        let bullishScore = 0;
+        let bearishScore = 0;
+
+        for (const hma of hmaData) {
+            // Longer periods get exponentially higher weights
+            const weight = Math.pow(Math.log(hma.period + 1), 1.5);
+
+            if (hma.color === 'green') bullishScore += weight;
+            if (hma.color === 'red') bearishScore += weight;
         }
+
+        // Require 25% edge for trend confirmation (stronger than before)
+        if (bullishScore > bearishScore * 1.25) return 'bullish';
+        if (bearishScore > bullishScore * 1.25) return 'bearish';
         return 'neutral';
     }
 
     /**
-     * Calculate trend strength based on alignment score
+     * Analyze market structure based on swing highs and lows
      */
-    private calculateTrendStrengthByAlignment(alignment: any): TrendStrength {
-        if (alignment.alignmentPercentage >= 90) {
-            return 'strong';
-        } else if (alignment.alignmentPercentage >= 75) {
-            return 'moderate';
+    private analyzeMarketStructure(symbol: string, currentPrice: number): 'uptrend' | 'downtrend' | 'sideways' {
+        const history = this.priceHistory.get(symbol);
+        if (!history || history.length < 20) return 'sideways';
+
+        // Find recent swing highs and lows within the last ~50 data points
+        const lookback = Math.min(50, history.length);
+        const recentHistory = history.slice(-lookback);
+        let higherHighs = 0;
+        let lowerLows = 0;
+        let higherLows = 0;
+        let lowerHighs = 0;
+
+        // Iterate through potential pivot points
+        for (let i = 5; i < recentHistory.length - 5; i++) {
+            const currentPricePoint = recentHistory[i];
+            const current = currentPricePoint.price;
+            const isPivotHigh = recentHistory.slice(i - 5, i + 6).every((p, idx) => 
+                idx === 5 || p.price <= current
+            );
+            const isPivotLow = recentHistory.slice(i - 5, i + 6).every((p, idx) => 
+                idx === 5 || p.price >= current
+            );
+
+            if (isPivotHigh) {
+                // Find previous pivot high
+                let previousPivotHighPrice = -1;
+                for (let j = i - 1; j >= 0; j--) {
+                    const prevPricePoint = recentHistory[j];
+                    const isPrevPivotHigh = recentHistory.slice(j - 5, j + 6).every((p, idx) => 
+                        idx === 5 || p.price <= prevPricePoint.price
+                    );
+                    if (isPrevPivotHigh) {
+                        previousPivotHighPrice = prevPricePoint.price;
+                        break;
+                    }
+                }
+
+                if (previousPivotHighPrice !== -1) {
+                    if (current > previousPivotHighPrice) {
+                        higherHighs++;
+                    } else {
+                        lowerHighs++;
+                    }
+                }
+            }
+
+            if (isPivotLow) {
+                // Find previous pivot low
+                let previousPivotLowPrice = -1;
+                for (let j = i - 1; j >= 0; j--) {
+                    const prevPricePoint = recentHistory[j];
+                    const isPrevPivotLow = recentHistory.slice(j - 5, j + 6).every((p, idx) => 
+                        idx === 5 || p.price >= prevPricePoint.price
+                    );
+                    if (isPrevPivotLow) {
+                        previousPivotLowPrice = prevPricePoint.price;
+                        break;
+                    }
+                }
+
+                if (previousPivotLowPrice !== -1) {
+                    if (current > previousPivotLowPrice) {
+                        higherLows++;
+                    } else {
+                        lowerLows++;
+                    }
+                }
+            }
         }
+
+        // Determine market structure based on pivot counts
+        const uptrendConfirmation = higherHighs >= 1 && higherLows >= 1;
+        const downtrendConfirmation = lowerHighs >= 1 && lowerLows >= 1;
+
+        if (uptrendConfirmation && !downtrendConfirmation) return 'uptrend';
+        if (downtrendConfirmation && !uptrendConfirmation) return 'downtrend';
+        
+        // If both or neither are confirmed, it's likely sideways or consolidating
+        return 'sideways';
+    }
+
+    /**
+     * Require trend confirmation across multiple timeframes
+     */
+    private requireTrendConfirmation(
+        hmaData: Array<{period: number, color: string}>, 
+        hierarchy: {shortTerm: TrendDirection, mediumTerm: TrendDirection, longTerm: TrendDirection}
+    ): boolean {
+        // Check if at least 2 out of 3 timeframes agree
+        const directions = [hierarchy.shortTerm, hierarchy.mediumTerm, hierarchy.longTerm];
+        const bullishCount = directions.filter(d => d === 'bullish').length;
+        const bearishCount = directions.filter(d => d === 'bearish').length;
+
+        return Math.max(bullishCount, bearishCount) >= 2;
+    }
+
+    /**
+     * Calculate enhanced trend strength
+     */
+    private calculateEnhancedTrendStrength(
+        hierarchy: any, 
+        marketStructure: 'uptrend' | 'downtrend' | 'sideways',
+        confirmation: boolean
+    ): TrendStrength {
+        let strengthScore = 0;
+
+        // Hierarchy alignment contributes 40 points
+        strengthScore += (hierarchy.alignment / 100) * 40;
+
+        // Market structure contributes 30 points
+        if (marketStructure !== 'sideways') strengthScore += 30;
+
+        // Confirmation contributes 30 points
+        if (confirmation) strengthScore += 30;
+
+        if (strengthScore >= 70) return 'strong';
+        if (strengthScore >= 40) return 'moderate';
         return 'weak';
     }
 
     /**
-     * Calculate confidence based on alignment consistency
+     * Calculate enhanced confidence
      */
-    private calculateConfidenceByAlignment(alignment: any): number {
-        let confidence = alignment.alignmentPercentage; // Base confidence from alignment percentage
-        
-        // Bonus for strong short-term and long-term alignment
-        if (alignment.shortTermAlignment >= 80 && alignment.longTermAlignment >= 80) {
-            confidence += 15;
-        } else if (alignment.shortTermAlignment >= 70 && alignment.longTermAlignment >= 70) {
-            confidence += 10;
-        }
+    private calculateEnhancedConfidence(
+        hierarchy: any,
+        marketStructure: 'uptrend' | 'downtrend' | 'sideways',
+        confirmation: boolean
+    ): number {
+        let confidence = 40; // Lower base confidence
 
-        // Penalty for neutral dominant color
-        if (alignment.dominantColor === 'neutral') {
-            confidence -= 20;
-        }
+        // Add confidence based on hierarchy alignment (more weight to longer-term)
+        confidence += (hierarchy.alignment / 100) * 35;
 
-        return Math.min(100, Math.max(0, confidence));
+        // Market structure adds confidence
+        if (marketStructure !== 'sideways') confidence += 15;
+
+        // Trend confirmation adds significant confidence
+        if (confirmation) confidence += 20;
+
+        return Math.min(95, Math.max(10, confidence));
     }
 
     /**
-     * Generate recommendation based on alignment
+     * Generate trend-aligned recommendations with strong filtering
      */
-    private generateRecommendationByAlignment(
+    private generateTrendAlignedRecommendation(
         direction: TrendDirection,
         strength: TrendStrength,
         confidence: number,
-        alignment: any,
+        longTermTrend: TrendDirection,
+        longTermStrength: number,
+        hierarchy: any,
         symbol?: string
     ): 'BUY' | 'SELL' | 'HOLD' {
-        // Require strong alignment for trading signals
-        if (!alignment.isAligned || alignment.alignmentPercentage < 80) {
-            return 'HOLD';
+        // STRONG long-term trend filtering - this is the key change
+        if (longTermStrength > 70) {
+            // Strong long-term trend - only allow aligned signals
+            if (direction === 'bullish' && longTermTrend === 'bearish') {
+                console.log(`${symbol}: Blocking BUY signal - strong bearish long-term trend (${longTermStrength.toFixed(1)}%)`);
+                return 'HOLD';
+            }
+            if (direction === 'bearish' && longTermTrend === 'bullish') {
+                console.log(`${symbol}: Blocking SELL signal - strong bullish long-term trend (${longTermStrength.toFixed(1)}%)`);
+                return 'HOLD';
+            }
         }
 
-        // Require high confidence
-        if (confidence < 75) {
+        // Medium strength long-term trend filtering
+        if (longTermStrength > 50) {
+            if (direction === 'bullish' && longTermTrend === 'bearish' && hierarchy.alignment < 80) {
+                console.log(`${symbol}: Blocking BUY signal - medium bearish long-term trend without strong short-term alignment`);
+                return 'HOLD';
+            }
+            if (direction === 'bearish' && longTermTrend === 'bullish' && hierarchy.alignment < 80) {
+                console.log(`${symbol}: Blocking SELL signal - medium bullish long-term trend without strong short-term alignment`);
+                return 'HOLD';
+            }
+        }
+
+        // Require higher minimum confidence and alignment for signals
+        if (confidence < 65 || hierarchy.alignment < 60) {
+            console.log(`${symbol}: Signal quality too low - confidence: ${confidence.toFixed(1)}, alignment: ${hierarchy.alignment.toFixed(1)}`);
             return 'HOLD';
         }
 
@@ -318,10 +504,13 @@ export class TrendAnalysisEngine {
             }
         }
 
-        // Generate signals based on aligned direction
+        // Generate recommendation based on aligned direction and strength
         if (direction === 'bullish' && strength !== 'weak') {
+            console.log(`${symbol}: ✅ BUY signal approved - aligned with trend hierarchy`);
             return 'BUY';
-        } else if (direction === 'bearish' && strength !== 'weak') {
+        }
+        if (direction === 'bearish' && strength !== 'weak') {
+            console.log(`${symbol}: ✅ SELL signal approved - aligned with trend hierarchy`);
             return 'SELL';
         }
 
@@ -329,47 +518,127 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Calculate trading score based on alignment
+     * Apply Ehlers signals with strong trend context filtering
      */
-    private calculateTradingScoreByAlignment(
+    private applyEhlersWithTrendContext(
+        baseRecommendation: 'BUY' | 'SELL' | 'HOLD',
+        baseScore: number,
+        ehlersSignals: EhlersSignals | undefined,
+        longTermTrend: TrendDirection,
+        longTermStrength: number,
+        symbol: string
+    ): { finalRecommendation: 'BUY' | 'SELL' | 'HOLD', enhancedScore: number } {
+        const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
+        const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
+
+        let finalRecommendation = baseRecommendation;
+        let enhancedScore = baseScore;
+
+        if (ehlersSignals && ehlersRecommendation) {
+            const isCounterTrend = 
+                (ehlersRecommendation.action === 'BUY' && longTermTrend === 'bearish') ||
+                (ehlersRecommendation.action === 'SELL' && longTermTrend === 'bullish');
+
+            // Strong anticipatory signals with trend context
+            if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
+                if (isCounterTrend && longTermStrength > 60) {
+                    // Strong opposing trend - significantly reduce signal or block
+                    console.log(`${symbol}: Ehlers strong signal blocked by opposing long-term trend (${longTermStrength.toFixed(1)}%)`);
+                    enhancedScore = Math.min(75, baseScore + 5); // Minimal bonus
+                } else if (isCounterTrend && longTermStrength > 40) {
+                    // Medium opposing trend - allow but reduce bonus
+                    console.log(`${symbol}: Ehlers strong signal reduced due to opposing trend`);
+                    finalRecommendation = ehlersRecommendation.action;
+                    enhancedScore = Math.min(80, baseScore + 10);
+                } else {
+                    // Signal aligns with trend or weak opposing trend - full bonus
+                    console.log(`${symbol}: ✅ Ehlers strong signal approved - trend aligned`);
+                    finalRecommendation = ehlersRecommendation.action;
+                    enhancedScore = Math.min(98, baseScore + 25);
+                }
+            }
+            // Medium strength anticipatory signals
+            else if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'medium') {
+                if (!isCounterTrend || longTermStrength < 50) {
+                    console.log(`${symbol}: ✅ Ehlers medium signal approved`);
+                    finalRecommendation = ehlersRecommendation.action;
+                    enhancedScore = Math.min(90, baseScore + 15);
+                } else {
+                    console.log(`${symbol}: Ehlers medium signal blocked by trend context`);
+                }
+            }
+            // Weak signals only if cycle conditions are good and trend allows
+            else if (ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'weak' && 
+                     cycleTrading.suitable && (!isCounterTrend || longTermStrength < 40)) {
+                console.log(`${symbol}: ✅ Ehlers weak signal approved in good cycle conditions`);
+                finalRecommendation = ehlersRecommendation.action;
+                enhancedScore = Math.min(80, baseScore + 8);
+            }
+        }
+
+        return { finalRecommendation, enhancedScore };
+    }
+
+    /**
+     * Calculate enhanced trading score with hierarchy weighting
+     */
+    private calculateEnhancedTradingScore(
         direction: TrendDirection,
         strength: TrendStrength,
         confidence: number,
-        alignment: any
+        hierarchy: any,
+        marketStructure: 'uptrend' | 'downtrend' | 'sideways'
     ): number {
-        let score = 0;
+        let score = confidence * 0.5; // Start with confidence base (reduced weight)
 
-        // Base score from alignment percentage
-        score += alignment.alignmentPercentage * 0.6;
+        // Add strength bonuses
+        if (strength === 'strong') score += 20;
+        else if (strength === 'moderate') score += 12;
+        else score += 5;
 
-        // Alignment quality bonus
-        if (alignment.isAligned) {
-            score += 20;
-        }
+        // Add hierarchy alignment bonus (increased importance)
+        score += (hierarchy.alignment / 100) * 25;
 
-        // Short-term and long-term alignment bonus
-        score += (alignment.shortTermAlignment * 0.15);
-        score += (alignment.longTermAlignment * 0.15);
+        // Market structure bonus
+        if (marketStructure !== 'sideways') score += 12;
 
-        // Direction scoring
-        if (direction === 'bullish' || direction === 'bearish') {
-            score += 15;
-        }
-
-        // Strength scoring
-        switch (strength) {
-            case 'strong':
-                score += 20;
-                break;
-            case 'moderate':
-                score += 10;
-                break;
-            case 'weak':
-                score += 2;
-                break;
-        }
+        // Direction clarity bonus
+        if (direction !== 'neutral') score += 8;
 
         return Math.min(100, Math.max(0, score));
+    }
+
+    /**
+     * Assess overall signal quality
+     */
+    private assessSignalQuality(
+        hierarchy: any,
+        marketStructure: 'uptrend' | 'downtrend' | 'sideways',
+        confirmation: boolean,
+        confidence: number
+    ): 'excellent' | 'good' | 'fair' | 'poor' {
+        let qualityScore = 0;
+
+        // Hierarchy alignment is most important
+        if (hierarchy.alignment > 80) qualityScore += 30;
+        else if (hierarchy.alignment > 60) qualityScore += 20;
+        else if (hierarchy.alignment > 40) qualityScore += 10;
+
+        // Market structure
+        if (marketStructure !== 'sideways') qualityScore += 25;
+
+        // Trend confirmation
+        if (confirmation) qualityScore += 25;
+
+        // Confidence level
+        if (confidence > 75) qualityScore += 20;
+        else if (confidence > 60) qualityScore += 15;
+        else if (confidence > 45) qualityScore += 8;
+
+        if (qualityScore >= 80) return 'excellent';
+        if (qualityScore >= 60) return 'good';
+        if (qualityScore >= 40) return 'fair';
+        return 'poor';
     }
 
     /**
@@ -383,32 +652,48 @@ export class TrendAnalysisEngine {
         const longTermHMAs = hmaData.filter(h => h.period >= 35); // Use longer periods
         if (longTermHMAs.length === 0) return 0;
 
-        // Calculate consistency in long-term HMAs
-        const colorCounts = {
-            green: longTermHMAs.filter(h => h.color === 'green').length,
-            red: longTermHMAs.filter(h => h.color === 'red').length,
-            neutral: longTermHMAs.filter(h => h.color === 'neutral').length
-        };
+        // Calculate consistency in long-term HMAs with exponential weighting
+        let totalWeight = 0;
+        let weightedColorScore = 0;
 
-        const maxCount = Math.max(colorCounts.green, colorCounts.red, colorCounts.neutral);
-        const consistency = (maxCount / longTermHMAs.length) * 100;
+        longTermHMAs.forEach(hma => {
+            const weight = Math.log(hma.period + 1); // Longer periods get more weight
+            totalWeight += weight;
 
-        // Calculate average slope magnitude
-        const validSlopes = longTermHMAs.filter(h => h.slope !== null).map(h => h.slope!);
-        const avgSlopeMagnitude = validSlopes.length > 0 ? 
-            validSlopes.reduce((sum, slope) => sum + Math.abs(slope), 0) / validSlopes.length : 0;
+            if (hma.color === 'green') weightedColorScore += weight;
+            else if (hma.color === 'red') weightedColorScore -= weight;
+        });
 
-        return Math.min(100, consistency * 0.7 + (avgSlopeMagnitude * 1000 * 30));
+        const normalizedColorScore = totalWeight > 0 ? Math.abs(weightedColorScore) / totalWeight : 0;
+        const consistency = normalizedColorScore * 100;
+
+        // Calculate average slope magnitude with weighting
+        const validSlopes = longTermHMAs.filter(h => h.slope !== null);
+        let weightedSlopeSum = 0;
+        let slopeWeightSum = 0;
+
+        validSlopes.forEach(hma => {
+            const weight = Math.log(hma.period + 1);
+            weightedSlopeSum += Math.abs(hma.slope!) * weight;
+            slopeWeightSum += weight;
+        });
+
+        const avgSlopeMagnitude = slopeWeightSum > 0 ? weightedSlopeSum / slopeWeightSum : 0;
+
+        // Combine consistency and slope strength
+        const strengthScore = consistency * 0.7 + (avgSlopeMagnitude * 1000 * 30);
+
+        return Math.min(100, Math.max(0, strengthScore));
     }
 
     /**
-     * Get HMA color based on slope
+     * Get HMA color based on slope with enhanced thresholds
      */
     private getHMAColor(slope: number | null): 'green' | 'red' | 'neutral' {
         if (!slope) return 'neutral';
-        
+
         const slopeThreshold = 0.0001; // Threshold for color determination
-        
+
         if (slope > slopeThreshold) return 'green';
         if (slope < -slopeThreshold) return 'red';
         return 'neutral';
@@ -420,540 +705,62 @@ export class TrendAnalysisEngine {
     private validateCandleColor(symbol: string, direction: TrendDirection): boolean {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
-        
+
         // Get the latest completed candle for this symbol
         const recentCandles = candleReconstructionEngine.getCandles(symbol, 1);
-        
+
         if (recentCandles.length === 0) {
             console.log(`${symbol}: No candle data available for validation`);
             return false; // No candle data available
         }
-        
+
         const lastCandle = recentCandles[recentCandles.length - 1];
         const { open, close } = lastCandle;
-        
+
         // Determine candle color
         const isBullishCandle = close > open;  // Green/bullish candle
         const isBearishCandle = close < open;  // Red/bearish candle
-        
+
         // Validate alignment
         if (direction === 'bullish' && isBullishCandle) {
             console.log(`${symbol}: ✅ Bullish signal validated - last candle was GREEN (${open.toFixed(5)} → ${close.toFixed(5)})`);
             return true;
         }
-        
+
         if (direction === 'bearish' && isBearishCandle) {
             console.log(`${symbol}: ✅ Bearish signal validated - last candle was RED (${open.toFixed(5)} → ${close.toFixed(5)})`);
             return true;
         }
-        
+
         // Signal doesn't align with candle color
         const candleType = isBullishCandle ? 'GREEN' : isBearishCandle ? 'RED' : 'DOJI';
         console.log(`${symbol}: ❌ ${direction.toUpperCase()} signal blocked - last candle was ${candleType} (${open.toFixed(5)} → ${close.toFixed(5)})`);
-        
+
         return false;
     }
 
     /**
-     * Determine trend direction based on HMA color alignment
+     * Update all trends periodically
      */
-    private determineTrendDirectionByColor(hma5Color: string, hma200Color: string): TrendDirection {
-        // Both hulls same color = strong signal
-        if (hma5Color === 'green' && hma200Color === 'green') {
-            return 'bullish';
-        }
-        
-        if (hma5Color === 'red' && hma200Color === 'red') {
-            return 'bearish';
-        }
-        
-        // Mixed colors or neutral = no clear trend
-        return 'neutral';
-    }
-
-    /**
-     * Calculate trend strength based on color alignment and slope magnitude
-     */
-    private calculateTrendStrengthByColor(
-        hma5Slope: number | null, 
-        hma200Slope: number | null, 
-        hma5Color: string, 
-        hma200Color: string
-    ): TrendStrength {
-        // Strong when both colors align and slopes are significant
-        const colorsAlign = hma5Color === hma200Color && hma5Color !== 'neutral';
-        const slopeMagnitude = Math.abs(hma5Slope || 0) + Math.abs(hma200Slope || 0);
-        
-        if (colorsAlign && slopeMagnitude > 0.01) {
-            return 'strong';
-        } else if (colorsAlign || slopeMagnitude > 0.005) {
-            return 'moderate';
-        }
-        
-        return 'weak';
-    }
-
-    /**
-     * Calculate confidence based on color alignment and slope strength
-     */
-    private calculateConfidenceByColor(
-        hma5Slope: number | null, 
-        hma200Slope: number | null, 
-        hma5Color: string, 
-        hma200Color: string
-    ): number {
-        let confidence = 30; // Lower base confidence
-        
-        // Color alignment bonus
-        if (hma5Color === hma200Color && hma5Color !== 'neutral') {
-            confidence += 40; // Major bonus for color alignment
-        }
-        
-        // Slope strength bonus
-        const slopeMagnitude = Math.abs(hma5Slope || 0) + Math.abs(hma200Slope || 0);
-        confidence += Math.min(20, slopeMagnitude * 1000);
-        
-        // Consistency bonus - same direction slopes
-        if (hma5Slope && hma200Slope) {
-            const sameDirection = (hma5Slope > 0 && hma200Slope > 0) || (hma5Slope < 0 && hma200Slope < 0);
-            if (sameDirection) {
-                confidence += 10;
+    private updateAllTrends(): void {
+        console.log('📊 Updating all trends with enhanced hierarchy analysis...');
+        // Re-calculate trend analysis for all currently tracked symbols
+        this.trendData.forEach((_, symbol) => {
+            const trend = this.getTrendAnalysis(symbol);
+            if (trend) {
+                // Re-trigger updateTrendAnalysis with existing data to re-evaluate
+                // We need to fetch the latest price and Ehlers signals if available
+                // For simplicity, we might just re-run analysis if data is present
+                // A more robust solution would involve fetching latest data explicitly
+                // For now, assume updateCandleData would have been called and data is fresh
+                const currentPrice = trend.price; // Use the last known price
+                if (currentPrice !== null) {
+                    // Re-process Ehlers signals if possible (requires access to Ehlers state or re-computation)
+                    // For now, we'll pass undefined and rely on existing HMA data
+                    this.updateTrendAnalysis(symbol, currentPrice, undefined); 
+                }
             }
-        }
-        
-        return Math.min(100, Math.max(0, confidence));
-    }
-
-    /**
-     * Generate recommendation based on color alignment
-     */
-    private generateRecommendationByColor(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
-        hma5Color: string, 
-        hma200Color: string
-    ): 'BUY' | 'SELL' | 'HOLD' {
-        // Strong color alignment with high confidence
-        if (hma5Color === hma200Color && confidence > 70) {
-            if (hma5Color === 'green') {
-                return 'BUY';
-            } else if (hma5Color === 'red') {
-                return 'SELL';
-            }
-        }
-        
-        // Moderate color alignment with decent confidence
-        if (hma5Color === hma200Color && confidence > 60 && strength !== 'weak') {
-            if (hma5Color === 'green') {
-                return 'BUY';
-            } else if (hma5Color === 'red') {
-                return 'SELL';
-            }
-        }
-        
-        return 'HOLD';
-    }
-
-    /**
-     * Calculate trading score based on color alignment
-     */
-    private calculateTradingScoreByColor(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
-        hma5Color: string, 
-        hma200Color: string
-    ): number {
-        let score = 0;
-        
-        // Base score from confidence
-        score += confidence * 0.4;
-        
-        // Color alignment bonus
-        if (hma5Color === hma200Color && hma5Color !== 'neutral') {
-            score += 30; // Major bonus for color alignment
-        }
-        
-        // Direction scoring
-        if (direction === 'bullish' || direction === 'bearish') {
-            score += 20;
-        } else {
-            score += 5; // Neutral gets lower score
-        }
-        
-        // Strength scoring
-        switch (strength) {
-            case 'strong':
-                score += 25;
-                break;
-            case 'moderate':
-                score += 15;
-                break;
-            case 'weak':
-                score += 5;
-                break;
-        }
-        
-        return Math.min(100, Math.max(0, score));
-    }
-
-    /**
-     * Determine long-term trend from HMA200 with enhanced filtering
-     */
-    private determineLongTermTrend(hma200: number, currentPrice: number, hma200Slope: number | null): TrendDirection {
-        const priceVsHma200 = currentPrice > hma200;
-        const slopeThreshold = 0.0002; // Increased threshold for stronger trend confirmation
-        const slopeDirection = hma200Slope && hma200Slope > slopeThreshold ? 'up' : 
-                              hma200Slope && hma200Slope < -slopeThreshold ? 'down' : 'flat';
-        
-        // Require both price position AND slope confirmation for stronger filtering
-        if (priceVsHma200 && slopeDirection === 'up') return 'bullish';
-        if (!priceVsHma200 && slopeDirection === 'down') return 'bearish';
-        return 'neutral';
-    }
-
-    /**
-     * Enhanced long-term trend strength analysis
-     */
-    private calculateLongTermTrendStrength(
-        hma200: number, 
-        hma200Slope: number | null, 
-        currentPrice: number,
-        symbol: string
-    ): number {
-        if (!hma200Slope) return 0;
-
-        // Get HMA200 history for trend consistency check
-        const hma200History = this.hmaCalculator.getHMAValues(symbol, 200, 10);
-        if (hma200History.length < 5) return 0;
-
-        // Calculate trend consistency over last 10 periods
-        let consistentPeriods = 0;
-        const currentDirection = hma200Slope > 0 ? 1 : -1;
-        
-        for (let i = 1; i < hma200History.length; i++) {
-            const periodSlope = hma200History[i].value - hma200History[i - 1].value;
-            const periodDirection = periodSlope > 0 ? 1 : -1;
-            if (periodDirection === currentDirection) {
-                consistentPeriods++;
-            }
-        }
-
-        const consistency = consistentPeriods / (hma200History.length - 1);
-        const slopeStrength = Math.abs(hma200Slope) * 1000; // Normalize slope
-        const priceDistance = Math.abs(currentPrice - hma200) / hma200;
-
-        // Combine factors for overall trend strength (0-100)
-        return Math.min(100, (consistency * 50) + (slopeStrength * 25) + (priceDistance * 100 * 25));
-    }
-
-    /**
-     * Determine trend direction with long-term filter
-     */
-    private determineTrendDirectionWithFilter(
-        hma5: number, 
-        hma40: number, 
-        hma5Slope: number | null, 
-        hma40Slope: number | null,
-        longTermTrend: TrendDirection
-    ): TrendDirection {
-        // Get short-term signal
-        const shortTermDirection = this.determineTrendDirection(hma5, hma40, hma5Slope, hma40Slope);
-        
-        // Filter against long-term trend
-        if (longTermTrend === 'neutral') {
-            return shortTermDirection; // No filtering when long-term is neutral
-        }
-        
-        // Only allow signals that align with long-term trend
-        if (shortTermDirection === longTermTrend) {
-            return shortTermDirection;
-        }
-        
-        // If signals conflict, use neutral to avoid whipsaws
-        return 'neutral';
-    }
-
-    /**
-     * Determine trend direction based on HMA values and slopes
-     */
-    private determineTrendDirection(hma5: number, hma40: number, hma5Slope: number | null, hma40Slope: number | null): TrendDirection {
-        // Primary signal: HMA crossover
-        if (hma5 > hma40) {
-            // Fast HMA above slow HMA suggests bullish trend
-            if (hma5Slope && hma5Slope > 0) {
-                return 'bullish';
-            } else if (hma5Slope && hma5Slope < -0.001) {
-                return 'neutral'; // Weakening bullish trend
-            }
-            return 'bullish';
-        } else if (hma5 < hma40) {
-            // Fast HMA below slow HMA suggests bearish trend
-            if (hma5Slope && hma5Slope < 0) {
-                return 'bearish';
-            } else if (hma5Slope && hma5Slope > 0.001) {
-                return 'neutral'; // Weakening bearish trend
-            }
-            return 'bearish';
-        }
-        
-        // Very close HMAs - use slope analysis
-        if (hma5Slope && hma40Slope) {
-            if (hma5Slope > 0 && hma40Slope > 0) {
-                return 'bullish';
-            } else if (hma5Slope < 0 && hma40Slope < 0) {
-                return 'bearish';
-            }
-        }
-        
-        return 'neutral';
-    }
-
-    /**
-     * Calculate trend strength
-     */
-    private calculateTrendStrength(hma5: number, hma40: number, hma5Slope: number | null, hma40Slope: number | null, price: number): TrendStrength {
-        // Calculate HMA divergence as percentage
-        const divergence = Math.abs(hma5 - hma40) / price * 100;
-        
-        // Slope strength analysis
-        const slopeStrength = Math.abs(hma5Slope || 0) + Math.abs(hma40Slope || 0);
-        
-        // Combined strength analysis
-        if (divergence > 0.05 && slopeStrength > 0.01) {
-            return 'strong';
-        } else if (divergence > 0.02 || slopeStrength > 0.005) {
-            return 'moderate';
-        }
-        
-        return 'weak';
-    }
-
-    /**
-     * Calculate confidence level (0-100)
-     */
-    private calculateConfidence(hma5: number, hma40: number, hma5Slope: number | null, hma40Slope: number | null, crossover: number): number {
-        let confidence = 50; // Base confidence
-        
-        // HMA alignment bonus
-        const alignment = hma5 > hma40 ? 1 : -1;
-        const slopeAlignment = (hma5Slope || 0) * alignment > 0 && (hma40Slope || 0) * alignment > 0;
-        
-        if (slopeAlignment) {
-            confidence += 20;
-        }
-        
-        // Recent crossover bonus
-        if (Math.abs(crossover) === 1) {
-            confidence += 15;
-        }
-        
-        // Slope consistency bonus
-        if (hma5Slope && hma40Slope) {
-            const slopesInSameDirection = (hma5Slope > 0 && hma40Slope > 0) || (hma5Slope < 0 && hma40Slope < 0);
-            if (slopesInSameDirection) {
-                confidence += 10;
-            }
-        }
-        
-        // Strong divergence bonus
-        const divergence = Math.abs(hma5 - hma40) / Math.max(hma5, hma40);
-        if (divergence > 0.001) {
-            confidence += Math.min(15, divergence * 1000 * 5);
-        }
-        
-        return Math.min(100, Math.max(0, confidence));
-    }
-
-    /**
-     * Generate trading recommendation
-     */
-    private generateRecommendation(direction: TrendDirection, strength: TrendStrength, confidence: number, crossover: number): 'BUY' | 'SELL' | 'HOLD' {
-        // Strong signals with high confidence
-        if (confidence > 70 && strength !== 'weak') {
-            if (direction === 'bullish' || crossover === 1) {
-                return 'BUY';
-            } else if (direction === 'bearish' || crossover === -1) {
-                return 'SELL';
-            }
-        }
-        
-        // Recent crossover signals
-        if (crossover === 1 && confidence > 60) {
-            return 'BUY';
-        } else if (crossover === -1 && confidence > 60) {
-            return 'SELL';
-        }
-        
-        // Strong trends with moderate confidence
-        if (strength === 'strong' && confidence > 60) {
-            if (direction === 'bullish') {
-                return 'BUY';
-            } else if (direction === 'bearish') {
-                return 'SELL';
-            }
-        }
-        
-        return 'HOLD';
-    }
-
-    /**
-     * Calculate trend strength with trend filter
-     */
-    private calculateTrendStrengthWithFilter(
-        hma5: number, hma40: number, hma200: number,
-        hma5Slope: number | null, hma40Slope: number | null, hma200Slope: number | null,
-        price: number, longTermTrend: TrendDirection
-    ): TrendStrength {
-        const baseStrength = this.calculateTrendStrength(hma5, hma40, hma5Slope, hma40Slope, price);
-        
-        // Calculate HMA alignment (all moving in same direction)
-        const allBullish = hma5 > hma40 && hma40 > hma200 && 
-                          (hma5Slope || 0) > 0 && (hma40Slope || 0) > 0 && (hma200Slope || 0) > 0;
-        const allBearish = hma5 < hma40 && hma40 < hma200 && 
-                          (hma5Slope || 0) < 0 && (hma40Slope || 0) < 0 && (hma200Slope || 0) < 0;
-        
-        if (allBullish || allBearish) {
-            return baseStrength === 'weak' ? 'moderate' : 
-                   baseStrength === 'moderate' ? 'strong' : 'strong';
-        }
-        
-        return baseStrength;
-    }
-
-    /**
-     * Calculate confidence with trend filter
-     */
-    private calculateConfidenceWithFilter(
-        hma5: number, hma40: number, hma200: number,
-        hma5Slope: number | null, hma40Slope: number | null, hma200Slope: number | null,
-        crossover: number, longTermTrend: TrendDirection, direction: TrendDirection
-    ): number {
-        let confidence = this.calculateConfidence(hma5, hma40, hma5Slope, hma40Slope, crossover);
-        
-        // Trend alignment bonus
-        if (direction === longTermTrend && longTermTrend !== 'neutral') {
-            confidence += 15; // Bonus for trend alignment
-        }
-        
-        // All HMAs aligned bonus
-        const priceAboveAll = hma5 > hma40 && hma40 > hma200;
-        const priceBelowAll = hma5 < hma40 && hma40 < hma200;
-        
-        if (priceAboveAll || priceBelowAll) {
-            confidence += 10; // Strong alignment bonus
-        }
-        
-        // Slope alignment bonus
-        const slopesAligned = (hma5Slope || 0) * (hma40Slope || 0) > 0 && 
-                             (hma40Slope || 0) * (hma200Slope || 0) > 0;
-        
-        if (slopesAligned) {
-            confidence += 10;
-        }
-        
-        return Math.min(100, Math.max(0, confidence));
-    }
-
-    /**
-     * Generate recommendation with enhanced trend filter
-     */
-    private generateRecommendationWithFilter(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
-        crossover: number,
-        longTermTrend: TrendDirection,
-        symbol: string,
-        hma200: number,
-        hma200Slope: number | null,
-        currentPrice: number
-    ): 'BUY' | 'SELL' | 'HOLD' {
-        // Calculate long-term trend strength
-        const longTermStrength = this.calculateLongTermTrendStrength(hma200, hma200Slope, currentPrice, symbol);
-        
-        // Require minimum long-term trend strength (configurable threshold)
-        const minTrendStrength = 60; // Only trade when long-term trend strength > 60%
-        
-        if (longTermStrength < minTrendStrength) {
-            return 'HOLD'; // Don't trade in weak or unclear long-term trends
-        }
-
-        // Only generate signals when aligned with strong long-term trend
-        if (longTermTrend === 'neutral' || direction !== longTermTrend) {
-            return 'HOLD'; // Avoid counter-trend trades and weak trends
-        }
-
-        // Require stronger short-term signals when filtering for long-term trends
-        const enhancedConfidenceThreshold = 75; // Increased from default thresholds
-        if (confidence < enhancedConfidenceThreshold) {
-            return 'HOLD';
-        }
-        
-        return this.generateRecommendation(direction, strength, confidence, crossover);
-    }
-
-    /**
-     * Calculate overall trading score with trend filter (0-100)
-     */
-    private calculateTradingScoreWithFilter(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
-        crossover: number,
-        longTermTrend: TrendDirection
-    ): number {
-        let score = this.calculateTradingScore(direction, strength, confidence, crossover);
-        
-        // Trend alignment bonus
-        if (direction === longTermTrend && longTermTrend !== 'neutral') {
-            score += 10; // Bonus for following long-term trend
-        }
-        
-        // Penalty for counter-trend signals
-        if (longTermTrend !== 'neutral' && direction !== 'neutral' && direction !== longTermTrend) {
-            score -= 20; // Penalty for counter-trend
-        }
-        
-        return Math.min(100, Math.max(0, score));
-    }
-
-    /**
-     * Calculate overall trading score (0-100)
-     */
-    private calculateTradingScore(direction: TrendDirection, strength: TrendStrength, confidence: number, crossover: number): number {
-        let score = 0;
-        
-        // Base score from confidence
-        score += confidence * 0.4;
-        
-        // Direction scoring
-        if (direction === 'bullish' || direction === 'bearish') {
-            score += 20;
-        } else {
-            score += 5; // Neutral gets lower score
-        }
-        
-        // Strength scoring
-        switch (strength) {
-            case 'strong':
-                score += 25;
-                break;
-            case 'moderate':
-                score += 15;
-                break;
-            case 'weak':
-                score += 5;
-                break;
-        }
-        
-        // Crossover bonus
-        if (Math.abs(crossover) === 1) {
-            score += 15;
-        }
-        
-        return Math.min(100, Math.max(0, score));
+        });
     }
 
     /**
@@ -975,133 +782,78 @@ export class TrendAnalysisEngine {
      */
     scanMarket(symbolsInfo: Array<{ symbol: string; display_name: string }>): MarketScanResult[] {
         const results: MarketScanResult[] = [];
-        
+
         symbolsInfo.forEach(symbolInfo => {
             const trend = this.getTrendAnalysis(symbolInfo.symbol);
             if (trend) {
+                // Enhanced filtering - only recommend excellent or good quality signals
+                const isRecommended = trend.score > 75 && 
+                                    ['BUY', 'SELL'].includes(trend.recommendation) &&
+                                    (trend.signalQuality === 'excellent' || trend.signalQuality === 'good') &&
+                                    trend.trendConfirmation === true;
+
                 results.push({
                     symbol: symbolInfo.symbol,
                     displayName: symbolInfo.display_name,
                     trend,
                     rank: 0, // Will be set after sorting
-                    isRecommended: trend.score > 75 && ['BUY', 'SELL'].includes(trend.recommendation),
+                    isRecommended,
                 });
             }
         });
-        
-        // Sort by trading score (descending)
-        results.sort((a, b) => b.trend.score - a.trend.score);
-        
+
+        // Sort by trading score (descending) with quality weighting
+        results.sort((a, b) => {
+            const aQualityBonus = a.trend.signalQuality === 'excellent' ? 10 : 
+                                 a.trend.signalQuality === 'good' ? 5 : 0;
+            const bQualityBonus = b.trend.signalQuality === 'excellent' ? 10 : 
+                                 b.trend.signalQuality === 'good' ? 5 : 0;
+
+            return (b.trend.score + bQualityBonus) - (a.trend.score + aQualityBonus);
+        });
+
         // Set ranks
         results.forEach((result, index) => {
             result.rank = index + 1;
         });
-        
+
         return results;
     }
 
     /**
-     * Get top trading opportunities
+     * Get top trading opportunities with enhanced filtering
      */
     getTopOpportunities(count: number = 5): MarketScanResult[] {
         const all = this.getAllTrendAnalyses();
         const opportunities = all
-            .filter(trend => trend.score > 60 && ['BUY', 'SELL'].includes(trend.recommendation))
+            .filter(trend => 
+                trend.score > 70 && 
+                ['BUY', 'SELL'].includes(trend.recommendation) &&
+                (trend.signalQuality === 'excellent' || trend.signalQuality === 'good') &&
+                trend.trendConfirmation === true
+            )
             .sort((a, b) => b.score - a.score)
             .slice(0, count)
             .map((trend, index) => ({
                 symbol: trend.symbol,
-                displayName: trend.symbol, // Would need symbol info mapping
+                displayName: trend.symbol, // Would need display name mapping
                 trend,
                 rank: index + 1,
-                isRecommended: trend.score > 75,
+                isRecommended: true,
             }));
-        
+
         return opportunities;
     }
 
     /**
-     * Update all trend analyses
-     */
-    private updateAllTrends(): void {
-        const symbols = this.hmaCalculator.getSymbolsWithData();
-        const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
-        
-        symbols.forEach(symbol => {
-            // Check if all HMA periods are ready
-            const allPeriodsReady = hmaPeriods.every(period => 
-                this.hmaCalculator.isReady(symbol, period)
-            );
-            
-            if (allPeriodsReady) {
-                // Get a few HMA values to estimate current price
-                const hma5 = this.hmaCalculator.getLatestHMA(symbol, 5);
-                const hma21 = this.hmaCalculator.getLatestHMA(symbol, 21);
-                const hma105 = this.hmaCalculator.getLatestHMA(symbol, 105);
-                
-                if (hma5 && hma21 && hma105) {
-                    // Use the close price from price history service or estimate from HMAs
-                    const estimatedPrice = (hma5.value + hma21.value + hma105.value) / 3;
-                    this.updateTrendAnalysis(symbol, estimatedPrice);
-                }
-            }
-        });
-    }
-
-    /**
-     * Check if symbol has trend data
-     */
-    hasData(symbol: string): boolean {
-        return this.trendData.has(symbol);
-    }
-
-    /**
-     * Get symbols with trend data
-     */
-    getSymbolsWithData(): string[] {
-        return Array.from(this.trendData.keys());
-    }
-
-    /**
-     * Get statistics
-     */
-    getStats(): {
-        symbolsAnalyzed: number;
-        bullishSignals: number;
-        bearishSignals: number;
-        neutralSignals: number;
-        buyRecommendations: number;
-        sellRecommendations: number;
-        holdRecommendations: number;
-    } {
-        const analyses = this.getAllTrendAnalyses();
-        
-        return {
-            symbolsAnalyzed: analyses.length,
-            bullishSignals: analyses.filter(a => a.direction === 'bullish').length,
-            bearishSignals: analyses.filter(a => a.direction === 'bearish').length,
-            neutralSignals: analyses.filter(a => a.direction === 'neutral').length,
-            buyRecommendations: analyses.filter(a => a.recommendation === 'BUY').length,
-            sellRecommendations: analyses.filter(a => a.recommendation === 'SELL').length,
-            holdRecommendations: analyses.filter(a => a.recommendation === 'HOLD').length,
-        };
-    }
-
-    /**
-     * Reset all trend data
-     */
-    reset(): void {
-        this.trendData.clear();
-    }
-
-    /**
-     * Destroy the engine and clean up resources
+     * Clean up resources
      */
     destroy(): void {
         if (this.updateTimer) {
             clearInterval(this.updateTimer);
         }
         this.trendData.clear();
+        this.priceHistory.clear();
     }
 }
 
