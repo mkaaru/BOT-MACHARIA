@@ -1070,10 +1070,10 @@ const MLTrader = observer(() => {
             <div className="ml-trader__container">
                 <div className="ml-trader__header">
                     <Text as="h1" className="ml-trader__title">
-                        {localize('ML Trader')}
+                        {localize('Trading Recommendations')}
                     </Text>
                     <Text className="ml-trader__subtitle">
-                        {localize('AI-powered market analysis and trading recommendations')}
+                        {localize('AI-powered real-time trading signals')}
                     </Text>
                 </div>
 
