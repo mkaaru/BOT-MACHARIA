@@ -1,0 +1,31 @@
+the recomendation cards are updating every one minute and changing the signal , how do i remain in terndem with the long term trend
+
+MK
+
+smartrader1989
+Assistant
+6 minutes ago
+Looking at your code, the issue is that the trend analyzer is generating recommendations based on short-term SMA signals that change frequently, while you want to stay aligned with the long-term trend. The problem is in the validateSMABasedSignal function in the trend analysis engine.
+
+Let me modify the trend analysis to better respect long-term trends and reduce frequent signal changes:
+
+src/services/trend-analysis-engine.ts
+Improve long-term trend alignment and reduce signal noise, Add signal persistence cache to reduce frequent recommendation changes, Implement signal persistence logic in the signal validation, Add methods for signal persistence management, Add signal persistence methods, Add signal persistence helper methods
+Now let's also add signal persistence to reduce frequent changes by implementing a signal cache:
+
+Now let's add the signal persistence methods at the end of the class:
+
+Now let's also update the market scanner to respect the long-term trend alignment:
+
+src/services/market-scanner.ts
+Update recommendation generation to respect long-term trends better Update recommendation generation to respect long-term trends better Update TradingRecommendation interface to include long-term trend data
+Finally, let's update the TradingRecommendation interface to include the new fields:
+
+These changes will:
+
+Enhanced SMA Analysis: Now uses SMA10, SMA20, and SMA30 to ensure long-term trend alignment before generating signals
+Signal Persistence: Implements a caching system that requires 3 confirmations before changing a signal and maintains signals for 5 minutes
+Stricter Filtering: Only generates recommendations when short-term and long-term trends align
+Momentum Confirmation: Requires 2-3 candles moving in the same direction for stronger signals
+Better Noise Reduction: Requires minimum price separation from SMAs and stronger trend conditions
+This should significantly reduce the frequent signal changes you're experiencing while keeping you aligned with the long-term trend direction.
