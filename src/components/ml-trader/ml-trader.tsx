@@ -1194,8 +1194,10 @@ const MLTrader = observer(() => {
                                                             </Text>
                                                         </div>
                                                         <div className="indicator-row">
-                                                            <Text size="xs">ROC: {trend.roc ? `${trend.roc.toFixed(3)}%` : 'N/A'}</Text>
-                                                            <Text size="xs">MACD: {trend.macd ? trend.macd.toFixed(6) : 'N/A'}</Text>
+                                                            <Text size="xs">ROC Align: {trend.rocAlignment || 'NEUTRAL'}</Text>
+                                                            <Text size="xs" className={`roc-status ${(trend.rocAlignment || '').toLowerCase()}`}>
+                                                                {trend.rocAlignment === 'BULLISH' ? '📈' : trend.rocAlignment === 'BEARISH' ? '📉' : '➡️'}
+                                                            </Text>
                                                         </div>
                                                     </div>
 
@@ -1335,8 +1337,10 @@ const MLTrader = observer(() => {
                                                         </Text>
                                                     </div>
                                                     <div className="indicator-row">
-                                                        <Text size="xs">ROC: {trend.roc ? `${trend.roc.toFixed(3)}%` : 'N/A'}</Text>
-                                                        <Text size="xs">MACD: {trend.macd ? trend.macd.toFixed(6) : 'N/A'}</Text>
+                                                        <Text size="xs">ROC Align: {trend.rocAlignment || 'NEUTRAL'}</Text>
+                                                        <Text size="xs" className={`roc-status ${(trend.rocAlignment || '').toLowerCase()}`}>
+                                                            {trend.rocAlignment === 'BULLISH' ? '📈' : trend.rocAlignment === 'BEARISH' ? '📉' : '➡️'}
+                                                        </Text>
                                                     </div>
                                                 </div>
 
