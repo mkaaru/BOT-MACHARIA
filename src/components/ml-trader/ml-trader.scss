@@ -31,28 +31,23 @@
         border-bottom: 1px solid var(--border-normal);
     }
 
-    // Wide screen optimization
-    @media (min-width: 1400px) {
-        &__content {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
-            align-items: start;
-        }
+    // Content layout
+    &__content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.6rem;
+    }
 
-        &__main-content {
-            display: flex;
-            flex-direction: column;
-            gap: 1.6rem;
-        }
+    &__main-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.6rem;
+    }
 
-        &__side-content {
-            display: flex;
-            flex-direction: column;
-            gap: 1.6rem;
-            position: sticky;
-            top: 1.6rem;
-        }
+    &__side-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.6rem;
     }
 
     &__title {
@@ -688,8 +683,8 @@
 
         .recommendations-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.2rem;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.6rem;
 
             @media (max-width: 768px) {
                 grid-template-columns: 1fr;
@@ -798,37 +793,33 @@
             }
 
             .rec-details {
-                display: grid;
-                grid-template-columns: 1fr 1fr 1fr;
-                gap: 1rem;
-                margin-bottom: 1.4rem;
-                text-align: center;
+                display: flex;
+                flex-direction: column;
+                gap: 0.8rem;
+                margin-bottom: 1.2rem;
 
-                @media (max-width: 768px) {
-                    grid-template-columns: 1fr;
-                    gap: 0.8rem;
-                }
-
-                > div {
-                    padding: 0.8rem;
+                .detail-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.6rem 0.8rem;
                     background: #f8fafc;
-                    border-radius: 8px;
+                    border-radius: 6px;
                     border: 1px solid #e2e8f0;
-                    font-size: 1.1rem;
 
                     .detail-label {
-                        font-size: 1rem;
+                        font-size: 0.9rem;
                         font-weight: 600;
                         color: #64748b;
-                        margin-bottom: 0.3rem;
                         text-transform: uppercase;
-                        letter-spacing: 0.5px;
+                        letter-spacing: 0.3px;
                     }
 
                     .detail-value {
-                        font-size: 1.3rem;
+                        font-size: 1.1rem;
                         font-weight: 700;
                         color: #1e293b;
+                        word-break: break-all;
                     }
                 }
             }
@@ -873,20 +864,25 @@
                 }
 
                 .indicator-data {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.3rem;
-                    font-size: 0.85rem;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 0.4rem;
+                    font-size: 0.8rem;
+                    margin-top: 0.6rem;
 
                     .indicator-row {
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
+                        padding: 0.2rem 0.4rem;
+                        background: rgba(255, 255, 255, 0.3);
+                        border-radius: 4px;
                         font-family: 'Monaco', monospace;
                     }
 
                     .long-term-trend {
                         font-weight: 600;
+                        font-size: 0.75rem;
 
                         &.bullish { color: #22c55e; }
                         &.bearish { color: #ef4444; }
@@ -894,6 +890,7 @@
                     }
 
                     .roc-status {
+                        font-size: 0.75rem;
                         &.bullish { color: #22c55e; }
                         &.bearish { color: #ef4444; }
                         &.neutral { color: #f59e0b; }

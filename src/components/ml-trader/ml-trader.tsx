@@ -1047,8 +1047,6 @@ const MLTrader = observer(() => {
 
                 <div className="ml-trader__content">
                     <div className="ml-trader__main-content">
-                        
-
                         {/* Market Recommendations */}
                         {recommendations.length > 0 && (
                         <div className="ml-trader__recommendations">
@@ -1078,17 +1076,17 @@ const MLTrader = observer(() => {
                                             </div>
 
                                             <div className="rec-details">
-                                                <div>
-                                                    <div className="detail-label">Score</div>
-                                                    <div className="detail-value">{rec.confidence.toFixed(0)}</div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label">Score</span>
+                                                    <span className="detail-value">{rec.confidence.toFixed(0)}</span>
                                                 </div>
-                                                <div>
-                                                    <div className="detail-label">Confidence</div>
-                                                    <div className="detail-value">{rec.confidence.toFixed(0)}%</div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label">Confidence</span>
+                                                    <span className="detail-value">{rec.confidence.toFixed(0)}%</span>
                                                 </div>
-                                                <div>
-                                                    <div className="detail-label">Price</div>
-                                                    <div className="detail-value">{rec.currentPrice?.toFixed(5) || 'N/A'}</div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label">Price</span>
+                                                    <span className="detail-value">{rec.currentPrice?.toFixed(5) || 'N/A'}</span>
                                                 </div>
                                             </div>
 
