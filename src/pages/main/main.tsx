@@ -26,8 +26,6 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
-import ChartAnalyzer from '@/components/chart-analyzer/chart-analyzer';
-import TickTrendDashboard from '@/components/tick-trend-dashboard';
 
 
 const Chart = lazy(() => import('../chart'));
@@ -113,7 +111,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB, TICK_TREND } = DBOT_TABS;
+    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -1116,7 +1114,7 @@ const AppWrapper = observer(() => {
 
             const updatedScripts = [...savedScripts, newScript];
             setSavedScripts(updatedScripts);
-            localStorage.setItem('pythonTradingScripts', JSON.JSON.parse(savedScripts));
+            localStorage.setItem('pythonTradingScripts', JSON.stringify(updatedScripts));
             addOutput('success', `Script '${scriptName}' saved successfully`);
         }
     }, [pythonCode, savedScripts]);
@@ -1529,8 +1527,7 @@ if __name__ == "__main__":
                         </div>
                         <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
-                                <Chart show_digits_stats={false} />
-                            </Suspense>
+                                <Chart show_digits_stats={false} />                            </Suspense>
                         </div>
                         <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
@@ -1543,12 +1540,6 @@ if __name__ == "__main__":
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
                             <button onClick={handleOpen}>Load Bot</button>
-                        </div>
-                        <div label={<><ChartsIcon /><Localize i18n_default_text='Chart Analyzer' /></>} id='id-chart-analyzer'>
-                            <ChartAnalyzer />
-                        </div>
-                        <div label={<><AnalysisToolIcon /><Localize i18n_default_text='2-MIN BINARY' /></>} id='id-tick-trend'>
-                            <TickTrendDashboard />
                         </div>
                     </Tabs>
                 </div>

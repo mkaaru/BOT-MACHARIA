@@ -118,16 +118,6 @@ export class TickStreamManager {
     }
 
     private notifyTickCallbacks(tick: TickData): void {
-        // Process tick through micro candle engine first
-        import('./micro-candle-engine').then(({ microCandleEngine }) => {
-            microCandleEngine.processTick(tick);
-        });
-        
-        // Process tick through scalping engine for ultra-fast signals
-        import('./tick-scalping-engine').then(({ tickScalpingEngine }) => {
-            tickScalpingEngine.processTick(tick);
-        });
-        
         const callbacks = this.tickCallbacks.get(tick.symbol);
         if (callbacks) {
             callbacks.forEach(callback => {
