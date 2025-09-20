@@ -1,6 +1,8 @@
 import { CandleData } from './candle-reconstruction-engine';
 import { EfficientHMACalculator, EfficientHMAResult } from './efficient-hma-calculator';
 import { ehlersProcessor, EhlersSignals } from './ehlers-signal-processing';
+import { microCandleEngine, MicroCandleData } from './micro-candle-engine';
+import { enhancedEhlersDecycler, EhlersDecyclerResult } from './enhanced-ehlers-decycler';
 
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
@@ -26,6 +28,28 @@ export interface TrendAnalysis {
     lastUpdate: Date;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
     score: number; // Overall trading score (0-100)
+
+    // Enhanced micro candle analysis
+    microCandles?: {
+        consecutive: {
+            direction: 'bullish' | 'bearish' | 'neutral';
+            count: number;
+            strength: number;
+        };
+        roc: number; // Rate of change
+        recentDirection: 'bullish' | 'bearish' | 'neutral';
+    };
+
+    // Enhanced Ehlers decycler results
+    decyclers?: {
+        short: EhlersDecyclerResult;
+        long: EhlersDecyclerResult;
+        consensus: {
+            direction: 'bullish' | 'bearish' | 'neutral';
+            strength: number;
+            confirmation: boolean;
+        };
+    };
 
     // Enhanced fields for better trend analysis
     trendHierarchy?: {
@@ -69,8 +93,68 @@ export class TrendAnalysisEngine {
     constructor(hmaCalculator: EfficientHMACalculator) {
         this.hmaCalculator = hmaCalculator;
 
+        // Set up micro candle processing
+        this.setupMicroCandleProcessing();
+
         // Update trend analysis periodically
         this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000); // Every 30 seconds
+    }
+
+    /**
+     * Set up micro candle processing callbacks
+     */
+    private setupMicroCandleProcessing(): void {
+        // Subscribe to all volatility symbols for micro candle analysis
+        const volatilitySymbols = [
+            'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
+            '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'
+        ];
+
+        volatilitySymbols.forEach(symbol => {
+            microCandleEngine.addMicroCandleCallback(symbol, (microCandle: MicroCandleData) => {
+                this.processMicroCandle(microCandle);
+            });
+        });
+    }
+
+    /**
+     * Process micro candle for enhanced trend analysis
+     */
+    private processMicroCandle(microCandle: MicroCandleData): void {
+        const { symbol } = microCandle;
+
+        // Process through Ehlers decyclers
+        const decyclerResults = enhancedEhlersDecycler.processMicroCandle(microCandle);
+
+        // Update existing trend analysis with micro candle data
+        const existingAnalysis = this.trendData.get(symbol);
+        if (existingAnalysis) {
+            // Get consecutive direction analysis
+            const consecutive = microCandleEngine.getConsecutiveDirection(symbol, 3);
+            
+            // Calculate ROC
+            const roc = microCandleEngine.calculateROC(symbol, 20);
+
+            // Enhanced analysis with micro candles and decyclers
+            const enhancedAnalysis: TrendAnalysis = {
+                ...existingAnalysis,
+                microCandles: {
+                    consecutive,
+                    roc,
+                    recentDirection: microCandle.direction
+                },
+                decyclers: decyclerResults,
+                lastUpdate: new Date()
+            };
+
+            // Recalculate recommendation with micro candle confirmation
+            enhancedAnalysis.recommendation = this.generateEnhancedRecommendation(enhancedAnalysis);
+            enhancedAnalysis.score = this.calculateEnhancedScore(enhancedAnalysis);
+
+            this.trendData.set(symbol, enhancedAnalysis);
+
+            console.log(`Enhanced Micro Analysis ${symbol}: MicroDir=${microCandle.direction} Consecutive=${consecutive.direction}(${consecutive.count}) ROC=${roc.toFixed(4)} Decycler=${decyclerResults.consensus.direction}(${decyclerResults.consensus.confirmation ? 'CONFIRMED' : 'UNCONFIRMED'})`);
+        }
     }
 
     /**
@@ -227,6 +311,31 @@ export class TrendAnalysisEngine {
         console.log(`Enhanced Trend Analysis for ${symbol}: ${direction.toUpperCase()} (${strength}) - ` +
                    `Hierarchy: ${trendHierarchy.alignment.toFixed(1)}% - Structure: ${marketStructure} - ` +
                    `Quality: ${signalQuality} - Score: ${enhancedScore.toFixed(1)} - Recommendation: ${finalRecommendation}`);
+
+        // Initialize micro candle analysis if not already present
+        if (!analysis.microCandles) {
+            const consecutive = microCandleEngine.getConsecutiveDirection(symbol, 3);
+            const roc = microCandleEngine.calculateROC(symbol, 20);
+            
+            analysis.microCandles = {
+                consecutive,
+                roc,
+                recentDirection: 'neutral'
+            };
+        }
+
+        // Initialize decycler analysis if not already present
+        if (!analysis.decyclers && enhancedEhlersDecycler.isReady(symbol)) {
+            const decyclerResults = enhancedEhlersDecycler.getLatestDecyclerResults(symbol);
+            if (decyclerResults.short && decyclerResults.long) {
+                const consensus = this.generateDecyclerConsensus(decyclerResults.short, decyclerResults.long);
+                analysis.decyclers = {
+                    short: decyclerResults.short,
+                    long: decyclerResults.long,
+                    consensus
+                };
+            }
+        }
     }
 
     /**
@@ -515,6 +624,108 @@ export class TrendAnalysisEngine {
         }
 
         return 'HOLD';
+    }
+
+    /**
+     * Generate enhanced recommendation using micro candles and decyclers
+     */
+    private generateEnhancedRecommendation(analysis: TrendAnalysis): 'BUY' | 'SELL' | 'HOLD' {
+        const baseRecommendation = analysis.recommendation;
+        
+        // If base recommendation is HOLD, check micro patterns for opportunities
+        if (baseRecommendation === 'HOLD' && analysis.microCandles && analysis.decyclers) {
+            const { consecutive, roc } = analysis.microCandles;
+            const { consensus } = analysis.decyclers;
+
+            // Strong micro pattern confirmation
+            if (consecutive.count >= 3 && consecutive.strength > 80 && consensus.confirmation) {
+                if (consecutive.direction === 'bullish' && consensus.direction === 'bullish' && roc > 0.01) {
+                    console.log(`${analysis.symbol}: Micro pattern BUY - 3+ consecutive bullish candles with decycler confirmation`);
+                    return 'BUY';
+                }
+                if (consecutive.direction === 'bearish' && consensus.direction === 'bearish' && roc < -0.01) {
+                    console.log(`${analysis.symbol}: Micro pattern SELL - 3+ consecutive bearish candles with decycler confirmation`);
+                    return 'SELL';
+                }
+            }
+        }
+
+        // If base recommendation is BUY/SELL, check for micro pattern contradiction
+        if ((baseRecommendation === 'BUY' || baseRecommendation === 'SELL') && analysis.microCandles && analysis.decyclers) {
+            const { consecutive } = analysis.microCandles;
+            const { consensus } = analysis.decyclers;
+
+            // Strong contradiction - override base recommendation
+            if (consecutive.count >= 3 && consecutive.strength > 75 && consensus.confirmation) {
+                if (baseRecommendation === 'BUY' && consecutive.direction === 'bearish' && consensus.direction === 'bearish') {
+                    console.log(`${analysis.symbol}: Micro contradiction - overriding BUY with HOLD due to bearish micro pattern`);
+                    return 'HOLD';
+                }
+                if (baseRecommendation === 'SELL' && consecutive.direction === 'bullish' && consensus.direction === 'bullish') {
+                    console.log(`${analysis.symbol}: Micro contradiction - overriding SELL with HOLD due to bullish micro pattern`);
+                    return 'HOLD';
+                }
+            }
+        }
+
+        return baseRecommendation;
+    }
+
+    /**
+     * Calculate enhanced score including micro candle and decycler factors
+     */
+    private calculateEnhancedScore(analysis: TrendAnalysis): number {
+        let score = analysis.score;
+
+        if (analysis.microCandles && analysis.decyclers) {
+            const { consecutive, roc } = analysis.microCandles;
+            const { consensus } = analysis.decyclers;
+
+            // Boost score for strong micro confirmations
+            if (consecutive.count >= 3 && consensus.confirmation) {
+                const microBoost = (consecutive.strength * 0.3) + (consensus.strength * 0.2);
+                score += microBoost;
+            }
+
+            // ROC momentum factor
+            const rocFactor = Math.min(10, Math.abs(roc) * 100); // Cap at 10 points
+            score += rocFactor;
+
+            // Decycler confirmation bonus
+            if (consensus.confirmation && consensus.strength > 70) {
+                score += 15;
+            }
+        }
+
+        return Math.min(100, Math.max(0, score));
+    }
+
+    /**
+     * Generate decycler consensus (helper method)
+     */
+    private generateDecyclerConsensus(short: EhlersDecyclerResult, long: EhlersDecyclerResult): {
+        direction: 'bullish' | 'bearish' | 'neutral';
+        strength: number;
+        confirmation: boolean;
+    } {
+        const agreesDirection = short.color === long.color && short.color !== 'neutral';
+        const combinedStrength = (short.strength * 0.7) + (long.strength * 0.3);
+        
+        let direction: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+        
+        if (agreesDirection) {
+            direction = short.color === 'green' ? 'bullish' : 'bearish';
+        } else if (short.color !== 'neutral') {
+            direction = short.color === 'green' ? 'bullish' : 'bearish';
+        } else if (long.color !== 'neutral') {
+            direction = long.color === 'green' ? 'bullish' : 'bearish';
+        }
+        
+        return {
+            direction,
+            strength: combinedStrength,
+            confirmation: agreesDirection
+        };
     }
 
     /**
