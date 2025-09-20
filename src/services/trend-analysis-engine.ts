@@ -99,8 +99,11 @@ export class TrendAnalysisEngine {
         }
 
         const prices = recentCandles.map((candle: any) => candle.close);
-        const longTermROC = this.calculateROC(prices, 20);
-        const shortTermROC = this.calculateROC(prices, 5);
+        
+        // Use default ROC periods (can be made configurable later)
+        const rocPeriods = this.getROCPeriods(false); // Default to non-sensitive
+        const longTermROC = this.calculateROC(prices, rocPeriods.longTerm);
+        const shortTermROC = this.calculateROC(prices, rocPeriods.shortTerm);
         
         if (longTermROC === null || shortTermROC === null) {
             console.log(`${symbol}: Failed to calculate ROC indicators`);
@@ -411,6 +414,22 @@ export class TrendAnalysisEngine {
         const pastPrice = prices[prices.length - 1 - period];
         
         return ((currentPrice - pastPrice) / pastPrice) * 100;
+    }
+
+    /**
+     * Get ROC periods based on sensitivity setting
+     */
+    private getROCPeriods(sensitive: boolean = false): { longTerm: number; shortTerm: number } {
+        if (sensitive) {
+            return {
+                longTerm: 10, // Half of default 20
+                shortTerm: 3   // Half of default 5 (rounded)
+            };
+        }
+        return {
+            longTerm: 20, // Default long-term period
+            shortTerm: 5   // Default short-term period
+        };
     }
 
     /**
