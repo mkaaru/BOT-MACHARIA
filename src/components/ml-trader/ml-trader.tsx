@@ -99,6 +99,7 @@ const MLTrader = observer(() => {
     const [selected_recommendation, setSelectedRecommendation] = useState<TradingRecommendation | null>(null);
     const [volatility_trends, setVolatilityTrends] = useState<Map<string, TrendAnalysis>>(new Map());
     const [initial_scan_complete, setInitialScanComplete] = useState(false);
+    const [showEducationalContent, setShowEducationalContent] = useState(false); // State for educational content toggle
 
     // Trend filtering states
     const [enable_trend_filter, setEnableTrendFilter] = useState(false);
@@ -1078,6 +1079,9 @@ const MLTrader = observer(() => {
         return '➡️';
     };
 
+    // Flag to check if the modal is open for recommendation loading
+    const is_modal_open = !!modal_recommendation; 
+
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
@@ -1093,7 +1097,7 @@ const MLTrader = observer(() => {
                 <div className="ml-trader__content">
                     <div className="ml-trader__main-content">
                         {/* Market Recommendations */}
-                        {recommendations.length > 0 && (
+                        {recommendations.length > 0 ? (
                         <div className="ml-trader__recommendations">
                             <div className="recommendations-header">
                                 <Text as="h3">Trading Recommendations</Text>
@@ -1198,7 +1202,122 @@ const MLTrader = observer(() => {
                                 })}
                             </div>
                         </div>
-                    )}
+                    ) : (
+                        <div className="no-recommendations">
+                            <div className="no-recommendations-header">
+                                <Text size="sm" weight="bold" color="prominent">
+                                    {localize('Market Analysis Active')}
+                                </Text>
+                            </div>
+                            <div className="no-recommendations-content">
+                                <Text size="xs" color="general">
+                                    {scanner_status?.isScanning ? 
+                                        localize('Scanning {{connectedSymbols}}/{{totalSymbols}} markets for opportunities...', {
+                                            connectedSymbols: scanner_status.connectedSymbols,
+                                            totalSymbols: scanner_status.totalSymbols
+                                        }) :
+                                        localize('Monitoring market conditions for high-confidence signals')
+                                    }
+                                </Text>
+                                <div className="market-analysis-status">
+                                    <div className="status-item">
+                                        <span className="status-label">{localize('Trends Analyzed:')}</span>
+                                        <span className="status-value">{scanner_status?.trendsAnalyzed || 0}</span>
+                                    </div>
+                                    <div className="status-item">
+                                        <span className="status-label">{localize('Last Update:')}</span>
+                                        <span className="status-value">
+                                            {scanner_status?.lastUpdate ? 
+                                                new Date(scanner_status.lastUpdate).toLocaleTimeString() : 
+                                                localize('Initializing...')
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                                <Text size="xs" color="general" className="waiting-message">
+                                    {localize('💡 Recommendations appear when ROC alignment and Ehlers signals meet strict quality thresholds')}
+                                </Text>
+
+                                {/* Market Health Overview */}
+                                <div className="market-health-overview">
+                                    <Text size="xs" weight="bold" color="prominent">
+                                        {localize('Current Market Analysis')}
+                                    </Text>
+                                    <div className="market-symbols-grid">
+                                        {ENHANCED_VOLATILITY_SYMBOLS.slice(0, 5).map(symbolInfo => {
+                                            const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
+                                            return (
+                                                <div key={symbolInfo.symbol} className="symbol-status-card">
+                                                    <div className="symbol-header">
+                                                        <Text size="xs" weight="bold">{symbolInfo.display_name}</Text>
+                                                        <div className={`signal-indicator ${trend?.recommendation.toLowerCase() || 'hold'}`}>
+                                                            {trend?.recommendation === 'BUY' ? '📈' : 
+                                                             trend?.recommendation === 'SELL' ? '📉' : 
+                                                             '⏸️'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="symbol-metrics">
+                                                        <span className="metric">
+                                                            {localize('Score: {{score}}', { score: trend?.score?.toFixed(0) || '0' })}
+                                                        </span>
+                                                        <span className="metric">
+                                                            {localize('Confidence: {{confidence}}%', { confidence: trend?.confidence?.toFixed(0) || '0' })}
+                                                        </span>
+                                                    </div>
+                                                    {trend?.ehlers?.snr && (
+                                                        <Text size="xs" color="general">
+                                                            {localize('SNR: {{snr}}dB', { snr: trend.ehlers.snr.toFixed(1) })}
+                                                        </Text>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                                {/* Educational Content Toggle */}
+                                <div className="educational-section">
+                                    <button 
+                                        className="educational-toggle"
+                                        onClick={() => setShowEducationalContent(!showEducationalContent)}
+                                    >
+                                        <Text size="xs" weight="bold">
+                                            {showEducationalContent ? '📚 Hide' : '📚 Learn'} {localize('How ML Analysis Works')}
+                                        </Text>
+                                    </button>
+
+                                    {showEducationalContent && (
+                                        <div className="educational-content">
+                                            <div className="educational-item">
+                                                <Text size="xs" weight="bold" color="prominent">
+                                                    {localize('ROC Analysis')}
+                                                </Text>
+                                                <Text size="xs" color="general">
+                                                    {localize('Rate of Change indicators measure momentum over 20 and 5 periods. Recommendations require aligned trends with acceleration.')}
+                                                </Text>
+                                            </div>
+                                            <div className="educational-item">
+                                                <Text size="xs" weight="bold" color="prominent">
+                                                    {localize('Ehlers Signals')}
+                                                </Text>
+                                                <Text size="xs" color="general">
+                                                    {localize('John Ehlers signal processing provides anticipatory signals and cycle analysis for early trend detection.')}
+                                                </Text>
+                                            </div>
+                                            <div className="educational-item">
+                                                <Text size="xs" weight="bold" color="prominent">
+                                                    {localize('Quality Thresholds')}
+                                                </Text>
+                                                <Text size="xs" color="general">
+                                                    {localize('Only signals with 75+ score, 80+ confidence, and strong trend alignment are recommended.')}
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                     {/* Scanner Status */}
                     {scanner_status && (

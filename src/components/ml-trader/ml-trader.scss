@@ -1368,7 +1368,117 @@
     }
 }
 
-// Trading Modal Styles
+.no-recommendations {
+        padding: var(--space-lg);
+        border: 1px dashed var(--border-color);
+        border-radius: var(--border-radius);
+        background: var(--surface-secondary);
+
+        .no-recommendations-header {
+            text-align: center;
+            margin-bottom: var(--space-md);
+        }
+
+        .no-recommendations-content {
+            text-align: center;
+
+            .market-analysis-status {
+                display: flex;
+                justify-content: center;
+                gap: var(--space-lg);
+                margin: var(--space-md) 0;
+                padding: var(--space-sm);
+                background: var(--surface-primary);
+                border-radius: var(--border-radius);
+
+                .status-item {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-xs);
+
+                    .status-label {
+                        font-size: 10px;
+                        color: var(--text-secondary);
+                        font-weight: 500;
+                    }
+
+                    .status-value {
+                        font-size: 12px;
+                        color: var(--text-primary);
+                        font-weight: bold;
+                    }
+                }
+            }
+
+            .waiting-message {
+                margin-top: var(--space-md);
+                padding: var(--space-sm);
+                background: var(--background-info);
+                border-radius: var(--border-radius);
+                border-left: 3px solid var(--color-info);
+            }
+
+            .market-health-overview {
+                margin-top: var(--space-lg);
+                padding: var(--space-md);
+                background: var(--surface-primary);
+                border-radius: var(--border-radius);
+                border: 1px solid var(--border-color);
+
+                .market-symbols-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                    gap: var(--space-sm);
+                    margin-top: var(--space-sm);
+
+                    .symbol-status-card {
+                        padding: var(--space-sm);
+                        background: var(--surface-secondary);
+                        border-radius: var(--border-radius);
+                        border: 1px solid var(--border-color);
+
+                        .symbol-header {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: var(--space-xs);
+
+                            .signal-indicator {
+                                font-size: 14px;
+
+                                &.buy { filter: hue-rotate(120deg); }
+                                &.sell { filter: hue-rotate(0deg); }
+                                &.hold { opacity: 0.6; }
+                            }
+                        }
+
+                        .symbol-metrics {
+                            display: flex;
+                            flex-direction: column;
+                            gap: var(--space-xs);
+
+                            .metric {
+                                font-size: 10px;
+                                color: var(--text-secondary);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        @media (max-width: 768px) {
+            .market-analysis-status {
+                flex-direction: column;
+                gap: var(--space-sm);
+            }
+
+            .market-symbols-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    }
+
 .trading-modal {
     .modal__content {
         border-radius: 20px !important;
@@ -1788,6 +1898,7 @@
                                 -webkit-background-clip: text;
                                 -webkit-text-fill-color: transparent;
                                 background-clip: text;
+                                text-transform: uppercase;
                             }
 
                             &::before {
@@ -2249,7 +2360,6 @@
         }
     }
 
-    // Dark theme support with beautiful gradients
     .theme--dark & {
         .trading-modal__content {
             background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
@@ -2432,6 +2542,46 @@
 
         &:active {
             transform: translateY(0);
+        }
+    }
+}
+
+.control-card.educational-content {
+    .educational-section {
+        margin-top: var(--space-lg);
+
+        .educational-toggle {
+            width: 100%;
+            padding: var(--space-sm);
+            background: var(--color-primary);
+            color: var(--color-primary-text);
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &:hover {
+                background: var(--color-primary-dark);
+            }
+        }
+
+        .educational-content {
+            margin-top: var(--space-md);
+            padding: var(--space-md);
+            background: var(--surface-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+
+            .educational-item {
+                margin-bottom: var(--space-md);
+                padding: var(--space-sm);
+                background: var(--surface-secondary);
+                border-radius: var(--border-radius);
+
+                &:last-child {
+                    margin-bottom: 0;
+                }
+            }
         }
     }
 }
