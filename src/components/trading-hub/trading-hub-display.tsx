@@ -31,6 +31,7 @@ interface ScanResult {
 interface TradeSettings {
     symbol: string;
     tradeType: string;
+    contractType?: string; // Added to ensure proper contract type mapping
     barrier?: string;
     prediction?: number;
     stake: number;
@@ -979,19 +980,54 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Load trade settings to Smart Trader
     const loadTradeSettings = (recommendation: TradeRecommendation) => {
+        // Map strategy to proper trade type and contract type
+        const getTradeTypeAndContract = (strategy: string) => {
+            switch (strategy) {
+                case 'over':
+                    return { tradeType: 'digits', contractType: 'DIGITOVER' };
+                case 'under':
+                    return { tradeType: 'digits', contractType: 'DIGITUNDER' };
+                case 'even':
+                    return { tradeType: 'digits', contractType: 'DIGITEVEN' };
+                case 'odd':
+                    return { tradeType: 'digits', contractType: 'DIGITODD' };
+                case 'matches':
+                    return { tradeType: 'digits', contractType: 'DIGITMATCH' };
+                case 'differs':
+                    return { tradeType: 'digits', contractType: 'DIGITDIFF' };
+                default:
+                    return { tradeType: 'digits', contractType: 'DIGITOVER' };
+            }
+        };
+
+        const { tradeType, contractType } = getTradeTypeAndContract(recommendation.strategy);
+
         const settings = {
             symbol: recommendation.symbol,
-            tradeType: getTradeTypeForStrategy(recommendation.strategy),
+            tradeType: tradeType,
+            contractType: contractType,
             stake: 0.5,
             duration: 1,
             durationType: 't'
         };
 
+        // Add prediction/barrier based on strategy
         if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
             settings.barrier = recommendation.barrier;
+            settings.prediction = parseInt(recommendation.barrier || '5');
         } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
             settings.prediction = parseInt(recommendation.barrier || '5');
+            settings.barrier = recommendation.barrier;
         }
+
+        console.log('Loading Trading Hub settings to Smart Trader:', {
+            strategy: recommendation.strategy,
+            symbol: recommendation.symbol,
+            tradeType: tradeType,
+            contractType: contractType,
+            prediction: settings.prediction,
+            barrier: settings.barrier
+        });
 
         // Store the settings and open the modal
         setSelectedTradeSettings(settings);
@@ -1521,6 +1557,11 @@ const TradingHubDisplay: React.FC = observer(() => {
             'differs': 'DIGITDIFF'
         };
         return mapping[strategy] || 'DIGITOVER';
+    };
+
+    const getTradeTypeCategory = (strategy: string): string => {
+        // All these strategies are digits-based
+        return 'digits';
     };
 
     const getStatusDotClass = (): string => {

@@ -22,6 +22,7 @@ const TRADE_TYPES = [
 interface TradeSettings {
     symbol: string;
     tradeType: string;
+    contractType: string; // Added contractType
     barrier?: string;
     prediction?: number;
     stake: number;
@@ -86,6 +87,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     // Form state from initial settings
     const [symbol, setSymbol] = useState<string>(initialSettings.symbol || '');
     const [tradeType, setTradeType] = useState<string>(initialSettings.tradeType || 'DIGITOVER');
+    const [contractType, setContractType] = useState<string>(initialSettings.contractType || 'DIGITOVER'); // New state for contractType
     const [stake, setStake] = useState<number>(initialSettings.stake || 0.5);
     const [duration, setDuration] = useState<number>(initialSettings.duration || 1);
     const [durationType, setDurationType] = useState<string>(initialSettings.durationType || 't');
@@ -93,7 +95,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [prediction, setPrediction] = useState<number>(initialSettings.prediction || 5);
     const [ticks, setTicks] = useState<number>(initialSettings.duration || 1);
 
-    // Predictions - key improvement for Over/Under after loss logic  
+    // Predictions - key improvement for Over/Under after loss logic
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(parseInt(initialSettings.barrier || '5'));
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(initialSettings.ouPredPostLoss || 5);
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
@@ -315,7 +317,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         const trade_option: any = {
             amount: Number(stakeAmount),
             basis: 'stake',
-            contractTypes: [tradeType],
+            contractTypes: [tradeType], // Assuming tradeType is directly usable here
             currency: account_currency,
             duration: durationType === 't' ? Number(ticks) : Number(duration),
             duration_unit: durationType,
@@ -425,7 +427,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                         transaction_ids: { buy: buy?.transaction_id },
                         buy_price: buy?.buy_price,
                         currency: account_currency,
-                        contract_type: tradeType as any,
+                        contract_type: tradeType as any, // Use the selected tradeType
                         underlying: symbol,
                         display_name: symbol_display,
                         date_start: Math.floor(Date.now() / 1000),
@@ -575,6 +577,39 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }, 2000); // Slightly longer delay to ensure trading is properly started
     };
 
+    // Set initial values from Trading Hub recommendation
+    useEffect(() => {
+        if (initialSettings) {
+            console.log('Smart Trader receiving Trading Hub settings:', initialSettings);
+
+            setSymbol(initialSettings.symbol);
+            setTradeType(initialSettings.tradeType || 'digits');
+            setContractType(initialSettings.contractType || 'DIGITOVER');
+            setStake(initialSettings.stake || 0.5);
+            setDuration(initialSettings.duration || 1);
+            setDurationType(initialSettings.durationType || 't');
+
+            // Set prediction for digits contracts
+            if (initialSettings.prediction !== undefined) {
+                setPrediction(initialSettings.prediction);
+            }
+
+            // Set barrier for over/under strategies
+            if (initialSettings.barrier) {
+                setBarrier(initialSettings.barrier);
+            }
+
+            console.log('Smart Trader initialized with:', {
+                symbol: initialSettings.symbol,
+                tradeType: initialSettings.tradeType,
+                contractType: initialSettings.contractType,
+                prediction: initialSettings.prediction,
+                barrier: initialSettings.barrier
+            });
+        }
+    }, [initialSettings]);
+
+
     return (
         <div className='smart-trader-wrapper'>
             <div className='smart-trader-wrapper__header'>
@@ -597,22 +632,23 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                 {localize('Symbol:')} {symbolMap[symbol] || symbol}
                             </Text>
                             <Text size='xs' color='general'>
-                                {localize('Trade Type:')} {TRADE_TYPES.find(t => t.value === tradeType)?.label || tradeType}
+                                {/* Updated to show contractType if available, otherwise tradeType */}
+                                {localize('Trade Type:')} {TRADE_TYPES.find(t => t.value === contractType)?.label || TRADE_TYPES.find(t => t.value === tradeType)?.label || tradeType}
                             </Text>
                             <Text size='xs' color='general'>
                                 {localize('Stake:')} ${stake.toFixed(2)}
                             </Text>
-                            {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
+                            {(contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') && (
                                 <Text size='xs' color='general'>
                                     {localize('Barrier:')} {barrier}
                                 </Text>
                             )}
-                            {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') && (
+                            {(contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') && (
                                 <Text size='xs' color='general'>
                                     {localize('Prediction:')} {mdPrediction}
                                 </Text>
                             )}
-                            {(tradeType === 'CALL' || tradeType === 'PUT') && (
+                            {(contractType === 'CALL' || contractType === 'PUT') && (
                                 <Text size='xs' color='general'>
                                     {localize('Barrier:')} {barrier}
                                 </Text>
@@ -769,7 +805,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     )}
 
                     {/* Strategy controls based on trade type */}
-                    {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
+                    {(contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') ? (
                         <div className='smart-trader-wrapper__row'>
                             <div className='smart-trader-wrapper__field'>
                                 <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
@@ -797,7 +833,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                 />
                             </div>
                         </div>
-                    ) : (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') ? (
+                    ) : (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') ? (
                         <div className='smart-trader-wrapper__predictions'>
                             <div className='smart-trader-wrapper__row'>
                                 <div className='smart-trader-wrapper__field'>
@@ -861,7 +897,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     )}
 
                     {/* Current prediction indicator */}
-                    {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
+                    {(contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') && (
                         <div className='smart-trader-wrapper__current-prediction'>
                             <Text size='xs' color={lastOutcomeWasLossRef.current ? 'profit-success' : 'prominent'}>
                                 {localize('Next prediction:')} {lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss}
@@ -879,7 +915,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                         <Text size='xs' color='general'>
                             {localize('Ticks Processed:')} {ticksProcessed}
                         </Text>
-                        {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
+                        {(contractType !== 'CALL' && contractType !== 'PUT') && (
                             <Text size='xs' color='general'>
                                 {localize('Last Digit:')} {lastDigit ?? '-'}
                             </Text>
