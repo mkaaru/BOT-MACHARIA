@@ -1,6 +1,6 @@
 import { CandleData } from './candle-reconstruction-engine';
 import { EfficientHMACalculator, EfficientHMAResult } from './efficient-hma-calculator';
-import { ehlersProcessor, EhlersSignals } from './ehlers-signal-processing';
+import { ehlersProcessor, EhlersSignals, DerivMarketConfig } from './ehlers-signal-processing';
 
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
@@ -27,10 +27,25 @@ export interface TrendAnalysis {
         confidence: number;
         reason: string;
         anticipatory: boolean;
+        signalStrength: 'weak' | 'medium' | 'strong';
     };
     cycleTrading?: {
         suitable: boolean;
         reason: string;
+    };
+    
+    // Deriv market specific signals
+    derivSignals?: {
+        riseFall: {
+            action: 'RISE' | 'FALL' | 'WAIT';
+            confidence: number;
+            reasoning: string;
+        };
+        higherLower: {
+            action: 'HIGHER' | 'LOWER' | 'WAIT';
+            confidence: number;
+            reasoning: string;
+        };
     };
 }
 
@@ -145,9 +160,42 @@ export class TrendAnalysisEngine {
             score = Math.min(95, score + 30); // Add 30 points for valid ROC signal
         }
 
-        // Get Ehlers-based recommendations
+        // Get Ehlers-based recommendations with Deriv market optimization
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
+        
+        // Generate Deriv-specific market signals
+        const riseFallConfig: DerivMarketConfig = {
+            market: 'rise_fall',
+            duration: 5, // 5 ticks
+            contractType: 'RISE',
+            minConfidence: 70,
+            maxDrawdown: 20
+        };
+        
+        const higherLowerConfig: DerivMarketConfig = {
+            market: 'higher_lower',
+            duration: 60, // 60 seconds
+            contractType: 'HIGHER',
+            minConfidence: 65,
+            maxDrawdown: 15
+        };
+        
+        const riseFallSignal = ehlersProcessor.generateDerivSignal(symbol, riseFallConfig);
+        const higherLowerSignal = ehlersProcessor.generateDerivSignal(symbol, higherLowerConfig);
+        
+        const derivSignals = {
+            riseFall: {
+                action: riseFallSignal.action as 'RISE' | 'FALL' | 'WAIT',
+                confidence: riseFallSignal.confidence,
+                reasoning: riseFallSignal.reasoning
+            },
+            higherLower: {
+                action: higherLowerSignal.action as 'HIGHER' | 'LOWER' | 'WAIT',
+                confidence: higherLowerSignal.confidence,
+                reasoning: higherLowerSignal.reasoning
+            }
+        };
 
         // Combine ROC and Ehlers recommendations with priority for early signals
         let finalRecommendation = recommendation;
@@ -191,6 +239,7 @@ export class TrendAnalysisEngine {
             ehlers: ehlersSignals,
             ehlersRecommendation,
             cycleTrading,
+            derivSignals,
         };
 
         this.trendData.set(symbol, analysis);
