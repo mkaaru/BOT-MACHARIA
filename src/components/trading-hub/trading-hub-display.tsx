@@ -726,7 +726,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             setAiTradeStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
-            // Create initial transaction entry like Smart Trader
+            // Create transaction entry like Smart Trader
             try {
                 const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
                 // Assuming 'transactions' is accessible and has onBotContractEvent
@@ -1055,6 +1055,14 @@ const TradingHubDisplay: React.FC = observer(() => {
             const defaultDuration = 1;
             const defaultDurationUnit = 't'; // ticks
             const barrier = recommendation.barrier;
+            let prediction = null;
+
+            if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+                prediction = parseInt(recommendation.barrier || '5');
+            } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
+                prediction = parseInt(recommendation.barrier || '5');
+            }
+
 
             // Generate Bot Builder XML
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -1112,7 +1120,7 @@ const TradingHubDisplay: React.FC = observer(() => {
           <block type="text_print" id="strategy_print">
             <value name="TEXT">
               <shadow type="text" id="strategy_text">
-                <field name="TEXT">${displayName} - ${recommendation.strategy.toUpperCase()} ${barrier}</field>
+                <field name="TEXT">${displayName} - ${recommendation.strategy.toUpperCase()}${prediction !== null ? ` ${prediction}` : ''}</field>
               </shadow>
             </value>
             <next>
