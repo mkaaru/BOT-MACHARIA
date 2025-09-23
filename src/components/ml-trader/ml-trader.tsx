@@ -1276,7 +1276,7 @@ const MLTrader = observer(() => {
                                 </div>
                             </div>
 
-                                {/* AI Analysis Animation */}
+                                {/* AI Analysis Loading */}
                                 <div className="ai-analysis-section">
                                     <div className="ai-analysis-header">
                                         <Text size="xs" weight="bold" color="prominent">
@@ -1285,136 +1285,59 @@ const MLTrader = observer(() => {
                                         <div className="analysis-status-indicator">
                                             <div className="pulse-dot"></div>
                                             <Text size="xs" color="general">
-                                                {localize('Analyzing {{count}} Volatility Indices', { count: ENHANCED_VOLATILITY_SYMBOLS.length })}
+                                                {localize('Processing market data...')}
                                             </Text>
                                         </div>
                                     </div>
 
                                     {showAIAnalysis && (
-                                        <div className="ai-analysis-animation">
-                                            <div className="analysis-grid">
-                                                {ENHANCED_VOLATILITY_SYMBOLS.map((symbolInfo, index) => {
-                                                    const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
-                                                    const analysisProgress = Math.min(100, (index + 1) * (100 / ENHANCED_VOLATILITY_SYMBOLS.length));
-                                                    
-                                                    return (
-                                                        <div 
-                                                            key={symbolInfo.symbol} 
-                                                            className={`ai-analysis-card ${trend ? 'analyzed' : 'analyzing'}`}
-                                                            style={{ 
-                                                                animationDelay: `${index * 0.2}s`,
-                                                                '--analysis-progress': `${analysisProgress}%`
-                                                            }}
-                                                        >
-                                                            <div className="symbol-header">
-                                                                <Text size="xs" weight="bold">{symbolInfo.display_name}</Text>
-                                                                <div className="analysis-indicator">
-                                                                    {trend ? (
-                                                                        <div className="analysis-complete">✓</div>
-                                                                    ) : (
-                                                                        <div className="analysis-spinner"></div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            <div className="neural-network-viz">
-                                                                <div className="neural-nodes">
-                                                                    <div className="input-layer">
-                                                                        <div className="node active" data-label="Price"></div>
-                                                                        <div className="node active" data-label="ROC"></div>
-                                                                        <div className="node active" data-label="HMA"></div>
-                                                                    </div>
-                                                                    <div className="hidden-layer">
-                                                                        <div className="node processing"></div>
-                                                                        <div className="node processing"></div>
-                                                                        <div className="node processing"></div>
-                                                                        <div className="node processing"></div>
-                                                                    </div>
-                                                                    <div className="output-layer">
-                                                                        <div className={`node ${trend ? 'predicted' : 'pending'}`} data-label="Signal"></div>
-                                                                    </div>
-                                                                </div>
-                                                                <svg className="neural-connections" viewBox="0 0 200 100">
-                                                                    {/* Animated connection lines */}
-                                                                    <g className="connections">
-                                                                        <line x1="40" y1="20" x2="100" y2="20" className="connection-line" />
-                                                                        <line x1="40" y1="35" x2="100" y2="35" className="connection-line" />
-                                                                        <line x1="40" y1="50" x2="100" y2="50" className="connection-line" />
-                                                                        <line x1="40" y1="65" x2="100" y2="65" className="connection-line" />
-                                                                        
-                                                                        <line x1="120" y1="20" x2="160" y2="42.5" className="connection-line" />
-                                                                        <line x1="120" y1="35" x2="160" y2="42.5" className="connection-line" />
-                                                                        <line x1="120" y1="50" x2="160" y2="42.5" className="connection-line" />
-                                                                        <line x1="120" y1="65" x2="160" y2="42.5" className="connection-line" />
-                                                                    </g>
-                                                                    
-                                                                    {/* Animated data pulses */}
-                                                                    <circle r="2" className="data-pulse" fill="#00d4ff">
-                                                                        <animateMotion dur="2s" repeatCount="indefinite">
-                                                                            <path d="M40,20 L160,42.5" />
-                                                                        </animateMotion>
-                                                                    </circle>
-                                                                    <circle r="2" className="data-pulse" fill="#ff6b6b">
-                                                                        <animateMotion dur="2.2s" repeatCount="indefinite">
-                                                                            <path d="M40,35 L160,42.5" />
-                                                                        </animateMotion>
-                                                                    </circle>
-                                                                    <circle r="2" className="data-pulse" fill="#4ecdc4">
-                                                                        <animateMotion dur="2.4s" repeatCount="indefinite">
-                                                                            <path d="M40,50 L160,42.5" />
-                                                                        </animateMotion>
-                                                                    </circle>
-                                                                </svg>
-                                                            </div>
-
-                                                            <div className="analysis-metrics">
-                                                                {trend ? (
-                                                                    <>
-                                                                        <div className="metric">
-                                                                            <Text size="xs">Confidence: {trend.confidence.toFixed(0)}%</Text>
-                                                                            <div className="confidence-bar">
-                                                                                <div 
-                                                                                    className="confidence-fill" 
-                                                                                    style={{ width: `${trend.confidence}%` }}
-                                                                                ></div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="signal-strength">
-                                                                            <Text size="xs" className={`signal ${trend.recommendation.toLowerCase()}`}>
-                                                                                {trend.recommendation} Signal
-                                                                            </Text>
-                                                                        </div>
-                                                                    </>
-                                                                ) : (
-                                                                    <div className="analyzing-text">
-                                                                        <Text size="xs" color="general">
-                                                                            Processing market data...
-                                                                        </Text>
-                                                                        <div className="progress-dots">
-                                                                            <span className="dot"></span>
-                                                                            <span className="dot"></span>
-                                                                            <span className="dot"></span>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                        <div className="ai-analysis-loading">
+                                            <div className="loading-animation">
+                                                <div className="scanning-line"></div>
+                                                <div className="data-processing">
+                                                    <div className="processing-bar">
+                                                        <div className="processing-fill"></div>
+                                                    </div>
+                                                    <Text size="xs" color="general">
+                                                        Analyzing {ENHANCED_VOLATILITY_SYMBOLS.length} volatility indices...
+                                                    </Text>
+                                                </div>
+                                                <div className="analysis-steps">
+                                                    <div className="step loading">
+                                                        <div className="step-spinner"></div>
+                                                        <Text size="xs">Collecting tick data</Text>
+                                                    </div>
+                                                    <div className="step loading">
+                                                        <div className="step-spinner"></div>
+                                                        <Text size="xs">Computing HMA indicators</Text>
+                                                    </div>
+                                                    <div className="step loading">
+                                                        <div className="step-spinner"></div>
+                                                        <Text size="xs">Running Ehlers algorithms</Text>
+                                                    </div>
+                                                    <div className="step loading">
+                                                        <div className="step-spinner"></div>
+                                                        <Text size="xs">Generating predictions</Text>
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            <div className="ai-stats">
+                                            <div className="ai-stats-loading">
                                                 <div className="stat-item">
-                                                    <Text size="xs" weight="bold">Neural Networks Active</Text>
-                                                    <Text size="xs" color="profit-success">5</Text>
+                                                    <Text size="xs" weight="bold">Analysis Progress</Text>
+                                                    <div className="progress-indicator">
+                                                        <div className="progress-bar">
+                                                            <div className="progress-fill loading-progress"></div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <div className="stat-item">
-                                                    <Text size="xs" weight="bold">Data Points/sec</Text>
-                                                    <Text size="xs" color="prominent">1,247</Text>
+                                                    <Text size="xs" weight="bold">Symbols Processed</Text>
+                                                    <Text size="xs" color="prominent">0/{ENHANCED_VOLATILITY_SYMBOLS.length}</Text>
                                                 </div>
                                                 <div className="stat-item">
-                                                    <Text size="xs" weight="bold">Accuracy Rate</Text>
-                                                    <Text size="xs" color="profit-success">87.3%</Text>
+                                                    <Text size="xs" weight="bold">Status</Text>
+                                                    <Text size="xs" color="general">Initializing...</Text>
                                                 </div>
                                             </div>
                                         </div>

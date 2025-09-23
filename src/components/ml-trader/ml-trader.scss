@@ -2563,7 +2563,7 @@
         width: 100%;
         height: 100%;
         background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
-        animation: scanLine 3s infinite;
+        animation: scanLine 4s infinite;
         pointer-events: none;
     }
 
@@ -2590,74 +2590,65 @@
         }
     }
 
-    .ai-analysis-animation {
-        .analysis-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: var(--space-md);
+    .ai-analysis-loading {
+        .loading-animation {
+            position: relative;
+            padding: var(--space-xl);
+            background: rgba(0, 212, 255, 0.03);
+            border-radius: var(--border-radius);
             margin-bottom: var(--space-lg);
 
-            .ai-analysis-card {
-                background: linear-gradient(145deg, #1a1f2e 0%, #2a3142 100%);
-                border: 1px solid rgba(0, 212, 255, 0.15);
-                border-radius: var(--border-radius);
-                padding: var(--space-md);
-                position: relative;
-                overflow: hidden;
-                animation: cardEntry 0.8s ease-out forwards;
-                opacity: 0;
-                transform: translateY(20px);
+            .scanning-line {
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 2px;
+                background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+                animation: scanningLine 3s infinite;
+            }
 
-                &.analyzed {
-                    border-color: rgba(76, 175, 80, 0.4);
-                    
-                    &::after {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        height: 2px;
-                        background: linear-gradient(90deg, transparent, #4caf50, transparent);
-                        animation: successPulse 2s infinite;
+            .data-processing {
+                text-align: center;
+                margin-bottom: var(--space-lg);
+
+                .processing-bar {
+                    width: 100%;
+                    height: 6px;
+                    background: rgba(0, 212, 255, 0.1);
+                    border-radius: 3px;
+                    overflow: hidden;
+                    margin: var(--space-sm) 0;
+
+                    .processing-fill {
+                        height: 100%;
+                        background: linear-gradient(90deg, #00d4ff, #0099cc, #00d4ff);
+                        background-size: 200% 100%;
+                        animation: processingFlow 2s infinite;
+                        width: 0%;
+                        animation: processingGrow 4s infinite ease-in-out;
                     }
                 }
+            }
 
-                &.analyzing {
-                    &::after {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: -100%;
-                        width: 100%;
-                        height: 2px;
-                        background: linear-gradient(90deg, transparent, #00d4ff, transparent);
-                        animation: analyzingScan 2s infinite;
-                    }
-                }
+            .analysis-steps {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: var(--space-md);
 
-                .symbol-header {
+                .step {
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
-                    margin-bottom: var(--space-sm);
+                    gap: var(--space-sm);
+                    padding: var(--space-sm);
+                    background: rgba(0, 212, 255, 0.05);
+                    border-radius: var(--border-radius);
+                    border-left: 3px solid transparent;
 
-                    .analysis-indicator {
-                        .analysis-complete {
-                            width: 20px;
-                            height: 20px;
-                            background: #4caf50;
-                            color: white;
-                            border-radius: 50%;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            font-size: 12px;
-                            font-weight: bold;
-                            animation: checkmark 0.5s ease-in;
-                        }
+                    &.loading {
+                        border-left-color: #00d4ff;
 
-                        .analysis-spinner {
+                        .step-spinner {
                             width: 16px;
                             height: 16px;
                             border: 2px solid rgba(0, 212, 255, 0.2);
@@ -2667,166 +2658,10 @@
                         }
                     }
                 }
-
-                .neural-network-viz {
-                    position: relative;
-                    height: 100px;
-                    margin: var(--space-md) 0;
-
-                    .neural-nodes {
-                        display: flex;
-                        justify-content: space-between;
-                        height: 100%;
-                        position: relative;
-                        z-index: 2;
-
-                        .input-layer, .hidden-layer, .output-layer {
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: space-around;
-                            align-items: center;
-                        }
-
-                        .node {
-                            width: 12px;
-                            height: 12px;
-                            border-radius: 50%;
-                            position: relative;
-                            
-                            &.active {
-                                background: #00d4ff;
-                                box-shadow: 0 0 10px rgba(0, 212, 255, 0.6);
-                                animation: nodeActive 2s infinite;
-                            }
-
-                            &.processing {
-                                background: #ff9800;
-                                animation: nodeProcessing 1.5s infinite alternate;
-                            }
-
-                            &.predicted {
-                                background: #4caf50;
-                                box-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
-                            }
-
-                            &.pending {
-                                background: #757575;
-                                animation: nodePending 1s infinite;
-                            }
-
-                            &[data-label]::after {
-                                content: attr(data-label);
-                                position: absolute;
-                                bottom: -20px;
-                                left: 50%;
-                                transform: translateX(-50%);
-                                font-size: 8px;
-                                color: rgba(255, 255, 255, 0.7);
-                                white-space: nowrap;
-                            }
-                        }
-                    }
-
-                    .neural-connections {
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                        z-index: 1;
-
-                        .connection-line {
-                            stroke: rgba(0, 212, 255, 0.3);
-                            stroke-width: 1;
-                            animation: connectionPulse 3s infinite;
-                        }
-                    }
-                }
-
-                .analysis-metrics {
-                    .metric {
-                        margin-bottom: var(--space-xs);
-
-                        .confidence-bar {
-                            width: 100%;
-                            height: 4px;
-                            background: rgba(255, 255, 255, 0.1);
-                            border-radius: 2px;
-                            overflow: hidden;
-                            margin-top: var(--space-xs);
-
-                            .confidence-fill {
-                                height: 100%;
-                                background: linear-gradient(90deg, #ff4757, #ffa726, #4caf50);
-                                border-radius: 2px;
-                                transition: width 0.8s ease;
-                                animation: confidenceFill 1s ease-out;
-                            }
-                        }
-                    }
-
-                    .signal-strength {
-                        text-align: center;
-                        margin-top: var(--space-sm);
-
-                        .signal {
-                            padding: var(--space-xs) var(--space-sm);
-                            border-radius: var(--border-radius);
-                            font-weight: bold;
-                            text-transform: uppercase;
-                            font-size: 10px;
-
-                            &.buy {
-                                background: rgba(76, 175, 80, 0.2);
-                                color: #4caf50;
-                                border: 1px solid #4caf50;
-                            }
-
-                            &.sell {
-                                background: rgba(244, 67, 54, 0.2);
-                                color: #f44336;
-                                border: 1px solid #f44336;
-                            }
-
-                            &.hold {
-                                background: rgba(255, 193, 7, 0.2);
-                                color: #ffc107;
-                                border: 1px solid #ffc107;
-                            }
-                        }
-                    }
-
-                    .analyzing-text {
-                        text-align: center;
-                        padding: var(--space-md) 0;
-
-                        .progress-dots {
-                            margin-top: var(--space-xs);
-
-                            .dot {
-                                display: inline-block;
-                                width: 4px;
-                                height: 4px;
-                                background: #00d4ff;
-                                border-radius: 50%;
-                                margin: 0 2px;
-                                animation: dotPulse 1.5s infinite;
-
-                                &:nth-child(2) {
-                                    animation-delay: 0.3s;
-                                }
-
-                                &:nth-child(3) {
-                                    animation-delay: 0.6s;
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
-        .ai-stats {
+        .ai-stats-loading {
             display: flex;
             justify-content: space-around;
             padding: var(--space-md);
@@ -2842,9 +2677,23 @@
                     margin-bottom: var(--space-xs);
                 }
 
-                > *:last-child {
-                    font-size: 16px;
-                    font-weight: bold;
+                .progress-indicator {
+                    margin-top: var(--space-xs);
+
+                    .progress-bar {
+                        width: 80px;
+                        height: 4px;
+                        background: rgba(0, 212, 255, 0.2);
+                        border-radius: 2px;
+                        overflow: hidden;
+
+                        .loading-progress {
+                            height: 100%;
+                            background: linear-gradient(90deg, #00d4ff, #0099cc);
+                            animation: loadingProgress 3s infinite ease-in-out;
+                            width: 0%;
+                        }
+                    }
                 }
             }
         }
@@ -2859,6 +2708,33 @@
 @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes scanningLine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes processingFlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+@keyframes processingGrow {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    100% { width: 0%; }
+}
+
+@keyframes loadingProgress {
+    0% { width: 0%; }
+    50% { width: 80%; }
+    100% { width: 0%; }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 @keyframes cardEntry {
