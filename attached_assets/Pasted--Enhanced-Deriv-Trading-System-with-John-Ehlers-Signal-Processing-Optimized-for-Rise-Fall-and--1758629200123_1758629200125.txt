@@ -1,0 +1,579 @@
+// Enhanced Deriv Trading System with John Ehlers Signal Processing
+// Optimized for Rise/Fall and Higher/Lower markets
+
+interface DerivMarketConfig {
+  market: 'rise_fall' | 'higher_lower';
+  duration: number; // Duration in ticks (1-10 for rise/fall, 15+ for higher/lower)
+  contractType: 'RISE' | 'FALL' | 'HIGHER' | 'LOWER';
+  minConfidence: number;
+  maxDrawdown: number;
+}
+
+interface EhlersSignal {
+  trend: number;
+  cycle: number;
+  noise: number;
+  phase: number;
+  amplitude: number;
+  power: number;
+  signalQuality: number;
+  dominantCycle: number;
+  instantaneousTrendline: number;
+  decycler: number;
+}
+
+class EhlersSignalProcessor {
+  private readonly alpha = 2 / (14 + 1); // Smoothing constant
+  private readonly lookback = 50;
+  
+  // Ehlers' proprietary indicators
+  private prices: number[] = [];
+  private smoothPrices: number[] = [];
+  private detrender: number[] = [];
+  private q1: number[] = [];
+  private i1: number[] = [];
+  private jI: number[] = [];
+  private jQ: number[] = [];
+  private i2: number[] = [];
+  private q2: number[] = [];
+  private re: number[] = [];
+  private im: number[] = [];
+  private period: number[] = [];
+  private smoothPeriod: number[] = [];
+  private phase: number[] = [];
+  private deltaPhase: number[] = [];
+  private instTrendline: number[] = [];
+  private trendline: number[] = [];
+  
+  // Decycler - removes cycle components, keeps trend
+  calculateDecycler(prices: number[], highpass: number = 20): number[] {
+    const decycler: number[] = [];
+    const alpha = 1 / (highpass * Math.sqrt(2) + 1);
+    
+    for (let i = 0; i < prices.length; i++) {
+      if (i < 2) {
+        decycler[i] = prices[i];
+        continue;
+      }
+      
+      decycler[i] = alpha * (prices[i] + prices[i - 1]) / 2 + 
+                    (1 - alpha) * decycler[i - 1];
+    }
+    
+    return decycler;
+  }
+  
+  // Super Smoother - removes aliasing noise
+  calculateSuperSmoother(prices: number[], cutoff: number = 10): number[] {
+    const superSmoother: number[] = [];
+    const a1 = Math.exp(-1.414 * Math.PI / cutoff);
+    const b1 = 2 * a1 * Math.cos(1.414 * Math.PI / cutoff);
+    const c2 = b1;
+    const c3 = -a1 * a1;
+    const c1 = 1 - c2 - c3;
+    
+    for (let i = 0; i < prices.length; i++) {
+      if (i < 2) {
+        superSmoother[i] = prices[i];
+        continue;
+      }
+      
+      superSmoother[i] = c1 * (prices[i] + prices[i - 1]) / 2 + 
+                         c2 * superSmoother[i - 1] + 
+                         c3 * superSmoother[i - 2];
+    }
+    
+    return superSmoother;
+  }
+  
+  // Roofing Filter - removes low frequency trend components
+  calculateRoofingFilter(prices: number[], highpass: number = 40, lowpass: number = 10): number[] {
+    // First apply high-pass filter
+    const alpha1 = (Math.cos(0.25 * Math.PI / highpass) + Math.sin(0.25 * Math.PI / highpass) - 1) /
+                   Math.cos(0.25 * Math.PI / highpass);
+    
+    const hp: number[] = [];
+    for (let i = 0; i < prices.length; i++) {
+      if (i < 2) {
+        hp[i] = 0;
+        continue;
+      }
+      
+      hp[i] = 0.5 * (1 + alpha1) * (prices[i] - prices[i - 1]) + 
+              alpha1 * hp[i - 1];
+    }
+    
+    // Then apply Super Smoother (low-pass)
+    return this.calculateSuperSmoother(hp, lowpass);
+  }
+  
+  // Hilbert Transform Discriminator for cycle analysis
+  calculateHilbertTransform(prices: number[]): EhlersSignal {
+    const n = prices.length;
+    if (n < 50) throw new Error('Insufficient data for Hilbert Transform');
+    
+    // Apply roofing filter first
+    const roofed = this.calculateRoofingFilter(prices, 40, 10);
+    
+    // Calculate Hilbert Transform components
+    for (let i = 6; i < n; i++) {
+      // Detrend
+      this.detrender[i] = 0.0962 * roofed[i] + 0.5769 * roofed[i - 2] - 
+                          0.5769 * roofed[i - 4] - 0.0962 * roofed[i - 6];
+      
+      // Compute InPhase and Quadrature components
+      this.q1[i] = 0.0962 * this.detrender[i] + 0.5769 * this.detrender[i - 2] - 
+                   0.5769 * this.detrender[i - 4] - 0.0962 * this.detrender[i - 6];
+      this.i1[i] = this.detrender[i - 3];
+      
+      // Advance the phase of I1 and Q1 by 90 degrees
+      this.jI[i] = 0.0962 * this.i1[i] + 0.5769 * this.i1[i - 2] - 
+                   0.5769 * this.i1[i - 4] - 0.0962 * this.i1[i - 6];
+      this.jQ[i] = 0.0962 * this.q1[i] + 0.5769 * this.q1[i - 2] - 
+                   0.5769 * this.q1[i - 4] - 0.0962 * this.q1[i - 6];
+      
+      // Phasor addition for 3 bar averaging
+      this.i2[i] = this.i1[i] - this.jQ[i];
+      this.q2[i] = this.q1[i] + this.jI[i];
+      
+      // Smooth the I and Q components
+      this.i2[i] = 0.2 * this.i2[i] + 0.8 * (this.i2[i - 1] || 0);
+      this.q2[i] = 0.2 * this.q2[i] + 0.8 * (this.q2[i - 1] || 0);
+      
+      // Homodyne Discriminator
+      this.re[i] = this.i2[i] * (this.i2[i - 1] || 0) + this.q2[i] * (this.q2[i - 1] || 0);
+      this.im[i] = this.i2[i] * (this.q2[i - 1] || 0) - this.q2[i] * (this.i2[i - 1] || 0);
+      
+      this.re[i] = 0.2 * this.re[i] + 0.8 * (this.re[i - 1] || 0);
+      this.im[i] = 0.2 * this.im[i] + 0.8 * (this.im[i - 1] || 0);
+      
+      // Calculate period
+      if (this.im[i] !== 0 && this.re[i] !== 0) {
+        this.period[i] = 360 / Math.atan(this.im[i] / this.re[i]);
+      }
+      
+      // Constrain period to reasonable range
+      if (this.period[i] > 50) this.period[i] = 50;
+      if (this.period[i] < 10) this.period[i] = 10;
+      
+      // Smooth period
+      this.smoothPeriod[i] = 0.2 * this.period[i] + 0.8 * (this.smoothPeriod[i - 1] || 20);
+      
+      // Calculate phase
+      if (this.i1[i] !== 0) {
+        this.phase[i] = Math.atan(this.q1[i] / this.i1[i]);
+      }
+      
+      // Calculate instantaneous trendline
+      const dcPeriod = Math.floor(this.smoothPeriod[i] + 0.5);
+      this.instTrendline[i] = (roofed[i] + 2 * (roofed[i - 1] || 0) + 
+                               2 * (roofed[i - 2] || 0) + (roofed[i - 3] || 0)) / 6;
+      
+      this.trendline[i] = 0.25 * this.instTrendline[i] + 0.75 * (this.trendline[i - 1] || roofed[i]);
+    }
+    
+    const lastIndex = n - 1;
+    const amplitude = Math.sqrt(Math.pow(this.i2[lastIndex] || 0, 2) + Math.pow(this.q2[lastIndex] || 0, 2));
+    const power = Math.pow(amplitude, 2);
+    
+    // Signal quality assessment
+    const signalQuality = this.calculateSignalQuality(roofed, this.smoothPeriod[lastIndex] || 20);
+    
+    return {
+      trend: this.trendline[lastIndex] || 0,
+      cycle: roofed[lastIndex] - this.trendline[lastIndex] || 0,
+      noise: roofed[lastIndex] - this.instTrendline[lastIndex] || 0,
+      phase: this.phase[lastIndex] || 0,
+      amplitude: amplitude,
+      power: power,
+      signalQuality: signalQuality,
+      dominantCycle: this.smoothPeriod[lastIndex] || 20,
+      instantaneousTrendline: this.instTrendline[lastIndex] || 0,
+      decycler: this.calculateDecycler(prices)[lastIndex] || 0
+    };
+  }
+  
+  private calculateSignalQuality(prices: number[], period: number): number {
+    const n = Math.floor(period);
+    if (prices.length < n) return 0;
+    
+    const recent = prices.slice(-n);
+    const variance = this.calculateVariance(recent);
+    const trend = this.calculateLinearRegression(recent);
+    
+    // Higher quality when trend is strong and variance is low relative to trend
+    const trendStrength = Math.abs(trend.slope * n);
+    const relativeNoise = variance > 0 ? trendStrength / Math.sqrt(variance) : 0;
+    
+    return Math.min(100, Math.max(0, relativeNoise * 20));
+  }
+  
+  private calculateVariance(values: number[]): number {
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    return values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length;
+  }
+  
+  private calculateLinearRegression(values: number[]): { slope: number, intercept: number } {
+    const n = values.length;
+    const sumX = (n * (n - 1)) / 2;
+    const sumY = values.reduce((a, b) => a + b, 0);
+    const sumXY = values.reduce((acc, val, idx) => acc + idx * val, 0);
+    const sumXX = (n * (n - 1) * (2 * n - 1)) / 6;
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    
+    return { slope, intercept };
+  }
+}
+
+class DerivTradingEngine {
+  private ehlersProcessor = new EhlersSignalProcessor();
+  private priceHistory: number[] = [];
+  private signalHistory: EhlersSignal[] = [];
+  
+  // Adaptive thresholds based on market volatility
+  private adaptiveThresholds = {
+    trendStrength: 0.0001,  // Very sensitive for short-term markets
+    phaseChange: 0.1,
+    signalQuality: 60,
+    noiseThreshold: 0.0005
+  };
+  
+  addPriceData(price: number): void {
+    this.priceHistory.push(price);
+    
+    // Keep only necessary history for computation
+    if (this.priceHistory.length > 200) {
+      this.priceHistory = this.priceHistory.slice(-150);
+    }
+    
+    // Calculate Ehlers signal if we have enough data
+    if (this.priceHistory.length >= 50) {
+      const signal = this.ehlersProcessor.calculateHilbertTransform(this.priceHistory);
+      this.signalHistory.push(signal);
+      
+      if (this.signalHistory.length > 50) {
+        this.signalHistory = this.signalHistory.slice(-30);
+      }
+    }
+  }
+  
+  generateDerivSignal(config: DerivMarketConfig): {
+    action: 'RISE' | 'FALL' | 'HIGHER' | 'LOWER' | 'WAIT';
+    confidence: number;
+    reasoning: string;
+    expectedDirection: number; // -1 to 1
+    timeframe: number;
+  } {
+    if (this.signalHistory.length < 10) {
+      return {
+        action: 'WAIT',
+        confidence: 0,
+        reasoning: 'Insufficient data for analysis',
+        expectedDirection: 0,
+        timeframe: config.duration
+      };
+    }
+    
+    const currentSignal = this.signalHistory[this.signalHistory.length - 1];
+    const previousSignal = this.signalHistory[this.signalHistory.length - 2];
+    const currentPrice = this.priceHistory[this.priceHistory.length - 1];
+    
+    // Adaptive threshold adjustment based on volatility
+    this.adjustAdaptiveThresholds();
+    
+    // Multi-factor analysis
+    const trendAnalysis = this.analyzeTrend(currentSignal, previousSignal);
+    const cycleAnalysis = this.analyzeCycle(currentSignal);
+    const phaseAnalysis = this.analyzePhase(currentSignal, previousSignal);
+    const noiseAnalysis = this.analyzeNoise(currentSignal);
+    
+    // Combine all factors
+    let confidence = 0;
+    let expectedDirection = 0;
+    let reasoning = '';
+    
+    // Trend component (40% weight)
+    if (Math.abs(trendAnalysis.strength) > this.adaptiveThresholds.trendStrength) {
+      confidence += Math.min(40, Math.abs(trendAnalysis.strength) * 100000) * 0.4;
+      expectedDirection += trendAnalysis.direction * 0.4;
+      reasoning += `Trend: ${trendAnalysis.direction > 0 ? 'Bullish' : 'Bearish'} (${(trendAnalysis.strength * 100).toFixed(4)}%). `;
+    }
+    
+    // Cycle component (25% weight)
+    if (cycleAnalysis.isSignificant) {
+      confidence += cycleAnalysis.confidence * 0.25;
+      expectedDirection += cycleAnalysis.direction * 0.25;
+      reasoning += `Cycle: ${cycleAnalysis.phase} phase. `;
+    }
+    
+    // Phase analysis (25% weight)
+    if (phaseAnalysis.isSignificant) {
+      confidence += phaseAnalysis.confidence * 0.25;
+      expectedDirection += phaseAnalysis.direction * 0.25;
+      reasoning += `Phase: ${phaseAnalysis.momentum}. `;
+    }
+    
+    // Noise filter (10% weight - reduces confidence if noise is high)
+    const noiseReduction = (100 - noiseAnalysis.level) * 0.1;
+    confidence = Math.max(0, confidence - (100 - noiseReduction));
+    
+    // Signal quality filter
+    if (currentSignal.signalQuality < this.adaptiveThresholds.signalQuality) {
+      confidence *= (currentSignal.signalQuality / this.adaptiveThresholds.signalQuality);
+      reasoning += `Signal quality: ${currentSignal.signalQuality.toFixed(1)}%. `;
+    }
+    
+    // Market-specific adjustments
+    if (config.market === 'rise_fall') {
+      // More aggressive for short-term markets
+      confidence *= 1.2;
+      expectedDirection *= 1.1;
+    }
+    
+    // Determine action based on expected direction and confidence
+    let action: 'RISE' | 'FALL' | 'HIGHER' | 'LOWER' | 'WAIT' = 'WAIT';
+    
+    if (confidence >= config.minConfidence) {
+      if (config.market === 'rise_fall') {
+        action = expectedDirection > 0.1 ? 'RISE' : expectedDirection < -0.1 ? 'FALL' : 'WAIT';
+      } else {
+        action = expectedDirection > 0.15 ? 'HIGHER' : expectedDirection < -0.15 ? 'LOWER' : 'WAIT';
+      }
+    }
+    
+    return {
+      action,
+      confidence: Math.min(100, confidence),
+      reasoning: reasoning.trim() || 'Neutral market conditions',
+      expectedDirection: Math.max(-1, Math.min(1, expectedDirection)),
+      timeframe: config.duration
+    };
+  }
+  
+  private analyzeTrend(current: EhlersSignal, previous: EhlersSignal): {
+    strength: number;
+    direction: number;
+  } {
+    const trendChange = current.trend - previous.trend;
+    const decyclerTrend = current.decycler - (this.priceHistory[this.priceHistory.length - 2] || current.decycler);
+    
+    // Combine instantaneous trend with decycler trend
+    const combinedTrend = (trendChange + decyclerTrend) / 2;
+    
+    return {
+      strength: Math.abs(combinedTrend),
+      direction: combinedTrend > 0 ? 1 : -1
+    };
+  }
+  
+  private analyzeCycle(current: EhlersSignal): {
+    isSignificant: boolean;
+    direction: number;
+    phase: string;
+    confidence: number;
+  } {
+    const cycleStrength = Math.abs(current.cycle);
+    const isSignificant = cycleStrength > this.adaptiveThresholds.trendStrength * 2;
+    
+    // Determine cycle phase
+    let phase = 'neutral';
+    let direction = 0;
+    
+    if (isSignificant) {
+      const normalizedPhase = ((current.phase + Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
+      
+      if (normalizedPhase < 0.25) {
+        phase = 'bottom';
+        direction = 1; // Expect rise
+      } else if (normalizedPhase < 0.75) {
+        phase = 'top';
+        direction = -1; // Expect fall
+      }
+    }
+    
+    return {
+      isSignificant,
+      direction,
+      phase,
+      confidence: isSignificant ? Math.min(100, cycleStrength * 200000) : 0
+    };
+  }
+  
+  private analyzePhase(current: EhlersSignal, previous: EhlersSignal): {
+    isSignificant: boolean;
+    direction: number;
+    momentum: string;
+    confidence: number;
+  } {
+    const phaseChange = current.phase - previous.phase;
+    const isSignificant = Math.abs(phaseChange) > this.adaptiveThresholds.phaseChange;
+    
+    let momentum = 'stable';
+    let direction = 0;
+    
+    if (isSignificant) {
+      if (phaseChange > 0) {
+        momentum = 'accelerating';
+        direction = 1;
+      } else {
+        momentum = 'decelerating';
+        direction = -1;
+      }
+    }
+    
+    return {
+      isSignificant,
+      direction,
+      momentum,
+      confidence: isSignificant ? Math.min(100, Math.abs(phaseChange) * 100) : 0
+    };
+  }
+  
+  private analyzeNoise(current: EhlersSignal): { level: number } {
+    const noiseLevel = Math.abs(current.noise);
+    return {
+      level: Math.min(100, noiseLevel * 500000) // Convert to percentage
+    };
+  }
+  
+  private adjustAdaptiveThresholds(): void {
+    if (this.priceHistory.length < 20) return;
+    
+    // Calculate recent volatility
+    const recentPrices = this.priceHistory.slice(-20);
+    const returns = recentPrices.slice(1).map((price, idx) => 
+      (price - recentPrices[idx]) / recentPrices[idx]
+    );
+    
+    const volatility = Math.sqrt(
+      returns.reduce((acc, ret) => acc + ret * ret, 0) / returns.length
+    );
+    
+    // Adjust thresholds based on volatility
+    this.adaptiveThresholds.trendStrength = Math.max(0.00005, volatility * 0.1);
+    this.adaptiveThresholds.noiseThreshold = volatility * 0.5;
+    this.adaptiveThresholds.signalQuality = Math.max(40, 60 - volatility * 1000);
+  }
+  
+  // Backtesting method for optimization
+  backtest(historicalPrices: number[], config: DerivMarketConfig): {
+    totalTrades: number;
+    winRate: number;
+    profitLoss: number;
+    maxDrawdown: number;
+    sharpeRatio: number;
+  } {
+    const results: { win: boolean; pnl: number }[] = [];
+    let maxDrawdown = 0;
+    let runningPnL = 0;
+    let peak = 0;
+    
+    // Reset engine
+    this.priceHistory = [];
+    this.signalHistory = [];
+    
+    for (let i = 50; i < historicalPrices.length - config.duration; i++) {
+      this.addPriceData(historicalPrices[i]);
+      
+      const signal = this.generateDerivSignal(config);
+      
+      if (signal.action !== 'WAIT') {
+        const entryPrice = historicalPrices[i];
+        const exitPrice = historicalPrices[i + config.duration];
+        
+        let win = false;
+        let pnl = 0;
+        
+        if (config.market === 'rise_fall') {
+          if (signal.action === 'RISE' && exitPrice > entryPrice) win = true;
+          if (signal.action === 'FALL' && exitPrice < entryPrice) win = true;
+          pnl = win ? 0.95 : -1; // 95% payout, -100% loss
+        } else {
+          const threshold = entryPrice * 0.0001; // 1 pip threshold
+          if (signal.action === 'HIGHER' && exitPrice > entryPrice + threshold) win = true;
+          if (signal.action === 'LOWER' && exitPrice < entryPrice - threshold) win = true;
+          pnl = win ? 0.8 : -1; // 80% payout, -100% loss
+        }
+        
+        results.push({ win, pnl });
+        runningPnL += pnl;
+        
+        if (runningPnL > peak) peak = runningPnL;
+        const drawdown = peak - runningPnL;
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+      }
+    }
+    
+    const winRate = results.length > 0 ? 
+      results.filter(r => r.win).length / results.length * 100 : 0;
+    
+    const avgReturn = results.length > 0 ? 
+      results.reduce((acc, r) => acc + r.pnl, 0) / results.length : 0;
+    
+    const returnStdDev = results.length > 0 ? 
+      Math.sqrt(results.reduce((acc, r) => acc + Math.pow(r.pnl - avgReturn, 2), 0) / results.length) : 0;
+    
+    const sharpeRatio = returnStdDev > 0 ? avgReturn / returnStdDev : 0;
+    
+    return {
+      totalTrades: results.length,
+      winRate,
+      profitLoss: runningPnL,
+      maxDrawdown,
+      sharpeRatio
+    };
+  }
+}
+
+// Usage example for Deriv trading
+class DerivTradingBot {
+  private engine = new DerivTradingEngine();
+  private config: DerivMarketConfig;
+  
+  constructor(config: DerivMarketConfig) {
+    this.config = config;
+  }
+  
+  onPriceUpdate(price: number): void {
+    this.engine.addPriceData(price);
+    
+    const signal = this.engine.generateDerivSignal(this.config);
+    
+    if (signal.action !== 'WAIT' && signal.confidence >= this.config.minConfidence) {
+      console.log(`Trading Signal: ${signal.action}`);
+      console.log(`Confidence: ${signal.confidence.toFixed(2)}%`);
+      console.log(`Expected Direction: ${signal.expectedDirection.toFixed(3)}`);
+      console.log(`Reasoning: ${signal.reasoning}`);
+      
+      // Execute trade through Deriv API
+      this.executeTrade(signal);
+    }
+  }
+  
+  private executeTrade(signal: any): void {
+    // Implementation for Deriv API integration
+    console.log('Executing trade on Deriv platform...');
+  }
+}
+
+// Example configuration for Rise/Fall market
+const riseFallConfig: DerivMarketConfig = {
+  market: 'rise_fall',
+  duration: 5, // 5 ticks
+  contractType: 'RISE',
+  minConfidence: 75,
+  maxDrawdown: 20
+};
+
+// Example configuration for Higher/Lower market
+const higherLowerConfig: DerivMarketConfig = {
+  market: 'higher_lower',
+  duration: 60, // 60 seconds
+  contractType: 'HIGHER',
+  minConfidence: 70,
+  maxDrawdown: 15
+};
+
+export { DerivTradingEngine, DerivTradingBot, EhlersSignalProcessor };
