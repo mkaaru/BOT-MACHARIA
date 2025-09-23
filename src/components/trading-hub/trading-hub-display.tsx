@@ -984,19 +984,19 @@ const TradingHubDisplay: React.FC = observer(() => {
         const getTradeTypeAndContract = (strategy: string) => {
             switch (strategy) {
                 case 'over':
-                    return { tradeType: 'digits', contractType: 'DIGITOVER' };
+                    return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
                 case 'under':
-                    return { tradeType: 'digits', contractType: 'DIGITUNDER' };
+                    return { tradeType: 'DIGITUNDER', contractType: 'DIGITUNDER' };
                 case 'even':
-                    return { tradeType: 'digits', contractType: 'DIGITEVEN' };
+                    return { tradeType: 'DIGITEVEN', contractType: 'DIGITEVEN' };
                 case 'odd':
-                    return { tradeType: 'digits', contractType: 'DIGITODD' };
+                    return { tradeType: 'DIGITODD', contractType: 'DIGITODD' };
                 case 'matches':
-                    return { tradeType: 'digits', contractType: 'DIGITMATCH' };
+                    return { tradeType: 'DIGITMATCH', contractType: 'DIGITMATCH' };
                 case 'differs':
-                    return { tradeType: 'digits', contractType: 'DIGITDIFF' };
+                    return { tradeType: 'DIGITDIFF', contractType: 'DIGITDIFF' };
                 default:
-                    return { tradeType: 'digits', contractType: 'DIGITOVER' };
+                    return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
             }
         };
 
@@ -1064,6 +1064,31 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
 
 
+            // Map strategy to proper Bot Builder trade type categories
+            const getTradeTypeMapping = (strategy: string) => {
+                switch (strategy) {
+                    case 'over':
+                    case 'under':
+                    case 'even':
+                    case 'odd':
+                    case 'matches':
+                    case 'differs':
+                        return { 
+                            tradeTypeCategory: 'digits', 
+                            tradeTypeList: 'digits',
+                            contractType: getTradeTypeForStrategy(strategy)
+                        };
+                    default:
+                        return { 
+                            tradeTypeCategory: 'digits', 
+                            tradeTypeList: 'digits',
+                            contractType: 'DIGITOVER'
+                        };
+                }
+            };
+
+            const tradeMapping = getTradeTypeMapping(recommendation.strategy);
+
             // Generate Bot Builder XML
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -1081,11 +1106,11 @@ const TradingHubDisplay: React.FC = observer(() => {
         <field name="SYMBOL_LIST">${recommendation.symbol}</field>
         <next>
           <block type="trade_definition_tradetype" id="tradetype_block" deletable="false" movable="false">
-            <field name="TRADETYPECAT_LIST">digits</field>
-            <field name="TRADETYPE_LIST">digits</field>
+            <field name="TRADETYPECAT_LIST">${tradeMapping.tradeTypeCategory}</field>
+            <field name="TRADETYPE_LIST">${tradeMapping.tradeTypeList}</field>
             <next>
               <block type="trade_definition_contracttype" id="contracttype_block" deletable="false" movable="false">
-                <field name="TYPE_LIST">${contractType}</field>
+                <field name="TYPE_LIST">${tradeMapping.contractType}</field>
                 <next>
                   <block type="trade_definition_candleinterval" id="candleinterval_block" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>

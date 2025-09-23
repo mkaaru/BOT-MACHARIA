@@ -583,8 +583,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             console.log('Smart Trader receiving Trading Hub settings:', initialSettings);
 
             setSymbol(initialSettings.symbol);
-            setTradeType(initialSettings.tradeType || 'digits');
-            setContractType(initialSettings.contractType || 'DIGITOVER');
+            
+            // Use contractType as the primary trade type if available
+            const primaryTradeType = initialSettings.contractType || initialSettings.tradeType || 'DIGITOVER';
+            setTradeType(primaryTradeType);
+            setContractType(primaryTradeType);
+            
             setStake(initialSettings.stake || 0.5);
             setDuration(initialSettings.duration || 1);
             setDurationType(initialSettings.durationType || 't');
@@ -601,8 +605,8 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
             console.log('Smart Trader initialized with:', {
                 symbol: initialSettings.symbol,
-                tradeType: initialSettings.tradeType,
-                contractType: initialSettings.contractType,
+                tradeType: primaryTradeType,
+                contractType: primaryTradeType,
                 prediction: initialSettings.prediction,
                 barrier: initialSettings.barrier
             });
