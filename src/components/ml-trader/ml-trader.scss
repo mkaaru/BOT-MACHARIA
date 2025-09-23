@@ -2546,42 +2546,375 @@
     }
 }
 
-.control-card.educational-content {
-    .educational-section {
-        margin-top: var(--space-lg);
+.ai-analysis-section {
+    margin-top: var(--space-lg);
+    padding: var(--space-lg);
+    background: linear-gradient(145deg, #0a0e1a 0%, #1a1f2e 50%, #0f1419 100%);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: var(--border-radius-lg);
+    position: relative;
+    overflow: hidden;
 
-        .educational-toggle {
-            width: 100%;
-            padding: var(--space-sm);
-            background: var(--color-primary);
-            color: var(--color-primary-text);
-            border: none;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            transition: all 0.2s ease;
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+        animation: scanLine 3s infinite;
+        pointer-events: none;
+    }
 
-            &:hover {
-                background: var(--color-primary-dark);
+    .ai-analysis-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-lg);
+        padding-bottom: var(--space-md);
+        border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+
+        .analysis-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+
+            .pulse-dot {
+                width: 8px;
+                height: 8px;
+                background: #00d4ff;
+                border-radius: 50%;
+                animation: pulse 1.5s infinite;
+            }
+        }
+    }
+
+    .ai-analysis-animation {
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+
+            .ai-analysis-card {
+                background: linear-gradient(145deg, #1a1f2e 0%, #2a3142 100%);
+                border: 1px solid rgba(0, 212, 255, 0.15);
+                border-radius: var(--border-radius);
+                padding: var(--space-md);
+                position: relative;
+                overflow: hidden;
+                animation: cardEntry 0.8s ease-out forwards;
+                opacity: 0;
+                transform: translateY(20px);
+
+                &.analyzed {
+                    border-color: rgba(76, 175, 80, 0.4);
+                    
+                    &::after {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 2px;
+                        background: linear-gradient(90deg, transparent, #4caf50, transparent);
+                        animation: successPulse 2s infinite;
+                    }
+                }
+
+                &.analyzing {
+                    &::after {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -100%;
+                        width: 100%;
+                        height: 2px;
+                        background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+                        animation: analyzingScan 2s infinite;
+                    }
+                }
+
+                .symbol-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: var(--space-sm);
+
+                    .analysis-indicator {
+                        .analysis-complete {
+                            width: 20px;
+                            height: 20px;
+                            background: #4caf50;
+                            color: white;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 12px;
+                            font-weight: bold;
+                            animation: checkmark 0.5s ease-in;
+                        }
+
+                        .analysis-spinner {
+                            width: 16px;
+                            height: 16px;
+                            border: 2px solid rgba(0, 212, 255, 0.2);
+                            border-top: 2px solid #00d4ff;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        }
+                    }
+                }
+
+                .neural-network-viz {
+                    position: relative;
+                    height: 100px;
+                    margin: var(--space-md) 0;
+
+                    .neural-nodes {
+                        display: flex;
+                        justify-content: space-between;
+                        height: 100%;
+                        position: relative;
+                        z-index: 2;
+
+                        .input-layer, .hidden-layer, .output-layer {
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-around;
+                            align-items: center;
+                        }
+
+                        .node {
+                            width: 12px;
+                            height: 12px;
+                            border-radius: 50%;
+                            position: relative;
+                            
+                            &.active {
+                                background: #00d4ff;
+                                box-shadow: 0 0 10px rgba(0, 212, 255, 0.6);
+                                animation: nodeActive 2s infinite;
+                            }
+
+                            &.processing {
+                                background: #ff9800;
+                                animation: nodeProcessing 1.5s infinite alternate;
+                            }
+
+                            &.predicted {
+                                background: #4caf50;
+                                box-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
+                            }
+
+                            &.pending {
+                                background: #757575;
+                                animation: nodePending 1s infinite;
+                            }
+
+                            &[data-label]::after {
+                                content: attr(data-label);
+                                position: absolute;
+                                bottom: -20px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                font-size: 8px;
+                                color: rgba(255, 255, 255, 0.7);
+                                white-space: nowrap;
+                            }
+                        }
+                    }
+
+                    .neural-connections {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 1;
+
+                        .connection-line {
+                            stroke: rgba(0, 212, 255, 0.3);
+                            stroke-width: 1;
+                            animation: connectionPulse 3s infinite;
+                        }
+                    }
+                }
+
+                .analysis-metrics {
+                    .metric {
+                        margin-bottom: var(--space-xs);
+
+                        .confidence-bar {
+                            width: 100%;
+                            height: 4px;
+                            background: rgba(255, 255, 255, 0.1);
+                            border-radius: 2px;
+                            overflow: hidden;
+                            margin-top: var(--space-xs);
+
+                            .confidence-fill {
+                                height: 100%;
+                                background: linear-gradient(90deg, #ff4757, #ffa726, #4caf50);
+                                border-radius: 2px;
+                                transition: width 0.8s ease;
+                                animation: confidenceFill 1s ease-out;
+                            }
+                        }
+                    }
+
+                    .signal-strength {
+                        text-align: center;
+                        margin-top: var(--space-sm);
+
+                        .signal {
+                            padding: var(--space-xs) var(--space-sm);
+                            border-radius: var(--border-radius);
+                            font-weight: bold;
+                            text-transform: uppercase;
+                            font-size: 10px;
+
+                            &.buy {
+                                background: rgba(76, 175, 80, 0.2);
+                                color: #4caf50;
+                                border: 1px solid #4caf50;
+                            }
+
+                            &.sell {
+                                background: rgba(244, 67, 54, 0.2);
+                                color: #f44336;
+                                border: 1px solid #f44336;
+                            }
+
+                            &.hold {
+                                background: rgba(255, 193, 7, 0.2);
+                                color: #ffc107;
+                                border: 1px solid #ffc107;
+                            }
+                        }
+                    }
+
+                    .analyzing-text {
+                        text-align: center;
+                        padding: var(--space-md) 0;
+
+                        .progress-dots {
+                            margin-top: var(--space-xs);
+
+                            .dot {
+                                display: inline-block;
+                                width: 4px;
+                                height: 4px;
+                                background: #00d4ff;
+                                border-radius: 50%;
+                                margin: 0 2px;
+                                animation: dotPulse 1.5s infinite;
+
+                                &:nth-child(2) {
+                                    animation-delay: 0.3s;
+                                }
+
+                                &:nth-child(3) {
+                                    animation-delay: 0.6s;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        .educational-content {
-            margin-top: var(--space-md);
+        .ai-stats {
+            display: flex;
+            justify-content: space-around;
             padding: var(--space-md);
-            background: var(--surface-primary);
-            border: 1px solid var(--border-color);
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
             border-radius: var(--border-radius);
 
-            .educational-item {
-                margin-bottom: var(--space-md);
-                padding: var(--space-sm);
-                background: var(--surface-secondary);
-                border-radius: var(--border-radius);
+            .stat-item {
+                text-align: center;
+                
+                > *:first-child {
+                    display: block;
+                    margin-bottom: var(--space-xs);
+                }
 
-                &:last-child {
-                    margin-bottom: 0;
+                > *:last-child {
+                    font-size: 16px;
+                    font-weight: bold;
                 }
             }
         }
     }
+}
+
+@keyframes scanLine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes cardEntry {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes successPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+@keyframes analyzingScan {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes checkmark {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes nodeActive {
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 212, 255, 0.6); }
+    50% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.9); }
+}
+
+@keyframes nodeProcessing {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(1.2); opacity: 1; }
+}
+
+@keyframes nodePending {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+@keyframes connectionPulse {
+    0%, 100% { stroke-opacity: 0.3; }
+    50% { stroke-opacity: 0.8; }
+}
+
+@keyframes confidenceFill {
+    0% { width: 0; }
+    100% { width: var(--final-width, 100%); }
+}
+
+@keyframes dotPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
 }
