@@ -5,6 +5,13 @@ import { ehlersProcessor, EhlersSignals, DerivMarketConfig } from './ehlers-sign
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
 
+export interface ROCSettings {
+    mode: 'default' | 'sensitive' | 'conservative';
+    longTermPeriod: number;
+    shortTermPeriod: number;
+    enabled: boolean;
+}
+
 export interface TrendAnalysis {
     symbol: string;
     direction: TrendDirection;
@@ -16,9 +23,10 @@ export interface TrendAnalysis {
     score: number; // Overall trading score (0-100)
     
     // ROC indicators for trend analysis
-    longTermROC?: number; // Long-term Rate of Change indicator (20-period)
-    shortTermROC?: number; // Short-term Rate of Change indicator (5-period)
+    longTermROC?: number; // Long-term Rate of Change indicator (configurable period)
+    shortTermROC?: number; // Short-term Rate of Change indicator (configurable period)
     rocAlignment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; // ROC alignment status
+    rocSettings?: ROCSettings; // Current ROC configuration
     
     // Enhanced Ehlers signals
     ehlers?: EhlersSignals;
@@ -68,6 +76,14 @@ export class TrendAnalysisEngine {
     }> = new Map();
     private readonly SIGNAL_PERSISTENCE_MS = 10 * 60 * 1000; // 10 minutes (increased from 5)
     private readonly MIN_CONFIRMATION_COUNT = 5; // Require 5 confirmations before changing signal (increased from 3)
+    
+    // ROC Sensitivity Settings
+    private rocSettings: ROCSettings = {
+        mode: 'default',
+        longTermPeriod: 30,  // Default: Long-term 30 periods
+        shortTermPeriod: 14, // Default: Short-term 14 periods
+        enabled: true
+    };
 
     constructor(hmaCalculator: EfficientHMACalculator) {
         this.hmaCalculator = hmaCalculator;
@@ -115,8 +131,8 @@ export class TrendAnalysisEngine {
 
         const prices = recentCandles.map((candle: any) => candle.close);
         
-        // Use default ROC periods (can be made configurable later)
-        const rocPeriods = this.getROCPeriods(false); // Default to non-sensitive
+        // Use configurable ROC periods based on current settings
+        const rocPeriods = this.getROCPeriods(true);
         const longTermROC = this.calculateROC(prices, rocPeriods.longTerm);
         const shortTermROC = this.calculateROC(prices, rocPeriods.shortTerm);
         
@@ -236,6 +252,7 @@ export class TrendAnalysisEngine {
             longTermROC,
             shortTermROC,
             rocAlignment,
+            rocSettings: { ...this.rocSettings }, // Include current ROC settings
             ehlers: ehlersSignals,
             ehlersRecommendation,
             cycleTrading,
@@ -244,7 +261,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
         
-        console.log(`ROC-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - ROC Signal: ${persistentROCSignal || 'NONE'} (Raw: ${rawROCSignal || 'NONE'}) - LT ROC: ${longTermROC.toFixed(3)}% ST ROC: ${shortTermROC.toFixed(3)}% - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
+        console.log(`ROC-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - ROC Signal: ${persistentROCSignal || 'NONE'} (Raw: ${rawROCSignal || 'NONE'}) - LT ROC: ${longTermROC.toFixed(3)}% (${rocPeriods.longTerm}p) ST ROC: ${shortTermROC.toFixed(3)}% (${rocPeriods.shortTerm}p) - Mode: ${this.rocSettings.mode} - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
     }
 
     /**
@@ -466,19 +483,35 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Get ROC periods based on sensitivity setting
+     * Get ROC periods based on current sensitivity settings
      */
-    private getROCPeriods(sensitive: boolean = false): { longTerm: number; shortTerm: number } {
-        if (sensitive) {
+    private getROCPeriods(useSettings: boolean = true): { longTerm: number; shortTerm: number } {
+        if (!useSettings || !this.rocSettings.enabled) {
+            // Fallback to legacy behavior
             return {
-                longTerm: 10, // Half of default 20
-                shortTerm: 3   // Half of default 5 (rounded)
+                longTerm: 20, // Legacy default
+                shortTerm: 5   // Legacy default
             };
         }
-        return {
-            longTerm: 20, // Default long-term period
-            shortTerm: 5   // Default short-term period
-        };
+
+        switch (this.rocSettings.mode) {
+            case 'sensitive':
+                return {
+                    longTerm: Math.floor(this.rocSettings.longTermPeriod * 0.7), // 70% of configured
+                    shortTerm: Math.floor(this.rocSettings.shortTermPeriod * 0.6) // 60% of configured
+                };
+            case 'conservative':
+                return {
+                    longTerm: Math.floor(this.rocSettings.longTermPeriod * 1.3), // 130% of configured
+                    shortTerm: Math.floor(this.rocSettings.shortTermPeriod * 1.4) // 140% of configured
+                };
+            case 'default':
+            default:
+                return {
+                    longTerm: this.rocSettings.longTermPeriod,
+                    shortTerm: this.rocSettings.shortTermPeriod
+                };
+        }
     }
 
     /**
@@ -1440,6 +1473,49 @@ export class TrendAnalysisEngine {
             confirmations: data.confirmationCount,
             age: Math.round((now - data.timestamp) / 1000) // age in seconds
         }));
+    }
+
+    /**
+     * Configure ROC sensitivity settings
+     */
+    public setROCSettings(settings: Partial<ROCSettings>): void {
+        this.rocSettings = { ...this.rocSettings, ...settings };
+        console.log(`ROC Settings updated:`, this.rocSettings);
+        
+        // Trigger recalculation for all symbols
+        this.updateAllTrends();
+    }
+
+    /**
+     * Get current ROC settings
+     */
+    public getROCSettings(): ROCSettings {
+        return { ...this.rocSettings };
+    }
+
+    /**
+     * Set ROC sensitivity mode
+     */
+    public setROCSensitivityMode(mode: 'default' | 'sensitive' | 'conservative'): void {
+        this.setROCSettings({ mode });
+    }
+
+    /**
+     * Set custom ROC periods
+     */
+    public setROCPeriods(longTerm: number, shortTerm: number): void {
+        this.setROCSettings({ 
+            longTermPeriod: longTerm, 
+            shortTermPeriod: shortTerm,
+            mode: 'default' // Switch to default mode when setting custom periods
+        });
+    }
+
+    /**
+     * Toggle ROC analysis on/off
+     */
+    public toggleROCAnalysis(enabled: boolean): void {
+        this.setROCSettings({ enabled });
     }
 
     /**
