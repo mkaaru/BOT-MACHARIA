@@ -7,11 +7,6 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
-import { Button } from '../shared_ui/button';
-import { ToggleSwitch } from '../shared_ui/toggle-switch';
-import { TradingModal } from './TradingModal';
-import { RecommendationSettingsModal } from './recommendation-settings-modal';
-import { ROCSettingsModal } from '../roc-settings-modal';
 
 import './ml-trader.scss';
 
@@ -111,11 +106,7 @@ const MLTrader = observer(() => {
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
     const [roc_sensitive_settings, setRocSensitiveSettings] = useState(false); // ROC sensitivity toggle
 
-    // Modal states
-    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-    const [isROCSettingsModalOpen, setIsROCSettingsModalOpen] = useState(false);
-    const [isAudioEnabled, setIsAudioEnabled] = useState(false);
-    const [is_modal_open, setIsModalOpen] = useState(false); // New state to track if the modal is open
+
 
     // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
@@ -425,7 +416,7 @@ const MLTrader = observer(() => {
             const defaultStake = 0.5;
             const defaultDuration = 5;
             const defaultDurationUnit = 't'; // ticks
-
+            
             // ROC sensitivity settings - use toggle state
             const rocSensitive = roc_sensitive_settings;
             const longTermROCPeriod = rocSensitive ? 15 : 30; // Half for sensitive: 30/2 = 15
@@ -1346,7 +1337,7 @@ const MLTrader = observer(() => {
                                 <div className="card-content">
                                     <Text className="card-title">ROC Sensitivity</Text>
                                     <Text className="card-description" size="xs" color="general">
-                                        {roc_sensitive_settings
+                                        {roc_sensitive_settings 
                                             ? `Sensitive: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
                                             : `Default: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
                                         }
@@ -1507,18 +1498,6 @@ const MLTrader = observer(() => {
                             <div className="status-row">
                                 <Text>{status || 'Ready to trade'}</Text>
                                 <div className="ml-trader__actions">
-                                    <Button
-                                        secondary
-                                        small
-                                        text="Settings"
-                                        onClick={() => setIsSettingsModalOpen(true)}
-                                    />
-                                    <Button
-                                        secondary
-                                        small
-                                        text="ROC Settings"
-                                        onClick={() => setIsROCSettingsModalOpen(true)}
-                                    />
                                     <button
                                         className={`ml-trader__btn ${is_running ? 'ml-trader__btn--stop' : 'ml-trader__btn--start'}`}
                                         onClick={is_running ? onStop : onStart}
@@ -1540,16 +1519,6 @@ const MLTrader = observer(() => {
                     </div>
                 </div>
             </div>
-
-            <RecommendationSettingsModal
-                is_open={isSettingsModalOpen}
-                onClose={() => setIsSettingsModalOpen(false)}
-            />
-
-            <ROCSettingsModal
-                is_open={isROCSettingsModalOpen}
-                onClose={() => setIsROCSettingsModalOpen(false)}
-            />
         </div>
     );
 });
