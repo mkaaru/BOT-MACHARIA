@@ -416,7 +416,7 @@ const MLTrader = observer(() => {
             const defaultStake = 0.5;
             const defaultDuration = 5;
             const defaultDurationUnit = 't'; // ticks
-            
+
             // ROC sensitivity settings - use toggle state
             const rocSensitive = roc_sensitive_settings;
             const longTermROCPeriod = rocSensitive ? 15 : 30; // Half for sensitive: 30/2 = 15
@@ -1337,7 +1337,7 @@ const MLTrader = observer(() => {
                                 <div className="card-content">
                                     <Text className="card-title">ROC Sensitivity</Text>
                                     <Text className="card-description" size="xs" color="general">
-                                        {roc_sensitive_settings 
+                                        {roc_sensitive_settings
                                             ? `Sensitive: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
                                             : `Default: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
                                         }
