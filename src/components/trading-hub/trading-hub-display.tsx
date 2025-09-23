@@ -998,6 +998,311 @@ const TradingHubDisplay: React.FC = observer(() => {
         setIsSmartTraderModalOpen(true);
     };
 
+    // Load recommendation directly to Bot Builder (similar to ML Trader)
+    const loadToBotBuilder = useCallback(async (recommendation: TradeRecommendation) => {
+        try {
+            console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
+
+            // Get symbol display name
+            const displayName = symbolMap[recommendation.symbol] || recommendation.symbol;
+
+            // Determine contract type based on strategy
+            let contractType = 'DIGITOVER';
+            if (recommendation.strategy === 'under') contractType = 'DIGITUNDER';
+            else if (recommendation.strategy === 'even') contractType = 'DIGITEVEN';
+            else if (recommendation.strategy === 'odd') contractType = 'DIGITODD';
+            else if (recommendation.strategy === 'matches') contractType = 'DIGITMATCH';
+            else if (recommendation.strategy === 'differs') contractType = 'DIGITDIFF';
+
+            // Default settings
+            const defaultStake = 0.5;
+            const defaultDuration = 1;
+            const defaultDurationUnit = 't'; // ticks
+            const barrier = recommendation.barrier;
+
+            // Generate Bot Builder XML
+            const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="Stake">Stake</variable>
+    <variable id="Result_is">Result_is</variable>
+    <variable id="Martingale_Multiplier">Martingale_Multiplier</variable>
+  </variables>
+
+  <!-- Trade Definition Block -->
+  <block type="trade_definition" id="trade_definition_main" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="market_block" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">continuous_indices</field>
+        <field name="SYMBOL_LIST">${recommendation.symbol}</field>
+        <next>
+          <block type="trade_definition_tradetype" id="tradetype_block" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">digits</field>
+            <field name="TRADETYPE_LIST">digits</field>
+            <next>
+              <block type="trade_definition_contracttype" id="contracttype_block" deletable="false" movable="false">
+                <field name="TYPE_LIST">${contractType}</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="candleinterval_block" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="restart_block" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id="restartonerror_block" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Initialization -->
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="init_print">
+        <value name="TEXT">
+          <shadow type="text" id="init_text">
+            <field name="TEXT">Trading Hub Strategy Loading...</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="text_print" id="strategy_print">
+            <value name="TEXT">
+              <shadow type="text" id="strategy_text">
+                <field name="TEXT">${displayName} - ${recommendation.strategy.toUpperCase()} ${barrier}</field>
+              </shadow>
+            </value>
+            <next>
+              <block type="variables_set" id="set_stake">
+                <field name="VAR" id="Stake">Stake</field>
+                <value name="VALUE">
+                  <block type="math_number" id="stake_number">
+                    <field name="NUM">${defaultStake}</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="set_martingale">
+                    <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="martingale_number">
+                        <field name="NUM">1.5</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Trade Options -->
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="trade_options_block">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? 'true' : 'false'}"></mutation>
+        <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
+        <value name="DURATION">
+          <shadow type="math_number" id="duration_number">
+            <field name="NUM">${defaultDuration}</field>
+          </shadow>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number" id="amount_shadow">
+            <field name="NUM">${defaultStake}</field>
+          </shadow>
+          <block type="variables_get" id="amount_var">
+            <field name="VAR" id="Stake">Stake</field>
+          </block>
+        </value>
+        ${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? `
+        <value name="PREDICTION">
+          <shadow type="math_number" id="prediction_number">
+            <field name="NUM">${barrier}</field>
+          </shadow>
+        </value>` : ''}
+      </block>
+    </statement>
+  </block>
+
+  <!-- Purchase Block -->
+  <block type="before_purchase" id="before_purchase_block" deletable="false" x="267" y="544">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="notify" id="notify_block">
+        <field name="NOTIFICATION_TYPE">success</field>
+        <field name="NOTIFICATION_SOUND">silent</field>
+        <value name="MESSAGE">
+          <shadow type="text" id="notify_text">
+            <field name="TEXT">Trading Hub Strategy Executing...</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="purchase" id="purchase_block">
+            <field name="PURCHASE_LIST">${contractType}</field>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+
+  <!-- After Purchase Block -->
+  <block type="after_purchase" id="after_purchase_block" x="679" y="293">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="controls_if" id="result_check">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+        <value name="IF0">
+          <block type="contract_check_result" id="check_win">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="variables_set" id="reset_stake_win">
+            <field name="VAR" id="Stake">Stake</field>
+            <value name="VALUE">
+              <block type="math_number" id="win_stake">
+                <field name="NUM">${defaultStake}</field>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="set_result_win">
+                <field name="VAR" id="Result_is">Result_is</field>
+                <value name="VALUE">
+                  <block type="text" id="result_win_text">
+                    <field name="TEXT">Win</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="trade_again" id="trade_again_win"></block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="controls_if" id="loss_check">
+            <value name="IF0">
+              <block type="contract_check_result" id="check_loss">
+                <field name="CHECK_RESULT">loss</field>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="variables_set" id="increase_stake">
+                <field name="VAR" id="Stake">Stake</field>
+                <value name="VALUE">
+                  <block type="math_arithmetic" id="martingale_calc">
+                    <field name="OP">MULTIPLY</field>
+                    <value name="A">
+                      <shadow type="math_number" id="current_stake_shadow">
+                        <field name="NUM">1</field>
+                      </shadow>
+                      <block type="variables_get" id="current_stake">
+                        <field name="VAR" id="Stake">Stake</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <shadow type="math_number" id="multiplier_shadow">
+                        <field name="NUM">1.5</field>
+                      </shadow>
+                      <block type="variables_get" id="multiplier_var">
+                        <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="set_result_loss">
+                    <field name="VAR" id="Result_is">Result_is</field>
+                    <value name="VALUE">
+                      <block type="text" id="result_loss_text">
+                        <field name="TEXT">Loss</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <next>
+              <block type="trade_again" id="trade_again_loss"></block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+</xml>`;
+
+            console.log('📄 Loading Trading Hub strategy to Bot Builder...');
+
+            // Switch to Bot Builder tab
+            store.dashboard.setActiveTab(1);
+
+            // Wait for tab switch and load the strategy
+            setTimeout(async () => {
+                try {
+                    // Import bot skeleton functions
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+
+                    // Load to workspace
+                    if (window.Blockly?.derivWorkspace) {
+                        console.log('📦 Loading Trading Hub strategy to workspace...');
+
+                        await load({
+                            block_string: botSkeletonXML,
+                            file_name: `TradingHub_${displayName}_${recommendation.strategy.toUpperCase()}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+
+                        // Center workspace
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ Trading Hub strategy loaded to workspace');
+
+                    } else {
+                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+
+                        // Fallback method
+                        setTimeout(() => {
+                            if (window.Blockly?.derivWorkspace) {
+                                window.Blockly.derivWorkspace.clear();
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                                window.Blockly.derivWorkspace.scrollCenter();
+                                console.log('✅ Trading Hub strategy loaded using fallback method');
+                            }
+                        }, 500);
+                    }
+                } catch (loadError) {
+                    console.error('❌ Error loading Trading Hub strategy:', loadError);
+
+                    // Final fallback
+                    if (window.Blockly?.derivWorkspace) {
+                        window.Blockly.derivWorkspace.clear();
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ Trading Hub strategy loaded using final fallback');
+                    }
+                }
+            }, 300);
+
+            console.log(`✅ Loaded ${displayName} - ${recommendation.strategy.toUpperCase()} ${barrier} strategy to Bot Builder`);
+
+        } catch (error) {
+            console.error('Error loading recommendation to Bot Builder:', error);
+        }
+    }, [store.dashboard]);
+
     // AI Auto Trade purchasing without modal
     const executeAIAutoTrade = async (recommendation: TradeRecommendation) => {
         if (isAiAutoTradeActive) {
@@ -1274,13 +1579,22 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     <span className="stat-item">Diff: {Math.abs(rec.overPercentage - rec.underPercentage).toFixed(1)}%</span>
                                 </div>
                             </div>
-                            <button
-                                className="load-trade-btn"
-                                onClick={() => loadTradeSettings(rec)}
-                                title="Load these settings into Smart Trader"
-                            >
-                                ⚡ Load
-                            </button>
+                            <div className="recommendation-actions">
+                                <button
+                                    className="load-trade-btn"
+                                    onClick={() => loadTradeSettings(rec)}
+                                    title="Load these settings into Smart Trader"
+                                >
+                                    ⚡ Smart Trader
+                                </button>
+                                <button
+                                    className="load-bot-builder-btn"
+                                    onClick={() => loadToBotBuilder(rec)}
+                                    title="Load strategy directly to Bot Builder"
+                                >
+                                    🤖 Bot Builder
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -1507,7 +1821,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             className="highlight-load-btn"
                                             onClick={() => loadTradeSettings(bestRecommendation)}
                                         >
-                                            🚀 Load Best Trade
+                                            ⚡ Smart Trader
+                                        </button>
+                                        <button
+                                            className="highlight-bot-builder-btn"
+                                            onClick={() => loadToBotBuilder(bestRecommendation)}
+                                        >
+                                            🤖 Bot Builder
                                         </button>
                                         <button
                                             className={`highlight-ai-auto-btn ${isAiAutoTrading ? 'active' : ''}`}
