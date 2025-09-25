@@ -55,6 +55,13 @@ export class MarketScanner {
     private candleCallbacks: Map<string, (candle: CandleData) => void> = new Map();
     private statusCallbacks: Set<(status: ScannerStatus) => void> = new Set();
     private recommendationCallbacks: Set<(recommendations: TradingRecommendation[]) => void> = new Set();
+    private recommendations: TradingRecommendation[] = [];
+    private persistentRecommendations: Map<string, {
+        recommendation: TradingRecommendation;
+        timestamp: number;
+        confirmations: number;
+    }> = new Map();
+    private readonly RECOMMENDATION_PERSISTENCE_MS = 20 * 60 * 1000; // 20 minutes
 
     constructor() {
         this.trendAnalysisEngine = new TrendAnalysisEngine(efficientHMACalculator);
@@ -390,15 +397,92 @@ export class MarketScanner {
      * Update recommendations and notify callbacks
      */
     private updateRecommendations(): void {
-        if (!this.isInitialized) return;
+        const newRecommendations: TradingRecommendation[] = [];
+        const now = Date.now();
 
-        try {
-            const recommendations = this.getTradingRecommendations();
-            this.notifyRecommendationChange(recommendations);
-        } catch (error) {
-            console.error('Error updating recommendations:', error);
-            this.addError(`Recommendation update error: ${error}`);
-        }
+        VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+            const symbol = symbolInfo.symbol;
+            const trend = this.trendAnalysisEngine.getTrendAnalysis(symbol);
+            if (trend && trend.score >= 65) { // Lowered threshold for better capture
+                const recommendation: TradingRecommendation = {
+                    symbol,
+                    displayName: symbolInfo.display_name,
+                    direction: trend.recommendation === 'BUY' ? 'CALL' : trend.recommendation === 'SELL' ? 'PUT' : 'HOLD',
+                    confidence: trend.confidence,
+                    score: trend.score,
+                    reason: this.generateRecommendationReason(trend),
+                    timestamp: now,
+                    currentPrice: trend.price || 0,
+                    suggestedStake: this.calculateOptimalStake(trend.confidence, trend.strength),
+                    suggestedDuration: this.calculateOptimalDuration(trend.strength, symbol).duration,
+                    suggestedDurationUnit: this.calculateOptimalDuration(trend.strength, symbol).durationUnit,
+                    longTermTrend: trend.longTermTrend,
+                    longTermStrength: trend.longTermTrendStrength,
+                    trendAlignment: trend.colorAlignment === true
+                };
+
+                // Check for persistent recommendation
+                const existing = this.persistentRecommendations.get(symbol);
+                if (existing) {
+                    // Check if same direction
+                    if (existing.recommendation.direction === recommendation.direction) {
+                        existing.confirmations++;
+                        existing.timestamp = now;
+                        existing.recommendation.confidence = Math.max(existing.recommendation.confidence, recommendation.confidence);
+                        console.log(`${symbol}: Recommendation confirmed (${existing.confirmations} times) - ${recommendation.direction} ${recommendation.confidence.toFixed(1)}%`);
+                    } else if (recommendation.confidence > existing.recommendation.confidence + 10) {
+                        // Only change if significantly stronger
+                        console.log(`${symbol}: Recommendation changed from ${existing.recommendation.direction} to ${recommendation.direction} (stronger signal)`);
+                        this.persistentRecommendations.set(symbol, {
+                            recommendation,
+                            timestamp: now,
+                            confirmations: 1
+                        });
+                    }
+                } else {
+                    this.persistentRecommendations.set(symbol, {
+                        recommendation,
+                        timestamp: now,
+                        confirmations: 1
+                    });
+                }
+
+                newRecommendations.push(recommendation);
+            }
+        });
+
+        // Add persistent recommendations that haven't expired
+        this.persistentRecommendations.forEach((persistent, symbol) => {
+            if (now - persistent.timestamp < this.RECOMMENDATION_PERSISTENCE_MS) {
+                // Check if not already in new recommendations
+                const exists = newRecommendations.find(r => r.symbol === symbol);
+                if (!exists && persistent.confirmations >= 2) {
+                    console.log(`${symbol}: Adding persistent ${persistent.recommendation.direction} recommendation (${persistent.confirmations} confirmations)`);
+                    newRecommendations.push({
+                        ...persistent.recommendation,
+                        reason: `${persistent.recommendation.reason} [PERSISTENT x${persistent.confirmations}]`
+                    });
+                }
+            } else {
+                // Remove expired recommendations
+                this.persistentRecommendations.delete(symbol);
+                console.log(`${symbol}: Removed expired recommendation`);
+            }
+        });
+
+        // Sort by confidence/score descending
+        newRecommendations.sort((a, b) => b.confidence - a.confidence);
+
+        this.recommendations = newRecommendations.slice(0, 8); // Increased to 8 recommendations
+
+        // Notify callbacks
+        this.recommendationCallbacks.forEach(callback => {
+            try {
+                callback(this.recommendations);
+            } catch (error) {
+                console.error('Error in recommendation callback:', error);
+            }
+        });
     }
 
     /**
@@ -606,6 +690,16 @@ export class MarketScanner {
                 return scoreB - scoreA;
             })
             .slice(0, Math.min(3, recommendations.length)); // Reduced from 5 to 3 for highest quality only
+    }
+
+    // Placeholder methods - these should be implemented based on your logic for calculating stake and duration
+    private calculateSuggestedStake(trend: TrendAnalysis): number {
+        return this.calculateOptimalStake(trend.confidence, trend.strength);
+    }
+
+    private calculateSuggestedDuration(trend: TrendAnalysis): number {
+        const { duration } = this.calculateOptimalDuration(trend.strength, trend.symbol);
+        return duration;
     }
 }
 

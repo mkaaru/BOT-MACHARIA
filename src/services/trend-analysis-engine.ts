@@ -1,5 +1,5 @@
 import { CandleData } from './candle-reconstruction-engine';
-import { EfficientHMACalculator, EfficientHMAResult } from './efficient-hma-calculator';
+import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
 import { ehlersProcessor, EhlersSignals, DerivMarketConfig } from './ehlers-signal-processing';
 
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
@@ -14,24 +14,26 @@ export interface PullbackAnalysis {
     entrySignal: boolean;
     decyclerValue?: number;
     priceVsDecycler?: number;
+    recommendation: 'BUY' | 'SELL' | 'HOLD';
 }
 
 export interface TrendAnalysis {
     symbol: string;
     timestamp: number;
-    direction: 'bullish' | 'bearish' | 'neutral';
-    strength: 'weak' | 'moderate' | 'strong';
+    direction: TrendDirection;
+    strength: TrendStrength;
     confidence: number;
     score: number;
     price: number;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
     reason: string;
+    lastUpdate: Date;
 
     // Technical indicators
     shortTermHMA?: number;
     longTermHMA?: number;
     rocAlignment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
-    longTermTrend?: 'bullish' | 'bearish' | 'neutral';
+    longTermTrend?: TrendDirection;
     longTermTrendStrength?: number;
 
     // Enhanced Ehlers data
@@ -93,9 +95,12 @@ export class TrendAnalysisEngine {
         signal: 'BULLISH' | 'BEARISH' | null;
         timestamp: number;
         confirmationCount: number;
+        strength: number; // Store confidence of the cached signal
+        lastUpdate: number;
     }> = new Map();
-    private readonly SIGNAL_PERSISTENCE_MS = 10 * 60 * 1000; // 10 minutes (increased from 5)
-    private readonly MIN_CONFIRMATION_COUNT = 5; // Require 5 confirmations before changing signal (increased from 3)
+    private readonly SIGNAL_PERSISTENCE_MS = 15 * 60 * 1000; // 15 minutes (increased from 10)
+    private readonly MIN_CONFIRMATION_COUNT = 5; // Require 5 confirmations before changing signal
+    private readonly SIGNAL_STRENGTH_THRESHOLD = 60; // Minimum confidence to cache a new signal
 
     constructor(hmaCalculator: EfficientHMACalculator) {
         this.hmaCalculator = hmaCalculator;
@@ -119,7 +124,7 @@ export class TrendAnalysisEngine {
         const ehlersSignals = ehlersProcessor.processPrice(symbol, close, timestamp);
 
         // Update trend analysis when all HMA periods are ready
-        const allPeriodsReady = hmaPeriods.every(period => 
+        const allPeriodsReady = hmaPeriods.every(period =>
             this.hmaCalculator.isReady(symbol, period)
         );
 
@@ -170,7 +175,7 @@ export class TrendAnalysisEngine {
 
         // Get ROC-based signal validation with persistence
         const rawROCSignal = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
-        const persistentROCSignal = this.getPersistedSignal(symbol, rawROCSignal);
+        const persistentROCSignal = this.getPersistedSignal(symbol, rawROCSignal, confidence);
 
         // Override direction based on persistent ROC signal validation
         let finalDirection = direction;
@@ -182,7 +187,7 @@ export class TrendAnalysisEngine {
             finalDirection = 'neutral'; // No valid signal
         }
 
-        // Generate recommendation based on persistent ROC validation
+        // Generate recommendation based on persistent ROC signal validation
         const recommendation = this.generateRecommendationByROC(finalDirection, strength, confidence, persistentROCSignal);
 
         // Calculate overall score based on ROC alignment and validation
@@ -250,7 +255,7 @@ export class TrendAnalysisEngine {
             finalRecommendation = ehlersRecommendation.action;
             enhancedScore = Math.min(95, score + 25); // High bonus for strong anticipatory signals
             console.log(`⚡ EHLERS PRIORITY: Strong anticipatory signal (${enhancedScore.toFixed(1)}%)`);
-        } 
+        }
         // Priority 3: Medium Ehlers anticipatory signals
         else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'medium') {
             finalRecommendation = ehlersRecommendation.action;
@@ -478,7 +483,7 @@ export class TrendAnalysisEngine {
 
         // Calculate average slope magnitude
         const validSlopes = longTermHMAs.filter(h => h.slope !== null).map(h => h.slope!);
-        const avgSlopeMagnitude = validSlopes.length > 0 ? 
+        const avgSlopeMagnitude = validSlopes.length > 0 ?
             validSlopes.reduce((sum, slope) => sum + Math.abs(slope), 0) / validSlopes.length : 0;
 
         return Math.min(100, consistency * 0.7 + (avgSlopeMagnitude * 1000 * 30));
@@ -621,7 +626,7 @@ export class TrendAnalysisEngine {
         if (longTermROC > 0.05 && // Long-term positive momentum (> 0.05%)
             shortTermROC > 0.1 && // Short-term positive momentum (> 0.1%)
             shortTermROC > longTermROC && // Short-term stronger than long-term (acceleration)
-            isLastCandleGreen && 
+            isLastCandleGreen &&
             lastCandle.close > previousCandle.high) {
 
             console.log(`${symbol}: ✅ ROCBULLISH signal confirmed:
@@ -640,7 +645,7 @@ export class TrendAnalysisEngine {
         if (longTermROC < -0.05 && // Long-term negative momentum (< -0.05%)
             shortTermROC < -0.1 && // Short-term negative momentum (< -0.1%)
             shortTermROC < longTermROC && // Short-term more negative than long-term (acceleration)
-            isLastCandleRed && 
+            isLastCandleRed &&
             lastCandle.close < previousCandle.low) {
 
             console.log(`${symbol}: ✅ ROC BEARISH signal confirmed:
@@ -690,14 +695,7 @@ export class TrendAnalysisEngine {
     /**
      * Analyze pullbacks using Ehlers Decycler and at least 5 candles
      */
-    private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): {
-        isPullback: boolean;
-        pullbackStrength: 'weak' | 'medium' | 'strong';
-        longerTermTrend: 'bullish' | 'bearish' | 'neutral';
-        pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback';
-        confidence: number;
-        recommendation: 'BUY' | 'SELL' | 'HOLD';
-    } {
+    private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): PullbackAnalysis {
         if (candles.length < 5) {
             return {
                 isPullback: false,
@@ -705,7 +703,7 @@ export class TrendAnalysisEngine {
                 longerTermTrend: 'neutral',
                 pullbackType: 'none',
                 confidence: 0,
-                recommendation: 'HOLD'
+                recommendation: 'HOLD',
             };
         }
 
@@ -773,7 +771,7 @@ export class TrendAnalysisEngine {
 
             // Check for reversal signs in recent candles
             const last2Candles = last5Candles.slice(-2);
-            const isShowingReversal = last2Candles[1].close > last2Candles[0].low && 
+            const isShowingReversal = last2Candles[1].close > last2Candles[0].low &&
                                     last2Candles[1].close > last2Candles[1].open; // Green candle after pullback
 
             if (isPullbackFromHigh && isAboveSupport) {
@@ -808,7 +806,7 @@ export class TrendAnalysisEngine {
 
             // Check for reversal signs in recent candles
             const last2Candles = last5Candles.slice(-2);
-            const isShowingReversal = last2Candles[1].close < last2Candles[0].high && 
+            const isShowingReversal = last2Candles[1].close < last2Candles[0].high &&
                                     last2Candles[1].close < last2Candles[1].open; // Red candle after bounce
 
             if (isBounceFromLow && isBelowResistance) {
@@ -954,9 +952,9 @@ export class TrendAnalysisEngine {
      * Calculate trend strength based on color alignment and slope magnitude
      */
     private calculateTrendStrengthByColor(
-        hma5Slope: number | null, 
-        hma200Slope: number | null, 
-        hma5Color: string, 
+        hma5Slope: number | null,
+        hma200Slope: number | null,
+        hma5Color: string,
         hma200Color: string
     ): TrendStrength {
         // Strong when both colors align and slopes are significant
@@ -976,9 +974,9 @@ export class TrendAnalysisEngine {
      * Calculate confidence based on color alignment and slope strength
      */
     private calculateConfidenceByColor(
-        hma5Slope: number | null, 
-        hma200Slope: number | null, 
-        hma5Color: string, 
+        hma5Slope: number | null,
+        hma200Slope: number | null,
+        hma5Color: string,
         hma200Color: string
     ): number {
         let confidence = 30; // Lower base confidence
@@ -1007,10 +1005,10 @@ export class TrendAnalysisEngine {
      * Generate recommendation based on color alignment
      */
     private generateRecommendationByColor(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
-        hma5Color: string, 
+        direction: TrendDirection,
+        strength: TrendStrength,
+        confidence: number,
+        hma5Color: string,
         hma200Color: string
     ): 'BUY' | 'SELL' | 'HOLD' {
         // Strong color alignment with high confidence
@@ -1038,10 +1036,10 @@ export class TrendAnalysisEngine {
      * Calculate trading score based on color alignment
      */
     private calculateTradingScoreByColor(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
-        hma5Color: string, 
+        direction: TrendDirection,
+        strength: TrendStrength,
+        confidence: number,
+        hma5Color: string,
         hma200Color: string
     ): number {
         let score = 0;
@@ -1083,7 +1081,7 @@ export class TrendAnalysisEngine {
     private determineLongTermTrend(hma200: number, currentPrice: number, hma200Slope: number | null): TrendDirection {
         const priceVsHma200 = currentPrice > hma200;
         const slopeThreshold = 0.0002; // Increased threshold for stronger trend confirmation
-        const slopeDirection = hma200Slope && hma200Slope > slopeThreshold ? 'up' : 
+        const slopeDirection = hma200Slope && hma200Slope > slopeThreshold ? 'up' :
                               hma200Slope && hma200Slope < -slopeThreshold ? 'down' : 'flat';
 
         // Require both price position AND slope confirmation for stronger filtering
@@ -1096,8 +1094,8 @@ export class TrendAnalysisEngine {
      * Enhanced long-term trend strength analysis
      */
     private calculateLongTermTrendStrength(
-        hma200: number, 
-        hma200Slope: number | null, 
+        hma200: number,
+        hma200Slope: number | null,
         currentPrice: number,
         symbol: string
     ): number {
@@ -1131,9 +1129,9 @@ export class TrendAnalysisEngine {
      * Determine trend direction with long-term filter
      */
     private determineTrendDirectionWithFilter(
-        hma5: number, 
-        hma40: number, 
-        hma5Slope: number | null, 
+        hma5: number,
+        hma40: number,
+        hma5Slope: number | null,
         hma40Slope: number | null,
         longTermTrend: TrendDirection
     ): TrendDirection {
@@ -1288,13 +1286,13 @@ export class TrendAnalysisEngine {
         const baseStrength = this.calculateTrendStrength(hma5, hma40, hma5Slope, hma40Slope, price);
 
         // Calculate HMA alignment (all moving in same direction)
-        const allBullish = hma5 > hma40 && hma40 > hma200 && 
+        const allBullish = hma5 > hma40 && hma40 > hma200 &&
                           (hma5Slope || 0) > 0 && (hma40Slope || 0) > 0 && (hma200Slope || 0) > 0;
-        const allBearish = hma5 < hma40 && hma40 < hma200 && 
+        const allBearish = hma5 < hma40 && hma40 < hma200 &&
                           (hma5Slope || 0) < 0 && (hma40Slope || 0) < 0 && (hma200Slope || 0) < 0;
 
         if (allBullish || allBearish) {
-            return baseStrength === 'weak' ? 'moderate' : 
+            return baseStrength === 'weak' ? 'moderate' :
                    baseStrength === 'moderate' ? 'strong' : 'strong';
         }
 
@@ -1325,7 +1323,7 @@ export class TrendAnalysisEngine {
         }
 
         // Slope alignment bonus
-        const slopesAligned = (hma5Slope || 0) * (hma40Slope || 0) > 0 && 
+        const slopesAligned = (hma5Slope || 0) * (hma40Slope || 0) > 0 &&
                              (hma40Slope || 0) * (hma200Slope || 0) > 0;
 
         if (slopesAligned) {
@@ -1339,9 +1337,9 @@ export class TrendAnalysisEngine {
      * Generate recommendation with enhanced trend filter
      */
     private generateRecommendationWithFilter(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
+        direction: TrendDirection,
+        strength: TrendStrength,
+        confidence: number,
         crossover: number,
         longTermTrend: TrendDirection,
         symbol: string,
@@ -1377,9 +1375,9 @@ export class TrendAnalysisEngine {
      * Calculate overall trading score with trend filter (0-100)
      */
     private calculateTradingScoreWithFilter(
-        direction: TrendDirection, 
-        strength: TrendStrength, 
-        confidence: number, 
+        direction: TrendDirection,
+        strength: TrendStrength,
+        confidence: number,
         crossover: number,
         longTermTrend: TrendDirection
     ): number {
@@ -1508,7 +1506,7 @@ export class TrendAnalysisEngine {
 
         symbols.forEach(symbol => {
             // Check if all HMA periods are ready
-            const allPeriodsReady = hmaPeriods.every(period => 
+            const allPeriodsReady = hmaPeriods.every(period =>
                 this.hmaCalculator.isReady(symbol, period)
             );
 
@@ -1574,63 +1572,80 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Get persisted signal to reduce frequent changes
+     * Get persisted signal with enhanced persistence and confirmation count validation
      */
-    private getPersistedSignal(symbol: string, newSignal: 'BULLISH' | 'BEARISH' | null): 'BULLISH' | 'BEARISH' | null {
-        const now = Date.now();
+    private getPersistedSignal(symbol: string, rawSignal: 'BULLISH' | 'BEARISH' | null, confidence: number = 0): 'BULLISH' | 'BEARISH' | null {
         const cached = this.signalCache.get(symbol);
+        const now = Date.now();
 
-        // If no cache entry, create one
         if (!cached) {
-            this.signalCache.set(symbol, {
-                signal: newSignal,
-                timestamp: now,
-                confirmationCount: newSignal ? 1 : 0
-            });
-            return newSignal;
-        }
-
-        // Check if cache is expired
-        if (now - cached.timestamp > this.SIGNAL_PERSISTENCE_MS) {
-            // Cache expired, reset
-            this.signalCache.set(symbol, {
-                signal: newSignal,
-                timestamp: now,
-                confirmationCount: newSignal ? 1 : 0
-            });
-            return newSignal;
-        }
-
-        // If new signal matches cached signal, increment confirmation
-        if (newSignal === cached.signal && newSignal !== null) {
-            cached.confirmationCount++;
-            cached.timestamp = now;
-            return cached.signal;
-        }
-
-        // If new signal is different from cached signal
-        if (newSignal !== cached.signal) {
-            // If cached signal has enough confirmations, stick with it unless new signal is strong
-            if (cached.confirmationCount >= this.MIN_CONFIRMATION_COUNT && cached.signal !== null) {
-                // Only change if new signal persists for multiple confirmations
-                if (newSignal !== null) {
-                    cached.confirmationCount = Math.max(0, cached.confirmationCount - 1);
-                    console.log(`${symbol}: Signal persistence - keeping ${cached.signal} (confirmations: ${cached.confirmationCount}, new signal: ${newSignal})`);
-                }
-                return cached.signal;
-            } else {
-                // Not enough confirmations yet, switch to new signal
+            // First time seeing this symbol
+            if (rawSignal && confidence >= this.SIGNAL_STRENGTH_THRESHOLD) {
                 this.signalCache.set(symbol, {
-                    signal: newSignal,
+                    signal: rawSignal,
                     timestamp: now,
-                    confirmationCount: newSignal ? 1 : 0
+                    confirmationCount: 1,
+                    strength: confidence,
+                    lastUpdate: now
                 });
-                return newSignal;
+                console.log(`${symbol}: First ${rawSignal} signal cached (1/${this.MIN_CONFIRMATION_COUNT}) - Strength: ${confidence}%`);
+                // Return immediately if confidence is very high
+                return confidence >= 85 ? rawSignal : null;
             }
+            return null;
         }
 
-        // Default: return cached signal
-        return cached.signal;
+        // Check if cached signal has expired
+        if (now - cached.timestamp > this.SIGNAL_PERSISTENCE_MS) {
+            console.log(`${symbol}: Cached signal expired after ${((now - cached.timestamp) / 60000).toFixed(1)} minutes, resetting`);
+            this.signalCache.delete(symbol);
+            return this.getPersistedSignal(symbol, rawSignal, confidence);
+        }
+
+        // If no new raw signal, return cached signal if it has enough confirmations
+        if (!rawSignal) {
+            // Extend persistence for strong signals
+            if (cached.strength >= 80 && cached.confirmationCount >= this.MIN_CONFIRMATION_COUNT) {
+                console.log(`${symbol}: Returning strong cached ${cached.signal} signal (Strength: ${cached.strength}%)`);
+                return cached.signal;
+            }
+            return cached.confirmationCount >= this.MIN_CONFIRMATION_COUNT ? cached.signal : null;
+        }
+
+        // If raw signal matches cached signal
+        if (rawSignal === cached.signal) {
+            cached.confirmationCount++;
+            cached.lastUpdate = now;
+            cached.strength = Math.max(cached.strength, confidence); // Keep highest confidence
+
+            // Extend persistence timestamp for confirmed signals
+            if (cached.confirmationCount >= this.MIN_CONFIRMATION_COUNT) {
+                cached.timestamp = now; // Refresh timestamp for confirmed signals
+            }
+
+            console.log(`${symbol}: ${rawSignal} signal confirmed (${cached.confirmationCount}/${this.MIN_CONFIRMATION_COUNT}) - Strength: ${cached.strength}%`);
+
+            // Return signal if we have enough confirmations
+            return cached.confirmationCount >= this.MIN_CONFIRMATION_COUNT ? cached.signal : null;
+        }
+
+        // If raw signal is different from cached signal
+        // Only change if new signal is significantly stronger or cached signal is weak
+        if (confidence > cached.strength + 15 || cached.strength < 60) {
+            console.log(`${symbol}: Signal changed from ${cached.signal} (${cached.strength}%) to ${rawSignal} (${confidence}%), resetting`);
+            this.signalCache.set(symbol, {
+                signal: rawSignal,
+                timestamp: now,
+                confirmationCount: 1,
+                strength: confidence,
+                lastUpdate: now
+            });
+            return confidence >= 85 ? rawSignal : null; // Return immediately for very strong signals
+        } else {
+            // Keep existing strong signal
+            console.log(`${symbol}: Keeping strong ${cached.signal} signal (${cached.strength}%) over weaker ${rawSignal} (${confidence}%)`);
+            return cached.confirmationCount >= this.MIN_CONFIRMATION_COUNT ? cached.signal : null;
+        }
     }
 
     /**
@@ -1649,13 +1664,14 @@ export class TrendAnalysisEngine {
     /**
      * Get signal cache status for debugging
      */
-    public getSignalCacheStatus(): Array<{symbol: string; signal: string | null; confirmations: number; age: number}> {
+    public getSignalCacheStatus(): Array<{symbol: string; signal: string | null; confirmations: number; age: number; strength: number}> {
         const now = Date.now();
         return Array.from(this.signalCache.entries()).map(([symbol, data]) => ({
             symbol,
             signal: data.signal,
             confirmations: data.confirmationCount,
-            age: Math.round((now - data.timestamp) / 1000) // age in seconds
+            age: Math.round((now - data.timestamp) / 1000), // age in seconds
+            strength: data.strength
         }));
     }
 

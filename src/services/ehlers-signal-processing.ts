@@ -102,6 +102,12 @@ export class EhlersSignalProcessor {
     private amfmStates: Map<string, AMFMState> = new Map();
     private hilbertStates: Map<string, HilbertState> = new Map();
     private signals: Map<string, EhlersSignals[]> = new Map();
+    private persistentSignals: Map<string, {
+        signal: EhlersSignals;
+        timestamp: number;
+        stability: number;
+    }> = new Map();
+    private readonly EHLERS_PERSISTENCE_MS = 15 * 60 * 1000; // 15 minutes
 
     private readonly ROOFING_PERIOD = 20;
     private readonly NET_LENGTH = 14;
@@ -193,7 +199,25 @@ export class EhlersSignalProcessor {
             symbolSignals.shift();
         }
 
-        console.log(`🔬 Enhanced Ehlers Processing ${symbol}: NET=${netValue.toFixed(4)}, Trend=${signals.trend.toFixed(4)}, Cycle=${signals.cycle.toFixed(4)}, Quality=${signals.signalQuality.toFixed(1)}`);
+        // Calculate signal stability
+        const stability = this.calculateSignalStability(symbolSignals, signals);
+        
+        // Update persistent signals if stable enough
+        if (stability > 60 && signals.signalQuality > 50) {
+            const existing = this.persistentSignals.get(symbol);
+            const now = Date.now();
+            
+            if (!existing || now - existing.timestamp > this.EHLERS_PERSISTENCE_MS || stability > existing.stability) {
+                this.persistentSignals.set(symbol, {
+                    signal: signals,
+                    timestamp: now,
+                    stability
+                });
+                console.log(`📌 ${symbol}: Persistent Ehlers signal updated (Stability: ${stability.toFixed(1)}%)`);
+            }
+        }
+
+        console.log(`🔬 Enhanced Ehlers Processing ${symbol}: NET=${netValue.toFixed(4)}, Trend=${signals.trend.toFixed(4)}, Cycle=${signals.cycle.toFixed(4)}, Quality=${signals.signalQuality.toFixed(1)}, Stability=${stability.toFixed(1)}%`);
 
         return signals;
     }
@@ -1196,11 +1220,58 @@ export class EhlersSignalProcessor {
     }
 
     /**
-     * Get latest signals for a symbol
+     * Calculate signal stability based on recent history
+     */
+    private calculateSignalStability(signalHistory: EhlersSignals[], currentSignal: EhlersSignals): number {
+        if (signalHistory.length < 5) return 0;
+
+        const recent = signalHistory.slice(-5);
+        let stabilityScore = 0;
+
+        // Check trend consistency
+        const trendDirection = currentSignal.trend > 0 ? 1 : -1;
+        const trendConsistency = recent.filter(s => (s.trend > 0 ? 1 : -1) === trendDirection).length / recent.length;
+        stabilityScore += trendConsistency * 30;
+
+        // Check anticipatory signal consistency
+        const anticipatoryDirection = currentSignal.anticipatorySignal > 0 ? 1 : currentSignal.anticipatorySignal < 0 ? -1 : 0;
+        if (anticipatoryDirection !== 0) {
+            const anticipatoryConsistency = recent.filter(s => 
+                (s.anticipatorySignal > 0 ? 1 : s.anticipatorySignal < 0 ? -1 : 0) === anticipatoryDirection
+            ).length / recent.length;
+            stabilityScore += anticipatoryConsistency * 25;
+        }
+
+        // Check signal quality consistency
+        const avgQuality = recent.reduce((sum, s) => sum + s.signalQuality, 0) / recent.length;
+        const qualityStability = 1 - (Math.abs(currentSignal.signalQuality - avgQuality) / avgQuality);
+        stabilityScore += Math.max(0, qualityStability) * 25;
+
+        // Check SNR consistency
+        const avgSNR = recent.reduce((sum, s) => sum + s.snr, 0) / recent.length;
+        const snrStability = 1 - (Math.abs(currentSignal.snr - avgSNR) / Math.max(avgSNR, 1));
+        stabilityScore += Math.max(0, snrStability) * 20;
+
+        return Math.min(100, Math.max(0, stabilityScore));
+    }
+
+    /**
+     * Get latest signals for a symbol with persistence fallback
      */
     getLatestSignals(symbol: string): EhlersSignals | null {
         const symbolSignals = this.signals.get(symbol);
-        return symbolSignals ? symbolSignals[symbolSignals.length - 1] : null;
+        const latest = symbolSignals ? symbolSignals[symbolSignals.length - 1] : null;
+        
+        if (latest) return latest;
+
+        // Fallback to persistent signal if available and not expired
+        const persistent = this.persistentSignals.get(symbol);
+        if (persistent && Date.now() - persistent.timestamp < this.EHLERS_PERSISTENCE_MS) {
+            console.log(`📌 ${symbol}: Using persistent Ehlers signal (${((Date.now() - persistent.timestamp) / 60000).toFixed(1)}m old)`);
+            return persistent.signal;
+        }
+
+        return null;
     }
 
     /**
