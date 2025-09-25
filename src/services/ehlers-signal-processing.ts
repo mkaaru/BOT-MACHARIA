@@ -486,7 +486,7 @@ export class EhlersSignalProcessor {
     }
 
     /**
-     * Enhanced anticipatory signal calculation with Hilbert Transform data
+     * Enhanced pullback detection with Ehlers Decycler for longer-term trends
      */
     private calculateAnticipatory(currentValue: number, state: NETState, enhancedSignals: Partial<EhlersSignals>): number {
         if (state.values.length < 8) return 0;
@@ -506,60 +506,118 @@ export class EhlersSignalProcessor {
         const previousROC = short[1] - short[0];
         const acceleration = recentROC - previousROC;
 
-        // Enhanced anticipatory conditions using Hilbert Transform data
+        // Enhanced anticipatory conditions using Hilbert Transform data and Decycler
         let anticipatorySignal = 0;
 
-        // Use cycle and phase information if available
-        if (enhancedSignals.cycle !== undefined && enhancedSignals.phase !== undefined) {
-            const cycleStrength = Math.abs(enhancedSignals.cycle);
-            const normalizedPhase = ((enhancedSignals.phase + Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
+        // Use Decycler for longer-term trend identification
+        if (enhancedSignals.decycler !== undefined && enhancedSignals.instantaneousTrendline !== undefined) {
+            const decyclerTrend = enhancedSignals.decycler;
+            const instantTrend = enhancedSignals.instantaneousTrendline;
+            const trendDivergence = instantTrend - decyclerTrend;
             
-            // Cycle-based anticipatory signals
-            if (cycleStrength > 0.0001) {
-                if (normalizedPhase < 0.25 && longerTrend > 0.01) {
-                    anticipatorySignal += 1.0; // Bottom of cycle in uptrend
-                } else if (normalizedPhase > 0.75 && longerTrend < -0.01) {
-                    anticipatorySignal -= 1.0; // Top of cycle in downtrend
+            // Pullback detection in bull trend using Decycler
+            if (decyclerTrend > 0.001) { // Longer-term bullish trend confirmed by Decycler
+                // Strong pullback buy signal - when price pulls back but Decycler remains bullish
+                if (trendDivergence < -0.0005 && // Price below Decycler (pullback)
+                    shortMomentum > 0.001 && // Short-term momentum turning up
+                    acceleration > 0.0005 && // Accelerating upward
+                    currentValue < 0) { // NET shows oversold condition
+                    anticipatorySignal += 2.0; // Very strong bullish pullback signal
+                    console.log(`🎯 STRONG PULLBACK BUY SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}, Momentum=${shortMomentum.toFixed(5)}`);
+                }
+                
+                // Medium pullback signal - early detection
+                else if (trendDivergence < -0.0002 && // Mild pullback
+                         mediumMomentum < -0.002 && // Recent decline
+                         acceleration > 0.0002) { // Starting to accelerate up
+                    anticipatorySignal += 1.2; // Medium bullish pullback signal
+                    console.log(`📈 MEDIUM PULLBACK BUY SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
+                }
+            }
+            
+            // Pullback detection in bear trend using Decycler
+            else if (decyclerTrend < -0.001) { // Longer-term bearish trend confirmed by Decycler
+                // Strong pullback sell signal - when price bounces but Decycler remains bearish
+                if (trendDivergence > 0.0005 && // Price above Decycler (bounce)
+                    shortMomentum < -0.001 && // Short-term momentum turning down
+                    acceleration < -0.0005 && // Accelerating downward
+                    currentValue > 0) { // NET shows overbought condition
+                    anticipatorySignal -= 2.0; // Very strong bearish pullback signal
+                    console.log(`🎯 STRONG PULLBACK SELL SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}, Momentum=${shortMomentum.toFixed(5)}`);
+                }
+                
+                // Medium pullback signal - early detection
+                else if (trendDivergence > 0.0002 && // Mild bounce
+                         mediumMomentum > 0.002 && // Recent bounce
+                         acceleration < -0.0002) { // Starting to accelerate down
+                    anticipatorySignal -= 1.2; // Medium bearish pullback signal
+                    console.log(`📉 MEDIUM PULLBACK SELL SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
                 }
             }
         }
 
-        // Original logic enhanced
-        // Early bullish pullback signal (buy at the dip)
-        if (longerTrend > 0.01 && // Overall uptrend
-            mediumMomentum < -0.005 && // Recent pullback
-            shortMomentum > 0.002 && // Starting to recover
-            acceleration > 0.001 && // Accelerating upward
-            currentValue < -0.2) { // Still in oversold territory
-            anticipatorySignal += 1.5; // Strong bullish anticipatory signal
+        // Use cycle and phase information for additional confirmation
+        if (enhancedSignals.cycle !== undefined && enhancedSignals.phase !== undefined) {
+            const cycleStrength = Math.abs(enhancedSignals.cycle);
+            const normalizedPhase = ((enhancedSignals.phase + Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
+            
+            // Cycle-based anticipatory signals - enhanced for pullbacks
+            if (cycleStrength > 0.0001) {
+                // Bottom of cycle in uptrend - ideal pullback buy
+                if (normalizedPhase < 0.25 && longerTrend > 0.005) {
+                    anticipatorySignal += 1.5;
+                } 
+                // Top of cycle in downtrend - ideal pullback sell
+                else if (normalizedPhase > 0.75 && longerTrend < -0.005) {
+                    anticipatorySignal -= 1.5;
+                }
+                // Mid-cycle corrections
+                else if (normalizedPhase >= 0.4 && normalizedPhase <= 0.6) {
+                    if (longerTrend > 0.005 && shortMomentum < -0.002) {
+                        anticipatorySignal += 0.8; // Mid-cycle pullback in uptrend
+                    } else if (longerTrend < -0.005 && shortMomentum > 0.002) {
+                        anticipatorySignal -= 0.8; // Mid-cycle bounce in downtrend
+                    }
+                }
+            }
         }
 
-        // Early bearish pullback signal (sell at the peak)
-        if (longerTrend < -0.01 && // Overall downtrend
-            mediumMomentum > 0.005 && // Recent bounce
-            shortMomentum < -0.002 && // Starting to decline
-            acceleration < -0.001 && // Accelerating downward
-            currentValue > 0.2) { // Still in overbought territory
-            anticipatorySignal -= 1.5; // Strong bearish anticipatory signal
+        // Enhanced original logic for additional confirmation
+        // Early bullish pullback signal (buy at the dip) - more sensitive
+        if (longerTrend > 0.005 && // Stronger overall uptrend requirement
+            mediumMomentum < -0.003 && // Recent pullback (more sensitive)
+            shortMomentum > 0.001 && // Starting to recover (more sensitive)
+            acceleration > 0.0005 && // Accelerating upward (more sensitive)
+            currentValue < -0.1) { // Still in oversold territory (more sensitive)
+            anticipatorySignal += 1.0; // Strong bullish anticipatory signal
         }
 
-        // Medium strength signals for less clear setups
-        if (mediumMomentum > 0.003 && shortMomentum < -0.001 && acceleration < -0.0005) {
-            anticipatorySignal -= 0.8; // Medium bearish anticipation
+        // Early bearish pullback signal (sell at the peak) - more sensitive
+        if (longerTrend < -0.005 && // Stronger overall downtrend requirement
+            mediumMomentum > 0.003 && // Recent bounce (more sensitive)
+            shortMomentum < -0.001 && // Starting to decline (more sensitive)
+            acceleration < -0.0005 && // Accelerating downward (more sensitive)
+            currentValue > 0.1) { // Still in overbought territory (more sensitive)
+            anticipatorySignal -= 1.0; // Strong bearish anticipatory signal
         }
 
-        if (mediumMomentum < -0.003 && shortMomentum > 0.001 && acceleration > 0.0005) {
-            anticipatorySignal += 0.8; // Medium bullish anticipation
+        // Fine-tuned medium strength signals
+        if (mediumMomentum > 0.002 && shortMomentum < -0.0005 && acceleration < -0.0003) {
+            anticipatorySignal -= 0.6; // Medium bearish anticipation
         }
 
-        // Standard momentum divergence (original logic)
+        if (mediumMomentum < -0.002 && shortMomentum > 0.0005 && acceleration > 0.0003) {
+            anticipatorySignal += 0.6; // Medium bullish anticipation
+        }
+
+        // Momentum divergence detection - enhanced sensitivity
         const trend = recent[recent.length - 1] - recent[0];
         const momentum = recent[recent.length - 1] - recent[recent.length - 2];
 
-        if (trend > 0 && momentum < -0.002) {
-            anticipatorySignal -= 0.5; // Standard bearish divergence
-        } else if (trend < 0 && momentum > 0.002) {
-            anticipatorySignal += 0.5; // Standard bullish divergence
+        if (trend > 0.001 && momentum < -0.001) {
+            anticipatorySignal -= 0.4; // Bearish divergence in uptrend (pullback)
+        } else if (trend < -0.001 && momentum > 0.001) {
+            anticipatorySignal += 0.4; // Bullish divergence in downtrend (bounce)
         }
 
         return anticipatorySignal;

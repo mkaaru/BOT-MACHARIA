@@ -1344,7 +1344,8 @@ const MLTrader = observer(() => {
                                     )}
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
                     {/* Scanner Status */}
                     {scanner_status && (
@@ -1449,6 +1450,47 @@ const MLTrader = observer(() => {
                                                 <div className={`recommendation-badge ${trend.recommendation.toLowerCase()}`}>
                                                     <Text size="xs" weight="bold">{trend.recommendation}</Text>
                                                 </div>
+
+                                                {/* Display Ehlers and Pullback Analysis */}
+                                                {trend.pullbackAnalysis && trend.pullbackAnalysis.isPullback && (
+                                                    <div className="trend-pullback">
+                                                        <Text size="xs" weight="bold" color={
+                                                            trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
+                                                            trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
+                                                        }>
+                                                            🎯 PULLBACK: {trend.pullbackAnalysis.pullbackType.replace('_', ' ').toUpperCase()} 
+                                                            ({trend.pullbackAnalysis.confidence.toFixed(0)}%)
+                                                        </Text>
+                                                        <Text size="xs" color="general">
+                                                            Strength: {trend.pullbackAnalysis.pullbackStrength.toUpperCase()} • 
+                                                            Long-term: {trend.pullbackAnalysis.longerTermTrend.toUpperCase()}
+                                                        </Text>
+                                                        {trend.ehlers?.decycler && (
+                                                            <Text size="xs" color="general">
+                                                                📈 Decycler: {trend.ehlers.decycler.toFixed(5)} • 
+                                                                Instant: {trend.ehlers.instantaneousTrendline?.toFixed(5)}
+                                                            </Text>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {trend.ehlersRecommendation && (
+                                                    <div className="trend-ehlers">
+                                                        <Text size="xs" weight="bold" color={
+                                                            trend.ehlersRecommendation.action === 'BUY' ? 'profit-success' : 
+                                                            trend.ehlersRecommendation.action === 'SELL' ? 'loss-danger' : 'general'
+                                                        }>
+                                                            Ehlers: {trend.ehlersRecommendation.action} ({trend.ehlersRecommendation.confidence.toFixed(0)}%)
+                                                        </Text>
+                                                        <Text size="xs" color="general">
+                                                            {trend.ehlersRecommendation.anticipatory ? '⚡ Anticipatory' : '📊 Standard'} • 
+                                                            {trend.ehlersRecommendation.signalStrength.toUpperCase()}
+                                                        </Text>
+                                                        <Text size="xs" color="general" className="trend-reason">
+                                                            {trend.ehlersRecommendation.reason}
+                                                        </Text>
+                                                    </div>
+                                                )}
                                             </>
                                         ) : (
                                             <div className="loading-state">
