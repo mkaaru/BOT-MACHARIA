@@ -795,7 +795,7 @@ export class EhlersSignalProcessor {
     }
 
     /**
-     * Calculate anticipatory signals, enhanced for pullbacks
+     * Calculate MEAN REVERSION anticipatory signals (inverted logic)
      */
     private calculateAnticipatory(currentValue: number, state: NETState, enhancedSignals: Partial<EhlersSignals>): number {
         if (state.values.length < 8) return 0;
@@ -805,7 +805,7 @@ export class EhlersSignalProcessor {
         const medium = recent.slice(-6, -3); // Previous 3 values
         const longer = recent.slice(-8, -6); // Earlier 2 values
 
-        // Calculate multi-timeframe momentum
+        // Calculate multi-timeframe momentum for mean reversion
         const shortMomentum = short[2] - short[0];
         const mediumMomentum = medium[2] - medium[0];
         const longerTrend = longer[1] - longer[0];
@@ -815,53 +815,60 @@ export class EhlersSignalProcessor {
         const previousROC = short[1] - short[0];
         const acceleration = recentROC - previousROC;
 
-        // Enhanced anticipatory conditions using Hilbert Transform data and Decycler
+        // Mean reversion anticipatory conditions
         let anticipatorySignal = 0;
 
-        // Use Decycler for longer-term trend identification
+        // Use Decycler for mean reversion analysis
         if (enhancedSignals.decycler !== undefined && enhancedSignals.instantaneousTrendline !== undefined) {
             const decyclerTrend = enhancedSignals.decycler;
             const instantTrend = enhancedSignals.instantaneousTrendline;
             const trendDivergence = instantTrend - decyclerTrend;
+            
+            // Check if we're in a ranging market (better for mean reversion)
+            const isRangingMarket = Math.abs(trendDivergence / decyclerTrend) < 0.005;
 
-            // Pullback detection in bull trend using Decycler
-            if (decyclerTrend > 0.001) { // Longer-term bullish trend confirmed by Decycler
-                // Strong pullback buy signal - when price pulls back but Decycler remains bullish
-                if (trendDivergence < -0.0005 && // Price below Decycler (pullback)
-                    shortMomentum > 0.001 && // Short-term momentum turning up
-                    acceleration > 0.0005 && // Accelerating upward
-                    currentValue < 0) { // NET shows oversold condition
-                    anticipatorySignal += 2.0; // Very strong bullish pullback signal
-                    console.log(`🎯 STRONG PULLBACK BUY SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}, Momentum=${shortMomentum.toFixed(5)}`);
+            // MEAN REVERSION BULLISH: Strong downward momentum = oversold = buy signal
+            if (decyclerTrend < -0.001) { // Downward price action
+                // Very strong oversold condition - strong buy signal
+                if (trendDivergence < -0.0008 && // Price well below Decycler (oversold)
+                    shortMomentum < -0.002 && // Strong negative momentum
+                    acceleration < -0.0008 && // Accelerating down (getting more oversold)
+                    currentValue < -0.5) { // NET shows extreme oversold
+                    anticipatorySignal += 2.5; // INVERTED: Strong negative = strong buy signal
+                    console.log(`🔄 STRONG MEAN REVERSION BUY: Extreme oversold - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
                 }
-
-                // Medium pullback signal - early detection
-                else if (trendDivergence < -0.0002 && // Mild pullback
-                         mediumMomentum < -0.002 && // Recent decline
-                         acceleration > 0.0002) { // Starting to accelerate up
-                    anticipatorySignal += 1.2; // Medium bullish pullback signal
-                    console.log(`📈 MEDIUM PULLBACK BUY SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
+                // Medium oversold condition
+                else if (trendDivergence < -0.0003 && // Mildly oversold
+                         mediumMomentum < -0.001 && // Recent decline
+                         currentValue < -0.2) { // NET oversold
+                    anticipatorySignal += 1.5; // INVERTED: Negative = buy signal
+                    console.log(`🔄 MEDIUM MEAN REVERSION BUY: Oversold condition - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
                 }
             }
 
-            // Pullback detection in bear trend using Decycler
-            else if (decyclerTrend < -0.001) { // Longer-term bearish trend confirmed by Decycler
-                // Strong pullback sell signal - when price bounces but Decycler remains bearish
-                if (trendDivergence > 0.0005 && // Price above Decycler (bounce)
-                    shortMomentum < -0.001 && // Short-term momentum turning down
-                    acceleration < -0.0005 && // Accelerating downward
-                    currentValue > 0) { // NET shows overbought condition
-                    anticipatorySignal -= 2.0; // Very strong bearish pullback signal
-                    console.log(`🎯 STRONG PULLBACK SELL SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}, Momentum=${shortMomentum.toFixed(5)}`);
+            // MEAN REVERSION BEARISH: Strong upward momentum = overbought = sell signal
+            else if (decyclerTrend > 0.001) { // Upward price action
+                // Very strong overbought condition - strong sell signal
+                if (trendDivergence > 0.0008 && // Price well above Decycler (overbought)
+                    shortMomentum > 0.002 && // Strong positive momentum
+                    acceleration > 0.0008 && // Accelerating up (getting more overbought)
+                    currentValue > 0.5) { // NET shows extreme overbought
+                    anticipatorySignal -= 2.5; // INVERTED: Strong positive = strong sell signal
+                    console.log(`🔄 STRONG MEAN REVERSION SELL: Extreme overbought - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
                 }
+                // Medium overbought condition
+                else if (trendDivergence > 0.0003 && // Mildly overbought
+                         mediumMomentum > 0.001 && // Recent rise
+                         currentValue > 0.2) { // NET overbought
+                    anticipatorySignal -= 1.5; // INVERTED: Positive = sell signal
+                    console.log(`🔄 MEDIUM MEAN REVERSION SELL: Overbought condition - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
+                }
+            }
 
-                // Medium pullback signal - early detection
-                else if (trendDivergence > 0.0002 && // Mild bounce
-                         mediumMomentum > 0.002 && // Recent bounce
-                         acceleration < -0.0002) { // Starting to accelerate down
-                    anticipatorySignal -= 1.2; // Medium bearish pullback signal
-                    console.log(`📉 MEDIUM PULLBACK SELL SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
-                }
+            // Boost signals in ranging markets (better for mean reversion)
+            if (isRangingMarket && Math.abs(anticipatorySignal) > 0) {
+                anticipatorySignal *= 1.3; // 30% boost for ranging markets
+                console.log(`🔄 RANGING MARKET BOOST: Enhanced mean reversion signal by 30%`);
             }
         }
 

@@ -265,9 +265,75 @@ export class MarketScanner {
     }
 
     /**
-     * Generate recommendation reason
+     * Generate mean reversion recommendation reason
+     */
+    private generateMeanReversionReason(trend: TrendAnalysis): string {
+        const reasons: string[] = [];
+
+        // Add mean reversion specific reasons
+        if (trend.recommendation === 'BUY') {
+            reasons.push('OVERSOLD - Mean Reversion Buy Signal');
+            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+                reasons.push('Strong Oversold Condition');
+            }
+            if (trend.pullbackAnalysis?.pullbackType === 'bullish_pullback') {
+                reasons.push('Price Below Mean - Bounce Expected');
+            }
+        } else if (trend.recommendation === 'SELL') {
+            reasons.push('OVERBOUGHT - Mean Reversion Sell Signal');
+            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+                reasons.push('Strong Overbought Condition');
+            }
+            if (trend.pullbackAnalysis?.pullbackType === 'bearish_pullback') {
+                reasons.push('Price Above Mean - Pullback Expected');
+            }
+        }
+
+        // Add Ehlers signal context for mean reversion
+        if (trend.ehlersRecommendation?.anticipatory) {
+            if (trend.recommendation === 'BUY' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal < -1) {
+                reasons.push('Strong Contrarian Signal (Oversold)');
+            } else if (trend.recommendation === 'SELL' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal > 1) {
+                reasons.push('Strong Contrarian Signal (Overbought)');
+            }
+        }
+
+        // Add market regime context
+        if (trend.cycleTrading?.suitable) {
+            reasons.push('Ranging Market - Ideal for Mean Reversion');
+        }
+
+        return reasons.length > 0 ? reasons.join(' | ') : 'Mean Reversion Signal';
+    }
+
+    /**
+     * Calculate duration optimized for mean reversion trades
+     */
+    private calculateMeanReversionDuration(trend: TrendAnalysis): number {
+        // Mean reversion trades typically need less time than trend following
+        const baselineStrength = trend.strength === 'strong' ? 15 : trend.strength === 'moderate' ? 20 : 25;
+        
+        // Shorter durations for mean reversion
+        if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+            return 10; // Very short for strong reversals
+        } else if (trend.pullbackAnalysis?.pullbackStrength === 'medium') {
+            return 15; // Medium duration
+        }
+
+        return Math.max(10, baselineStrength - 5); // Generally shorter than trend following
+    }
+
+    /**
+     * Generate recommendation reason (kept for compatibility)
      */
     private generateRecommendationReason(trend: TrendAnalysis): string {
+        return this.generateMeanReversionReason(trend); // Delegate to mean reversion logic
+    }
+
+    /**
+     * Original recommendation reason method
+     */
+    private generateOriginalRecommendationReason(trend: TrendAnalysis): string {
         const reasons: string[] = [];
 
         // Prioritize Ehlers signals
@@ -663,16 +729,16 @@ export class MarketScanner {
             const recommendation: TradingRecommendation = {
                 symbol: symbolInfo.symbol,
                 displayName: symbolInfo.display_name,
-                direction: trend.recommendation === 'BUY' ? 'CALL' : 'PUT',
+                direction: trend.recommendation === 'BUY' ? 'CALL' : 'PUT', // Keep mapping same (BUY->CALL, SELL->PUT)
                 confidence: trend.confidence,
                 score: trend.score,
                 currentPrice: trend.price || 0,
-                reason: this.generateRecommendationReason(trend),
+                reason: this.generateMeanReversionReason(trend),
                 timestamp: Date.now(),
                 suggestedStake: this.calculateSuggestedStake(trend),
-                suggestedDuration: this.calculateSuggestedDuration(trend),
+                suggestedDuration: this.calculateMeanReversionDuration(trend), // Shorter duration for mean reversion
                 suggestedDurationUnit: 's',
-                // Additional metadata for long-term alignment
+                // Mean reversion metadata
                 longTermTrend: longTermDirection,
                 longTermStrength: trend.longTermTrendStrength,
                 trendAlignment: true

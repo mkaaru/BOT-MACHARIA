@@ -693,7 +693,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Analyze pullbacks using Ehlers Decycler and at least 5 candles
+     * Analyze mean reversion opportunities using Ehlers Decycler and at least 5 candles
      */
     private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): PullbackAnalysis {
         if (candles.length < 5) {
@@ -710,7 +710,7 @@ export class TrendAnalysisEngine {
         const last5Candles = candles.slice(-5);
         const last10Candles = candles.slice(-10);
 
-        // Calculate recent price action
+        // Calculate recent price action for mean reversion analysis
         const recentHighs = last5Candles.map(c => c.high);
         const recentLows = last5Candles.map(c => c.low);
         const recentCloses = last5Candles.map(c => c.close);
@@ -720,138 +720,136 @@ export class TrendAnalysisEngine {
         const longerCloses = last10Candles.map(c => c.close);
 
         const currentPrice = recentCloses[recentCloses.length - 1];
+        const recentHigh = Math.max(...recentHighs);
+        const recentLow = Math.min(...recentLows);
+        const longerHigh = Math.max(...longerHighs);
+        const longerLow = Math.min(...longerLows);
 
-        // Determine longer-term trend using Decycler if available
-        let longerTermTrend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
-        let decyclerTrendStrength = 0;
+        // Calculate mean/midpoint for reversion analysis
+        const recentMidpoint = (recentHigh + recentLow) / 2;
+        const longerMidpoint = (longerHigh + longerLow) / 2;
+
+        // Determine market regime using Decycler
+        let marketRegime: 'trending' | 'ranging' | 'neutral' = 'neutral';
+        let regimeStrength = 0;
 
         if (ehlersSignals?.decycler !== undefined && ehlersSignals?.instantaneousTrendline !== undefined) {
             const decyclerValue = ehlersSignals.decycler;
             const instantValue = ehlersSignals.instantaneousTrendline;
-            const trendDirection = decyclerValue - longerCloses[longerCloses.length - 3];
+            const trendDivergence = Math.abs(instantValue - decyclerValue) / decyclerValue;
 
-            decyclerTrendStrength = Math.abs(trendDirection / decyclerValue) * 100;
+            regimeStrength = trendDivergence * 100;
 
-            if (trendDirection > 0.001) {
-                longerTermTrend = 'bullish';
-            } else if (trendDirection < -0.001) {
-                longerTermTrend = 'bearish';
+            // Mean reversion works best in ranging markets
+            if (trendDivergence < 0.005) { // Less than 0.5% divergence suggests ranging
+                marketRegime = 'ranging';
+            } else {
+                marketRegime = 'trending';
             }
 
-            console.log(`📊 ${candles[0]?.symbol || 'SYMBOL'}: Decycler=${decyclerValue.toFixed(5)}, Instant=${instantValue.toFixed(5)}, Trend=${longerTermTrend}, Strength=${decyclerTrendStrength.toFixed(2)}%`);
+            console.log(`📊 MEAN REVERSION ANALYSIS ${candles[0]?.symbol || 'SYMBOL'}: Decycler=${decyclerValue.toFixed(5)}, Instant=${instantValue.toFixed(5)}, Regime=${marketRegime}, Divergence=${(trendDivergence*100).toFixed(2)}%`);
         } else {
-            // Fallback: use simple moving average of longer period
-            const longerAvg = longerCloses.reduce((a, b) => a + b, 0) / longerCloses.length;
-            const recentAvg = recentCloses.reduce((a, b) => a + b, 0) / recentCloses.length;
-
-            if (longerAvg > longerCloses[0] && recentAvg > longerAvg * 1.001) {
-                longerTermTrend = 'bullish';
-                decyclerTrendStrength = ((recentAvg - longerAvg) / longerAvg) * 100;
-            } else if (longerAvg < longerCloses[0] && recentAvg < longerAvg * 0.999) {
-                longerTermTrend = 'bearish';
-                decyclerTrendStrength = ((longerAvg - recentAvg) / longerAvg) * 100;
+            // Fallback: use price volatility to determine regime
+            const priceRange = (recentHigh - recentLow) / recentMidpoint;
+            if (priceRange > 0.01) { // > 1% range suggests trending
+                marketRegime = 'trending';
+                regimeStrength = priceRange * 100;
+            } else {
+                marketRegime = 'ranging';
+                regimeStrength = (1 - priceRange) * 100;
             }
         }
 
-        // Detect pullback patterns in the last 5 candles
+        // Mean reversion signal detection
         let pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback' = 'none';
         let pullbackStrength: 'weak' | 'medium' | 'strong' = 'weak';
         let confidence = 0;
 
-        // Bullish pullback detection (buy the dip)
-        if (longerTermTrend === 'bullish') {
-            const recentHigh = Math.max(...recentHighs);
-            const recentLow = Math.min(...recentLows);
-            const pullbackDepth = (recentHigh - currentPrice) / recentHigh;
+        // MEAN REVERSION BUY SIGNAL: Price oversold, expecting bounce
+        const distanceFromHigh = (recentHigh - currentPrice) / recentHigh;
+        const distanceFromMidpoint = (currentPrice - recentMidpoint) / recentMidpoint;
+        const isOversold = currentPrice <= recentLow * 1.005; // Within 0.5% of recent low
+        const hasBottomTail = last5Candles.some(c => (c.close - c.low) / (c.high - c.low) > 0.7); // Candle with long bottom wick
 
-            // Check for pullback pattern: higher highs followed by lower lows but above key support
-            const isHigherHigh = recentHigh > Math.max(...longerHighs.slice(0, -5));
-            const isPullbackFromHigh = currentPrice < recentHigh * 0.998; // At least 0.2% pullback
-            const isAboveSupport = currentPrice > Math.min(...longerLows.slice(-7, -2)); // Above recent support
+        if (distanceFromHigh > 0.005 && // At least 0.5% down from high
+            distanceFromMidpoint < -0.002 && // Below midpoint
+            isOversold &&
+            hasBottomTail) {
 
-            // Check for reversal signs in recent candles
-            const last2Candles = last5Candles.slice(-2);
-            const isShowingReversal = last2Candles[1].close > last2Candles[0].low &&
-                                    last2Candles[1].close > last2Candles[1].open; // Green candle after pullback
+            pullbackType = 'bullish_pullback'; // INVERTED: Buy when oversold
+            confidence = 60;
 
-            if (isPullbackFromHigh && isAboveSupport) {
-                pullbackType = 'bullish_pullback';
-                confidence = 60;
-
-                if (isHigherHigh && isShowingReversal) {
-                    pullbackStrength = 'strong';
-                    confidence = 85;
-                    console.log(`🎯 STRONG BULLISH PULLBACK DETECTED: Depth=${(pullbackDepth*100).toFixed(2)}%, Reversal Signs Present`);
-                } else if (isShowingReversal || pullbackDepth > 0.003) {
-                    pullbackStrength = 'medium';
-                    confidence = 72;
-                    console.log(`📈 MEDIUM BULLISH PULLBACK DETECTED: Depth=${(pullbackDepth*100).toFixed(2)}%`);
-                } else {
-                    pullbackStrength = 'weak';
-                    confidence = 65;
-                }
+            // Strength based on how oversold
+            if (distanceFromHigh > 0.015 && marketRegime === 'ranging') { // >1.5% down in ranging market
+                pullbackStrength = 'strong';
+                confidence = 85;
+                console.log(`🔄 STRONG MEAN REVERSION BUY: Oversold ${(distanceFromHigh*100).toFixed(2)}% from high in ranging market`);
+            } else if (distanceFromHigh > 0.008) { // >0.8% down
+                pullbackStrength = 'medium';
+                confidence = 72;
+                console.log(`🔄 MEDIUM MEAN REVERSION BUY: Oversold ${(distanceFromHigh*100).toFixed(2)}% from high`);
+            } else {
+                pullbackStrength = 'weak';
+                confidence = 65;
             }
         }
 
-        // Bearish pullback detection (sell the bounce)
-        else if (longerTermTrend === 'bearish') {
-            const recentHigh = Math.max(...recentHighs);
-            const recentLow = Math.min(...recentLows);
-            const bounceHeight = (currentPrice - recentLow) / recentLow;
+        // MEAN REVERSION SELL SIGNAL: Price overbought, expecting pullback  
+        const distanceFromLow = (currentPrice - recentLow) / recentLow;
+        const isOverbought = currentPrice >= recentHigh * 0.995; // Within 0.5% of recent high
+        const hasTopTail = last5Candles.some(c => (c.high - c.close) / (c.high - c.low) > 0.7); // Candle with long top wick
 
-            // Check for bounce pattern: lower lows followed by higher highs but below key resistance
-            const isLowerLow = recentLow < Math.min(...longerLows.slice(0, -5));
-            const isBounceFromLow = currentPrice > recentLow * 1.002; // At least 0.2% bounce
-            const isBelowResistance = currentPrice < Math.max(...longerHighs.slice(-7, -2)); // Below recent resistance
+        if (distanceFromLow > 0.005 && // At least 0.5% up from low
+            distanceFromMidpoint > 0.002 && // Above midpoint
+            isOverbought &&
+            hasTopTail) {
 
-            // Check for reversal signs in recent candles
-            const last2Candles = last5Candles.slice(-2);
-            const isShowingReversal = last2Candles[1].close < last2Candles[0].high &&
-                                    last2Candles[1].close < last2Candles[1].open; // Red candle after bounce
+            pullbackType = 'bearish_pullback'; // INVERTED: Sell when overbought
+            confidence = 60;
 
-            if (isBounceFromLow && isBelowResistance) {
-                pullbackType = 'bearish_pullback';
-                confidence = 60;
-
-                if (isLowerLow && isShowingReversal) {
-                    pullbackStrength = 'strong';
-                    confidence = 85;
-                    console.log(`🎯 STRONG BEARISH PULLBACK DETECTED: Bounce=${(bounceHeight*100).toFixed(2)}%, Reversal Signs Present`);
-                } else if (isShowingReversal || bounceHeight > 0.003) {
-                    pullbackStrength = 'medium';
-                    confidence = 72;
-                    console.log(`📉 MEDIUM BEARISH PULLBACK DETECTED: Bounce=${(bounceHeight*100).toFixed(2)}%`);
-                } else {
-                    pullbackStrength = 'weak';
-                    confidence = 65;
-                }
+            // Strength based on how overbought
+            if (distanceFromLow > 0.015 && marketRegime === 'ranging') { // >1.5% up in ranging market
+                pullbackStrength = 'strong';
+                confidence = 85;
+                console.log(`🔄 STRONG MEAN REVERSION SELL: Overbought ${(distanceFromLow*100).toFixed(2)}% from low in ranging market`);
+            } else if (distanceFromLow > 0.008) { // >0.8% up
+                pullbackStrength = 'medium';
+                confidence = 72;
+                console.log(`🔄 MEDIUM MEAN REVERSION SELL: Overbought ${(distanceFromLow*100).toFixed(2)}% from low`);
+            } else {
+                pullbackStrength = 'weak';
+                confidence = 65;
             }
         }
 
-        // Generate recommendation based on pullback analysis
+        // Generate INVERTED recommendation for mean reversion
         let recommendation: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
 
         if (pullbackType === 'bullish_pullback' && confidence >= 70) {
-            recommendation = 'BUY';
+            recommendation = 'BUY'; // Buy oversold conditions
         } else if (pullbackType === 'bearish_pullback' && confidence >= 70) {
-            recommendation = 'SELL';
+            recommendation = 'SELL'; // Sell overbought conditions
         }
 
-        // Enhance confidence with Ehlers signals
-        if (ehlersSignals?.anticipatorySignal !== undefined) {
-            if (pullbackType === 'bullish_pullback' && ehlersSignals.anticipatorySignal > 1.0) {
-                confidence = Math.min(95, confidence + 15);
-                console.log(`⚡ Ehlers anticipatory signal confirms bullish pullback: ${ehlersSignals.anticipatorySignal.toFixed(2)}`);
-            } else if (pullbackType === 'bearish_pullback' && ehlersSignals.anticipatorySignal < -1.0) {
-                confidence = Math.min(95, confidence + 15);
-                console.log(`⚡ Ehlers anticipatory signal confirms bearish pullback: ${ehlersSignals.anticipatorySignal.toFixed(2)}`);
+        // Enhance confidence with Ehlers signals for mean reversion
+        if (ehlersSignals && pullbackType !== 'none') {
+            // In mean reversion, we want contrarian signals
+            if (ehlersSignals.anticipatorySignal < -1.0 && pullbackType === 'bullish_pullback') {
+                confidence = Math.min(95, confidence + 15); // Negative signal + oversold = strong buy
+            } else if (ehlersSignals.anticipatorySignal > 1.0 && pullbackType === 'bearish_pullback') {
+                confidence = Math.min(95, confidence + 15); // Positive signal + overbought = strong sell
+            }
+
+            // Bonus for ranging markets (better for mean reversion)
+            if (marketRegime === 'ranging') {
+                confidence = Math.min(95, confidence + 10);
             }
         }
-
+        
         return {
             isPullback: pullbackType !== 'none',
             pullbackStrength,
-            longerTermTrend,
+            longerTermTrend: marketRegime === 'ranging' ? 'neutral' : marketRegime === 'trending' ? 'bullish' : 'neutral', // Simplified for mean reversion
             pullbackType,
             confidence,
             recommendation
