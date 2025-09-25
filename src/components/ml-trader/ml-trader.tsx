@@ -1183,6 +1183,46 @@ const MLTrader = observer(() => {
                                                         </div>
                                                     )}
 
+                                                    {/* Enhanced Pullback Analysis Display */}
+                                                    {trend.pullbackAnalysis && trend.pullbackAnalysis.isPullback && (
+                                                        <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
+                                                            <div className="pullback-header">
+                                                                <Text size="xs" weight="bold" color={
+                                                                    trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
+                                                                    trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
+                                                                }>
+                                                                    🎯 PULLBACK DETECTED
+                                                                </Text>
+                                                                {trend.pullbackAnalysis.entrySignal && (
+                                                                    <div className="entry-signal-badge">
+                                                                        <Text size="xs" weight="bold" color="profit-success">
+                                                                            🚀 ENTRY SIGNAL
+                                                                        </Text>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="pullback-details">
+                                                                <Text size="xs">
+                                                                    Type: {trend.pullbackAnalysis.pullbackType.replace('_', ' ').toUpperCase()}
+                                                                </Text>
+                                                                <Text size="xs">
+                                                                    Strength: {trend.pullbackAnalysis.pullbackStrength.toUpperCase()}
+                                                                </Text>
+                                                                <Text size="xs">
+                                                                    Trend: {trend.pullbackAnalysis.longerTermTrend.toUpperCase()}
+                                                                </Text>
+                                                                <Text size="xs">
+                                                                    Confidence: {trend.pullbackAnalysis.confidence}%
+                                                                </Text>
+                                                                {trend.pullbackAnalysis.priceVsDecycler !== undefined && (
+                                                                    <Text size="xs">
+                                                                        Price vs Decycler: {trend.pullbackAnalysis.priceVsDecycler.toFixed(2)}%
+                                                                    </Text>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {/* Cycle Trading Suitability */}
                                                     {trend.cycleTrading && (
                                                         <div className={`cycle-status ${trend.cycleTrading.suitable ? 'suitable' : 'unsuitable'}`}>
@@ -1273,75 +1313,6 @@ const MLTrader = observer(() => {
                                             );
                                         })}
                                     </div>
-                                </div>
-                            </div>
-
-                                {/* AI Analysis Loading */}
-                                <div className="ai-analysis-section">
-                                    <div className="ai-analysis-header">
-                                        <Text size="xs" weight="bold" color="prominent">
-                                            🤖 {localize('AI Market Analysis Engine')}
-                                        </Text>
-                                        <div className="analysis-status-indicator">
-                                            <div className="pulse-dot"></div>
-                                            <Text size="xs" color="general">
-                                                {localize('Processing market data...')}
-                                            </Text>
-                                        </div>
-                                    </div>
-
-                                    {showAIAnalysis && (
-                                        <div className="ai-analysis-loading">
-                                            <div className="loading-animation">
-                                                <div className="scanning-line"></div>
-                                                <div className="data-processing">
-                                                    <div className="processing-bar">
-                                                        <div className="processing-fill"></div>
-                                                    </div>
-                                                    <Text size="xs" color="general">
-                                                        Analyzing {ENHANCED_VOLATILITY_SYMBOLS.length} volatility indices...
-                                                    </Text>
-                                                </div>
-                                                <div className="analysis-steps">
-                                                    <div className="step loading">
-                                                        <div className="step-spinner"></div>
-                                                        <Text size="xs">Collecting tick data</Text>
-                                                    </div>
-                                                    <div className="step loading">
-                                                        <div className="step-spinner"></div>
-                                                        <Text size="xs">Computing HMA indicators</Text>
-                                                    </div>
-                                                    <div className="step loading">
-                                                        <div className="step-spinner"></div>
-                                                        <Text size="xs">Running Ehlers algorithms</Text>
-                                                    </div>
-                                                    <div className="step loading">
-                                                        <div className="step-spinner"></div>
-                                                        <Text size="xs">Generating predictions</Text>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="ai-stats-loading">
-                                                <div className="stat-item">
-                                                    <Text size="xs" weight="bold">Analysis Progress</Text>
-                                                    <div className="progress-indicator">
-                                                        <div className="progress-bar">
-                                                            <div className="progress-fill loading-progress"></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="stat-item">
-                                                    <Text size="xs" weight="bold">Symbols Processed</Text>
-                                                    <Text size="xs" color="prominent">0/{ENHANCED_VOLATILITY_SYMBOLS.length}</Text>
-                                                </div>
-                                                <div className="stat-item">
-                                                    <Text size="xs" weight="bold">Status</Text>
-                                                    <Text size="xs" color="general">Initializing...</Text>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1452,43 +1423,64 @@ const MLTrader = observer(() => {
                                                 </div>
 
                                                 {/* Display Ehlers and Pullback Analysis */}
-                                                {trend.pullbackAnalysis && trend.pullbackAnalysis.isPullback && (
-                                                    <div className="trend-pullback">
-                                                        <Text size="xs" weight="bold" color={
-                                                            trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
-                                                            trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
-                                                        }>
-                                                            🎯 PULLBACK: {trend.pullbackAnalysis.pullbackType.replace('_', ' ').toUpperCase()} 
-                                                            ({trend.pullbackAnalysis.confidence.toFixed(0)}%)
-                                                        </Text>
-                                                        <Text size="xs" color="general">
-                                                            Strength: {trend.pullbackAnalysis.pullbackStrength.toUpperCase()} • 
-                                                            Long-term: {trend.pullbackAnalysis.longerTermTrend.toUpperCase()}
-                                                        </Text>
-                                                        {trend.ehlers?.decycler && (
-                                                            <Text size="xs" color="general">
-                                                                📈 Decycler: {trend.ehlers.decycler.toFixed(5)} • 
-                                                                Instant: {trend.ehlers.instantaneousTrendline?.toFixed(5)}
-                                                            </Text>
+                                                {trend.ehlers && (
+                                                    <div className="ehlers-signals">
+                                                        <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
+                                                        <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
+                                                        <Text size="xs">ANTIC: {trend.ehlers.anticipatorySignal.toFixed(2)}</Text>
+                                                        {trend.ehlersRecommendation?.anticipatory && (
+                                                            <div className={`anticipatory-signal ${trend.ehlersRecommendation.signalStrength}`}>
+                                                                {trend.ehlersRecommendation.signalStrength === 'strong' && (
+                                                                    <Text size="xs" color="profit-success">🎯 STRONG PULLBACK</Text>
+                                                                )}
+                                                                {trend.ehlersRecommendation.signalStrength === 'medium' && (
+                                                                    <Text size="xs" color="prominent">⚡ EARLY SIGNAL</Text>
+                                                                )}
+                                                                {trend.ehlersRecommendation.signalStrength === 'weak' && (
+                                                                    <Text size="xs" color="general">📊 POTENTIAL</Text>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 )}
 
-                                                {trend.ehlersRecommendation && (
-                                                    <div className="trend-ehlers">
-                                                        <Text size="xs" weight="bold" color={
-                                                            trend.ehlersRecommendation.action === 'BUY' ? 'profit-success' : 
-                                                            trend.ehlersRecommendation.action === 'SELL' ? 'loss-danger' : 'general'
-                                                        }>
-                                                            Ehlers: {trend.ehlersRecommendation.action} ({trend.ehlersRecommendation.confidence.toFixed(0)}%)
-                                                        </Text>
-                                                        <Text size="xs" color="general">
-                                                            {trend.ehlersRecommendation.anticipatory ? '⚡ Anticipatory' : '📊 Standard'} • 
-                                                            {trend.ehlersRecommendation.signalStrength.toUpperCase()}
-                                                        </Text>
-                                                        <Text size="xs" color="general" className="trend-reason">
-                                                            {trend.ehlersRecommendation.reason}
-                                                        </Text>
+                                                {/* Enhanced Pullback Analysis Display */}
+                                                {trend.pullbackAnalysis && trend.pullbackAnalysis.isPullback && (
+                                                    <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
+                                                        <div className="pullback-header">
+                                                            <Text size="xs" weight="bold" color={
+                                                                trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
+                                                                trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
+                                                            }>
+                                                                🎯 PULLBACK DETECTED
+                                                            </Text>
+                                                            {trend.pullbackAnalysis.entrySignal && (
+                                                                <div className="entry-signal-badge">
+                                                                    <Text size="xs" weight="bold" color="profit-success">
+                                                                        🚀 ENTRY SIGNAL
+                                                                    </Text>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="pullback-details">
+                                                            <Text size="xs">
+                                                                Type: {trend.pullbackAnalysis.pullbackType.replace('_', ' ').toUpperCase()}
+                                                            </Text>
+                                                            <Text size="xs">
+                                                                Strength: {trend.pullbackAnalysis.pullbackStrength.toUpperCase()}
+                                                            </Text>
+                                                            <Text size="xs">
+                                                                Trend: {trend.pullbackAnalysis.longerTermTrend.toUpperCase()}
+                                                            </Text>
+                                                            <Text size="xs">
+                                                                Confidence: {trend.pullbackAnalysis.confidence}%
+                                                            </Text>
+                                                            {trend.pullbackAnalysis.priceVsDecycler !== undefined && (
+                                                                <Text size="xs">
+                                                                    Price vs Decycler: {trend.pullbackAnalysis.priceVsDecycler.toFixed(2)}%
+                                                                </Text>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </>

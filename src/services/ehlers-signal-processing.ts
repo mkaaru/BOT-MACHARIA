@@ -1,4 +1,3 @@
-
 import { EfficientHMACalculator } from './efficient-hma-calculator';
 
 export interface EhlersSignals {
@@ -70,6 +69,29 @@ export interface HilbertState {
     decycler: number[];
 }
 
+// Placeholder for CandleData interface, assuming it has at least 'close', 'high', 'low', 'open'
+interface CandleData {
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    timestamp: Date;
+}
+
+// Placeholder for PullbackAnalysis interface
+interface PullbackAnalysis {
+    isPullback: boolean;
+    pullbackType: string;
+    pullbackStrength: string;
+    longerTermTrend: string;
+    confidence: number;
+    entrySignal: boolean;
+    decyclerValue?: number;
+    priceVsDecycler?: number;
+    hasReversal?: boolean;
+    supportHolding?: boolean;
+}
+
 /**
  * Enhanced Ehlers Signal Processing Engine with Advanced Market Analysis
  * Implements John Ehlers' complete signal processing suite optimized for Deriv markets
@@ -80,11 +102,11 @@ export class EhlersSignalProcessor {
     private amfmStates: Map<string, AMFMState> = new Map();
     private hilbertStates: Map<string, HilbertState> = new Map();
     private signals: Map<string, EhlersSignals[]> = new Map();
-    
+
     private readonly ROOFING_PERIOD = 20;
     private readonly NET_LENGTH = 14;
     private readonly MAX_HISTORY = 200;
-    
+
     // Adaptive thresholds based on market volatility
     private adaptiveThresholds = {
         trendStrength: 0.0001,  // Very sensitive for short-term markets
@@ -165,7 +187,7 @@ export class EhlersSignalProcessor {
         }
         const symbolSignals = this.signals.get(symbol)!;
         symbolSignals.push(signals);
-        
+
         // Maintain history size
         if (symbolSignals.length > this.MAX_HISTORY) {
             symbolSignals.shift();
@@ -227,9 +249,9 @@ export class EhlersSignalProcessor {
     private applyRoofingFilter(price: number, state: RoofingFilterState, highpass: number = 40, lowpass: number = 10): number {
         // 2nd Order HighPass Filter
         const alpha1 = (Math.cos(0.25 * Math.PI / highpass) + Math.sin(0.25 * Math.PI / highpass) - 1) / Math.cos(0.25 * Math.PI / highpass);
-        const hp = (1 - alpha1 / 2) * (1 - alpha1 / 2) * (price - 2 * (state.hp1 || price) + (state.hp2 || price)) + 
+        const hp = (1 - alpha1 / 2) * (1 - alpha1 / 2) * (price - 2 * (state.hp1 || price) + (state.hp2 || price)) +
                    2 * (1 - alpha1) * (state.hp1 || 0) - (1 - alpha1) * (1 - alpha1) * (state.hp2 || 0);
-        
+
         state.hp2 = state.hp1 || 0;
         state.hp1 = hp;
 
@@ -239,9 +261,9 @@ export class EhlersSignalProcessor {
         const c2 = b1;
         const c3 = -a1 * a1;
         const c1 = 1 - c2 - c3;
-        
+
         const ss = c1 * (hp + (state.ss1 || hp)) / 2 + c2 * (state.ss1 || 0) + c3 * (state.ss2 || 0);
-        
+
         state.ss2 = state.ss1 || 0;
         state.ss1 = ss;
 
@@ -253,7 +275,7 @@ export class EhlersSignalProcessor {
      */
     private applyNET(value: number, state: NETState): number {
         state.values.push(value);
-        
+
         // Maintain buffer size
         if (state.values.length > this.NET_LENGTH) {
             state.values.shift();
@@ -335,80 +357,80 @@ export class EhlersSignalProcessor {
     private calculateHilbertTransform(hilbertState: HilbertState): Partial<EhlersSignals> {
         const prices = hilbertState.prices;
         const n = prices.length;
-        
+
         if (n < 50) {
             return {};
         }
 
         // Apply roofing filter first
         const roofed = this.calculateRoofingFilterArray(prices, 40, 10);
-        
+
         // Calculate Hilbert Transform components
         for (let i = 6; i < n; i++) {
             // Detrend
-            hilbertState.detrender[i] = 0.0962 * roofed[i] + 0.5769 * roofed[i - 2] - 
+            hilbertState.detrender[i] = 0.0962 * roofed[i] + 0.5769 * roofed[i - 2] -
                               0.5769 * roofed[i - 4] - 0.0962 * roofed[i - 6];
-            
+
             // Compute InPhase and Quadrature components
-            hilbertState.q1[i] = 0.0962 * hilbertState.detrender[i] + 0.5769 * hilbertState.detrender[i - 2] - 
+            hilbertState.q1[i] = 0.0962 * hilbertState.detrender[i] + 0.5769 * hilbertState.detrender[i - 2] -
                        0.5769 * hilbertState.detrender[i - 4] - 0.0962 * hilbertState.detrender[i - 6];
             hilbertState.i1[i] = hilbertState.detrender[i - 3];
-            
+
             // Advance the phase of I1 and Q1 by 90 degrees
-            hilbertState.jI[i] = 0.0962 * hilbertState.i1[i] + 0.5769 * hilbertState.i1[i - 2] - 
+            hilbertState.jI[i] = 0.0962 * hilbertState.i1[i] + 0.5769 * hilbertState.i1[i - 2] -
                        0.5769 * hilbertState.i1[i - 4] - 0.0962 * hilbertState.i1[i - 6];
-            hilbertState.jQ[i] = 0.0962 * hilbertState.q1[i] + 0.5769 * hilbertState.q1[i - 2] - 
+            hilbertState.jQ[i] = 0.0962 * hilbertState.q1[i] + 0.5769 * hilbertState.q1[i - 2] -
                        0.5769 * hilbertState.q1[i - 4] - 0.0962 * hilbertState.q1[i - 6];
-            
+
             // Phasor addition for 3 bar averaging
             hilbertState.i2[i] = hilbertState.i1[i] - hilbertState.jQ[i];
             hilbertState.q2[i] = hilbertState.q1[i] + hilbertState.jI[i];
-            
+
             // Smooth the I and Q components
             hilbertState.i2[i] = 0.2 * hilbertState.i2[i] + 0.8 * (hilbertState.i2[i - 1] || 0);
             hilbertState.q2[i] = 0.2 * hilbertState.q2[i] + 0.8 * (hilbertState.q2[i - 1] || 0);
-            
+
             // Homodyne Discriminator
             hilbertState.re[i] = hilbertState.i2[i] * (hilbertState.i2[i - 1] || 0) + hilbertState.q2[i] * (hilbertState.q2[i - 1] || 0);
             hilbertState.im[i] = hilbertState.i2[i] * (hilbertState.q2[i - 1] || 0) - hilbertState.q2[i] * (hilbertState.i2[i - 1] || 0);
-            
+
             hilbertState.re[i] = 0.2 * hilbertState.re[i] + 0.8 * (hilbertState.re[i - 1] || 0);
             hilbertState.im[i] = 0.2 * hilbertState.im[i] + 0.8 * (hilbertState.im[i - 1] || 0);
-            
+
             // Calculate period
             if (hilbertState.im[i] !== 0 && hilbertState.re[i] !== 0) {
                 hilbertState.period[i] = 360 / Math.atan(hilbertState.im[i] / hilbertState.re[i]);
             }
-            
+
             // Constrain period to reasonable range
             if (hilbertState.period[i] > 50) hilbertState.period[i] = 50;
             if (hilbertState.period[i] < 10) hilbertState.period[i] = 10;
-            
+
             // Smooth period
             hilbertState.smoothPeriod[i] = 0.2 * hilbertState.period[i] + 0.8 * (hilbertState.smoothPeriod[i - 1] || 20);
-            
+
             // Calculate phase
             if (hilbertState.i1[i] !== 0) {
                 hilbertState.phase[i] = Math.atan(hilbertState.q1[i] / hilbertState.i1[i]);
             }
-            
+
             // Calculate instantaneous trendline
-            hilbertState.instTrendline[i] = (roofed[i] + 2 * (roofed[i - 1] || 0) + 
+            hilbertState.instTrendline[i] = (roofed[i] + 2 * (roofed[i - 1] || 0) +
                                    2 * (roofed[i - 2] || 0) + (roofed[i - 3] || 0)) / 6;
-            
+
             hilbertState.trendline[i] = 0.25 * hilbertState.instTrendline[i] + 0.75 * (hilbertState.trendline[i - 1] || roofed[i]);
         }
 
         // Calculate decycler
         hilbertState.decycler = this.calculateDecycler(prices, 20);
-        
+
         const lastIndex = n - 1;
         const amplitude = Math.sqrt(Math.pow(hilbertState.i2[lastIndex] || 0, 2) + Math.pow(hilbertState.q2[lastIndex] || 0, 2));
         const power = Math.pow(amplitude, 2);
-        
+
         // Signal quality assessment
         const signalQuality = this.calculateSignalQuality(roofed, hilbertState.smoothPeriod[lastIndex] || 20);
-        
+
         return {
             trend: hilbertState.trendline[lastIndex] || 0,
             cycle: roofed[lastIndex] - (hilbertState.trendline[lastIndex] || 0),
@@ -429,17 +451,17 @@ export class EhlersSignalProcessor {
     private calculateDecycler(prices: number[], highpass: number = 20): number[] {
         const decycler: number[] = [];
         const alpha = 1 / (highpass * Math.sqrt(2) + 1);
-        
+
         for (let i = 0; i < prices.length; i++) {
             if (i < 2) {
                 decycler[i] = prices[i];
                 continue;
             }
-            
-            decycler[i] = alpha * (prices[i] + prices[i - 1]) / 2 + 
+
+            decycler[i] = alpha * (prices[i] + prices[i - 1]) / 2 +
                           (1 - alpha) * decycler[i - 1];
         }
-        
+
         return decycler;
     }
 
@@ -448,45 +470,308 @@ export class EhlersSignalProcessor {
      */
     private calculateRoofingFilterArray(prices: number[], highpass: number = 40, lowpass: number = 10): number[] {
         const roofed: number[] = [];
-        
+
         // First apply high-pass filter
         const alpha1 = (Math.cos(0.25 * Math.PI / highpass) + Math.sin(0.25 * Math.PI / highpass) - 1) /
                        Math.cos(0.25 * Math.PI / highpass);
-        
+
         const hp: number[] = [];
         for (let i = 0; i < prices.length; i++) {
             if (i < 2) {
                 hp[i] = 0;
                 continue;
             }
-            
-            hp[i] = 0.5 * (1 + alpha1) * (prices[i] - prices[i - 1]) + 
+
+            hp[i] = 0.5 * (1 + alpha1) * (prices[i] - prices[i - 1]) +
                     alpha1 * hp[i - 1];
         }
-        
+
         // Then apply Super Smoother (low-pass)
         const a1 = Math.exp(-1.414 * Math.PI / lowpass);
         const b1 = 2 * a1 * Math.cos(1.414 * Math.PI / lowpass);
         const c2 = b1;
         const c3 = -a1 * a1;
         const c1 = 1 - c2 - c3;
-        
+
         for (let i = 0; i < hp.length; i++) {
             if (i < 2) {
                 roofed[i] = hp[i];
                 continue;
             }
-            
-            roofed[i] = c1 * (hp[i] + hp[i - 1]) / 2 + 
-                        c2 * roofed[i - 1] + 
+
+            roofed[i] = c1 * (hp[i] + hp[i - 1]) / 2 +
+                        c2 * roofed[i - 1] +
                         c3 * roofed[i - 2];
         }
-        
+
         return roofed;
     }
 
     /**
-     * Enhanced pullback detection with Ehlers Decycler for longer-term trends
+     * Calculate instantaneous trendline
+     */
+    private calculateInstantaneousTrendline(prices: number[]): number[] {
+        const n = prices.length;
+        const trendline: number[] = [];
+        if (n < 4) return trendline;
+
+        for (let i = 3; i < n; i++) {
+            trendline[i] = (prices[i] + 2 * (prices[i - 1] || 0) + 2 * (prices[i - 2] || 0) + (prices[i - 3] || 0)) / 6;
+        }
+        return trendline;
+    }
+
+    /**
+     * Analyze trend from Decycler slope
+     */
+    private analyzeTrendFromDecycler(decyclerValues: number[]): string {
+        if (decyclerValues.length < 10) return 'neutral';
+
+        const n = decyclerValues.length;
+        const slope = (decyclerValues[n - 1] - decyclerValues[0]) / n;
+
+        if (slope > 0.0001) return 'bullish';
+        if (slope < -0.0001) return 'bearish';
+        return 'neutral';
+    }
+
+    /**
+     * Enhanced pullback detection for longer-term trends using at least 5 candles
+     */
+    detectPullbackOpportunity(candles: CandleData[], longTermPeriod: number = 30): PullbackAnalysis {
+        if (candles.length < Math.max(longTermPeriod, 5)) {
+            return {
+                isPullback: false,
+                pullbackType: 'none',
+                pullbackStrength: 'weak',
+                longerTermTrend: 'neutral',
+                confidence: 0,
+                entrySignal: false
+            };
+        }
+
+        // Use at least 5 candles for analysis
+        const analysisCandles = candles.slice(-Math.max(5, Math.min(15, candles.length)));
+
+        // Calculate Decycler for longer-term trend (bull/bear identification)
+        const decyclerValues = this.calculateDecycler(candles.map(c => c.close), longTermPeriod);
+        const instantTrendline = this.calculateInstantaneousTrendline(candles.map(c => c.close));
+
+        const currentPrice = analysisCandles[analysisCandles.length - 1].close;
+        const currentDecycler = decyclerValues[decyclerValues.length - 1];
+        const currentInstant = instantTrendline[instantTrendline.length - 1];
+
+        // Determine longer-term trend from Decycler slope over last 10 periods
+        const decyclerTrend = this.analyzeTrendFromDecycler(decyclerValues.slice(-10));
+
+        // Analyze pullback pattern in recent candles
+        const pullbackAnalysis = this.analyzePullbackPattern(analysisCandles, currentDecycler, decyclerTrend);
+
+        // Calculate confidence based on multiple factors
+        const confidence = this.calculatePullbackConfidence(
+            pullbackAnalysis,
+            decyclerTrend,
+            currentPrice,
+            currentDecycler,
+            analysisCandles
+        );
+
+        // Generate entry signal for pullback reversals in bull trends
+        const entrySignal = this.shouldGenerateEntrySignal(
+            pullbackAnalysis,
+            decyclerTrend,
+            currentPrice,
+            currentDecycler,
+            currentInstant,
+            analysisCandles
+        );
+
+        return {
+            isPullback: pullbackAnalysis.isPullback,
+            pullbackType: pullbackAnalysis.type,
+            pullbackStrength: pullbackAnalysis.strength,
+            longerTermTrend: decyclerTrend,
+            confidence,
+            entrySignal,
+            decyclerValue: currentDecycler,
+            priceVsDecycler: ((currentPrice - currentDecycler) / currentDecycler) * 100
+        };
+    }
+
+    private analyzePullbackPattern(candles: CandleData[], decyclerValue: number, longerTermTrend: string): any {
+        if (candles.length < 5) {
+            return {
+                isPullback: false,
+                type: 'none',
+                strength: 'weak'
+            };
+        }
+
+        const closes = candles.map(c => c.close);
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+        const currentPrice = closes[closes.length - 1];
+
+        // For bull trends, look for pullbacks from recent highs
+        if (longerTermTrend === 'bullish') {
+            // Find the highest point in recent candles
+            const recentHigh = Math.max(...highs);
+            const highIndex = highs.findIndex(h => h === recentHigh);
+
+            // Check if we've pulled back from the high
+            const pullbackAmount = (recentHigh - currentPrice) / recentHigh;
+
+            // Look for signs of pullback reversal
+            const last3Candles = candles.slice(-3);
+            const hasGreenCandle = last3Candles.some(c => c.close > c.open);
+            const isAboveDecycler = currentPrice > decyclerValue * 0.999; // Allow small deviation
+
+            // Check if recent lows are holding above key support (Decycler)
+            const recentLow = Math.min(...lows.slice(-3));
+            const supportHolding = recentLow > decyclerValue * 0.995;
+
+            if (pullbackAmount > 0.003 && pullbackAmount < 0.05) { // 0.3% to 5% pullback
+                return {
+                    isPullback: true,
+                    type: 'bullish_pullback',
+                    strength: pullbackAmount > 0.02 ? 'strong' : pullbackAmount > 0.01 ? 'medium' : 'weak',
+                    hasReversal: hasGreenCandle && isAboveDecycler,
+                    supportHolding
+                };
+            }
+        }
+
+        // For bear trends, look for pullbacks from recent lows (for potential shorts)
+        if (longerTermTrend === 'bearish') {
+            const recentLow = Math.min(...lows);
+            const pullupAmount = (currentPrice - recentLow) / recentLow;
+
+            if (pullupAmount > 0.003 && pullupAmount < 0.05) {
+                return {
+                    isPullback: true,
+                    type: 'bearish_pullback',
+                    strength: pullupAmount > 0.02 ? 'strong' : pullupAmount > 0.01 ? 'medium' : 'weak'
+                };
+            }
+        }
+
+        return {
+            isPullback: false,
+            type: 'none',
+            strength: 'weak'
+        };
+    }
+
+    private shouldGenerateEntrySignal(
+        pullbackAnalysis: any,
+        decyclerTrend: string,
+        currentPrice: number,
+        currentDecycler: number,
+        currentInstant: number,
+        candles: CandleData[]
+    ): boolean {
+        // Generate buy signals for pullback reversals in bull trends
+        if (pullbackAnalysis.isPullback && decyclerTrend === 'bullish' && pullbackAnalysis.type === 'bullish_pullback') {
+
+            // Multiple confirmation criteria for entry signal
+            const confirmations = [];
+
+            // 1. Price action confirmation - recent green candle
+            const lastCandle = candles[candles.length - 1];
+            const secondLastCandle = candles[candles.length - 2];
+            if (lastCandle.close > lastCandle.open) {
+                confirmations.push('green_candle');
+            }
+
+            // 2. Price above instantaneous trendline
+            if (currentPrice > currentInstant) {
+                confirmations.push('above_instant');
+            }
+
+            // 3. Price near or above Decycler (longer-term trend)
+            if (currentPrice > currentDecycler * 0.998) { // Within 0.2% of Decycler
+                confirmations.push('near_decycler');
+            }
+
+            // 4. Support holding - lows staying above Decycler
+            if (pullbackAnalysis.supportHolding) {
+                confirmations.push('support_holding');
+            }
+
+            // 5. Momentum turning - last candle higher than previous
+            if (lastCandle.close > secondLastCandle.close) {
+                confirmations.push('momentum_turn');
+            }
+
+            // Require at least 3 confirmations for strong signal
+            const strongSignal = confirmations.length >= 3;
+            const mediumSignal = confirmations.length >= 2;
+
+            return strongSignal || (mediumSignal && pullbackAnalysis.hasReversal);
+        }
+
+        return false;
+    }
+
+    private calculatePullbackConfidence(
+        pullbackAnalysis: any,
+        decyclerTrend: string,
+        currentPrice: number,
+        currentDecycler: number,
+        candles: CandleData[]
+    ): number {
+        let confidence = 0;
+
+        if (pullbackAnalysis.isPullback && decyclerTrend === 'bullish' && pullbackAnalysis.type === 'bullish_pullback') {
+
+            // Base confidence for valid pullback in bull trend
+            confidence += 35;
+
+            // Trend strength bonus
+            if (decyclerTrend === 'bullish') confidence += 25;
+
+            // Price position relative to Decycler
+            const priceVsDecycler = (currentPrice - currentDecycler) / currentDecycler;
+            if (priceVsDecycler > -0.005 && priceVsDecycler < 0.005) {
+                confidence += 20; // Near Decycler is ideal
+            } else if (priceVsDecycler > 0) {
+                confidence += 15; // Above Decycler is good
+            }
+
+            // Pullback depth scoring
+            if (pullbackAnalysis.strength === 'medium') {
+                confidence += 15; // Medium pullbacks often best for entries
+            } else if (pullbackAnalysis.strength === 'weak') {
+                confidence += 10; // Shallow pullbacks are okay
+            } else if (pullbackAnalysis.strength === 'strong') {
+                confidence += 5; // Deep pullbacks riskier
+            }
+
+            // Support holding bonus
+            if (pullbackAnalysis.supportHolding) {
+                confidence += 15;
+            }
+
+            // Reversal pattern bonus
+            if (pullbackAnalysis.hasReversal) {
+                confidence += 10;
+            }
+
+            // Recent momentum check
+            if (candles.length >= 2) {
+                const lastCandle = candles[candles.length - 1];
+                const prevCandle = candles[candles.length - 2];
+                if (lastCandle.close > prevCandle.close && lastCandle.close > lastCandle.open) {
+                    confidence += 5;
+                }
+            }
+        }
+
+        return Math.min(Math.max(confidence, 0), 100);
+    }
+
+    /**
+     * Calculate anticipatory signals, enhanced for pullbacks
      */
     private calculateAnticipatory(currentValue: number, state: NETState, enhancedSignals: Partial<EhlersSignals>): number {
         if (state.values.length < 8) return 0;
@@ -514,7 +799,7 @@ export class EhlersSignalProcessor {
             const decyclerTrend = enhancedSignals.decycler;
             const instantTrend = enhancedSignals.instantaneousTrendline;
             const trendDivergence = instantTrend - decyclerTrend;
-            
+
             // Pullback detection in bull trend using Decycler
             if (decyclerTrend > 0.001) { // Longer-term bullish trend confirmed by Decycler
                 // Strong pullback buy signal - when price pulls back but Decycler remains bullish
@@ -525,7 +810,7 @@ export class EhlersSignalProcessor {
                     anticipatorySignal += 2.0; // Very strong bullish pullback signal
                     console.log(`🎯 STRONG PULLBACK BUY SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}, Momentum=${shortMomentum.toFixed(5)}`);
                 }
-                
+
                 // Medium pullback signal - early detection
                 else if (trendDivergence < -0.0002 && // Mild pullback
                          mediumMomentum < -0.002 && // Recent decline
@@ -534,7 +819,7 @@ export class EhlersSignalProcessor {
                     console.log(`📈 MEDIUM PULLBACK BUY SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
                 }
             }
-            
+
             // Pullback detection in bear trend using Decycler
             else if (decyclerTrend < -0.001) { // Longer-term bearish trend confirmed by Decycler
                 // Strong pullback sell signal - when price bounces but Decycler remains bearish
@@ -545,7 +830,7 @@ export class EhlersSignalProcessor {
                     anticipatorySignal -= 2.0; // Very strong bearish pullback signal
                     console.log(`🎯 STRONG PULLBACK SELL SIGNAL: Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}, Momentum=${shortMomentum.toFixed(5)}`);
                 }
-                
+
                 // Medium pullback signal - early detection
                 else if (trendDivergence > 0.0002 && // Mild bounce
                          mediumMomentum > 0.002 && // Recent bounce
@@ -560,13 +845,13 @@ export class EhlersSignalProcessor {
         if (enhancedSignals.cycle !== undefined && enhancedSignals.phase !== undefined) {
             const cycleStrength = Math.abs(enhancedSignals.cycle);
             const normalizedPhase = ((enhancedSignals.phase + Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
-            
+
             // Cycle-based anticipatory signals - enhanced for pullbacks
             if (cycleStrength > 0.0001) {
                 // Bottom of cycle in uptrend - ideal pullback buy
                 if (normalizedPhase < 0.25 && longerTrend > 0.005) {
                     anticipatorySignal += 1.5;
-                } 
+                }
                 // Top of cycle in downtrend - ideal pullback sell
                 else if (normalizedPhase > 0.75 && longerTrend < -0.005) {
                     anticipatorySignal -= 1.5;
@@ -677,15 +962,15 @@ export class EhlersSignalProcessor {
     private calculateSignalQuality(prices: number[], period: number): number {
         const n = Math.floor(period);
         if (prices.length < n) return 0;
-        
+
         const recent = prices.slice(-n);
         const variance = this.calculateVariance(recent);
         const trend = this.calculateLinearRegression(recent);
-        
+
         // Higher quality when trend is strong and variance is low relative to trend
         const trendStrength = Math.abs(trend.slope * n);
         const relativeNoise = variance > 0 ? trendStrength / Math.sqrt(variance) : 0;
-        
+
         return Math.min(100, Math.max(0, relativeNoise * 20));
     }
 
@@ -700,10 +985,10 @@ export class EhlersSignalProcessor {
         const sumY = values.reduce((a, b) => a + b, 0);
         const sumXY = values.reduce((acc, val, idx) => acc + idx * val, 0);
         const sumXX = (n * (n - 1) * (2 * n - 1)) / 6;
-        
+
         const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
         const intercept = (sumY - slope * sumX) / n;
-        
+
         return { slope, intercept };
     }
 
@@ -713,17 +998,17 @@ export class EhlersSignalProcessor {
     private adjustAdaptiveThresholds(symbol: string): void {
         const hilbertState = this.hilbertStates.get(symbol);
         if (!hilbertState || hilbertState.prices.length < 20) return;
-        
+
         // Calculate recent volatility
         const recentPrices = hilbertState.prices.slice(-20);
-        const returns = recentPrices.slice(1).map((price, idx) => 
+        const returns = recentPrices.slice(1).map((price, idx) =>
             (price - recentPrices[idx]) / recentPrices[idx]
         );
-        
+
         const volatility = Math.sqrt(
             returns.reduce((acc, ret) => acc + ret * ret, 0) / returns.length
         );
-        
+
         // Adjust thresholds based on volatility
         this.adaptiveThresholds.trendStrength = Math.max(0.00005, volatility * 0.1);
         this.adaptiveThresholds.noiseThreshold = volatility * 0.5;
@@ -742,7 +1027,7 @@ export class EhlersSignalProcessor {
     } {
         const signals = this.getLatestSignals(symbol);
         const signalHistory = this.getSignalHistory(symbol, 10);
-        
+
         if (!signals || signalHistory.length < 5) {
             return {
                 action: 'WAIT',
@@ -754,59 +1039,59 @@ export class EhlersSignalProcessor {
         }
 
         const previousSignals = signalHistory[signalHistory.length - 2];
-        
+
         // Multi-factor analysis
         const trendAnalysis = this.analyzeTrend(signals, previousSignals);
         const cycleAnalysis = this.analyzeCycle(signals);
         const phaseAnalysis = this.analyzePhase(signals, previousSignals);
         const noiseAnalysis = this.analyzeNoise(signals);
-        
+
         // Combine all factors
         let confidence = 0;
         let expectedDirection = 0;
         let reasoning = '';
-        
+
         // Trend component (40% weight)
         if (Math.abs(trendAnalysis.strength) > this.adaptiveThresholds.trendStrength) {
             confidence += Math.min(40, Math.abs(trendAnalysis.strength) * 100000) * 0.4;
             expectedDirection += trendAnalysis.direction * 0.4;
             reasoning += `Trend: ${trendAnalysis.direction > 0 ? 'Bullish' : 'Bearish'} (${(trendAnalysis.strength * 100).toFixed(4)}%). `;
         }
-        
+
         // Cycle component (25% weight)
         if (cycleAnalysis.isSignificant) {
             confidence += cycleAnalysis.confidence * 0.25;
             expectedDirection += cycleAnalysis.direction * 0.25;
             reasoning += `Cycle: ${cycleAnalysis.phase} phase. `;
         }
-        
+
         // Phase analysis (25% weight)
         if (phaseAnalysis.isSignificant) {
             confidence += phaseAnalysis.confidence * 0.25;
             expectedDirection += phaseAnalysis.direction * 0.25;
             reasoning += `Phase: ${phaseAnalysis.momentum}. `;
         }
-        
+
         // Noise filter (10% weight - reduces confidence if noise is high)
         const noiseReduction = (100 - noiseAnalysis.level) * 0.1;
         confidence = Math.max(0, confidence - (100 - noiseReduction));
-        
+
         // Signal quality filter
         if (signals.signalQuality < this.adaptiveThresholds.signalQuality) {
             confidence *= (signals.signalQuality / this.adaptiveThresholds.signalQuality);
             reasoning += `Signal quality: ${signals.signalQuality.toFixed(1)}%. `;
         }
-        
+
         // Market-specific adjustments
         if (config.market === 'rise_fall') {
             // More aggressive for short-term markets
             confidence *= 1.2;
             expectedDirection *= 1.1;
         }
-        
+
         // Determine action based on expected direction and confidence
         let action: 'RISE' | 'FALL' | 'HIGHER' | 'LOWER' | 'WAIT' = 'WAIT';
-        
+
         if (confidence >= config.minConfidence) {
             if (config.market === 'rise_fall') {
                 action = expectedDirection > 0.1 ? 'RISE' : expectedDirection < -0.1 ? 'FALL' : 'WAIT';
@@ -814,7 +1099,7 @@ export class EhlersSignalProcessor {
                 action = expectedDirection > 0.15 ? 'HIGHER' : expectedDirection < -0.15 ? 'LOWER' : 'WAIT';
             }
         }
-        
+
         return {
             action,
             confidence: Math.min(100, confidence),
@@ -830,10 +1115,10 @@ export class EhlersSignalProcessor {
     } {
         const trendChange = current.trend - previous.trend;
         const decyclerTrend = current.decycler - previous.decycler;
-        
+
         // Combine instantaneous trend with decycler trend
         const combinedTrend = (trendChange + decyclerTrend) / 2;
-        
+
         return {
             strength: Math.abs(combinedTrend),
             direction: combinedTrend > 0 ? 1 : -1
@@ -848,14 +1133,14 @@ export class EhlersSignalProcessor {
     } {
         const cycleStrength = Math.abs(current.cycle);
         const isSignificant = cycleStrength > this.adaptiveThresholds.trendStrength * 2;
-        
+
         // Determine cycle phase
         let phase = 'neutral';
         let direction = 0;
-        
+
         if (isSignificant) {
             const normalizedPhase = ((current.phase + Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
-            
+
             if (normalizedPhase < 0.25) {
                 phase = 'bottom';
                 direction = 1; // Expect rise
@@ -864,7 +1149,7 @@ export class EhlersSignalProcessor {
                 direction = -1; // Expect fall
             }
         }
-        
+
         return {
             isSignificant,
             direction,
@@ -881,10 +1166,10 @@ export class EhlersSignalProcessor {
     } {
         const phaseChange = current.phase - previous.phase;
         const isSignificant = Math.abs(phaseChange) > this.adaptiveThresholds.phaseChange;
-        
+
         let momentum = 'stable';
         let direction = 0;
-        
+
         if (isSignificant) {
             if (phaseChange > 0) {
                 momentum = 'accelerating';
@@ -894,7 +1179,7 @@ export class EhlersSignalProcessor {
                 direction = -1;
             }
         }
-        
+
         return {
             isSignificant,
             direction,
@@ -982,7 +1267,7 @@ export class EhlersSignalProcessor {
         }
 
         const cycleConditions = this.isGoodForCycleTrading(symbol);
-        
+
         // Enhanced anticipatory signals with multiple strength levels
         if (Math.abs(signals.anticipatorySignal) > 1.2) {
             // Very strong anticipatory signals (pullback detection)

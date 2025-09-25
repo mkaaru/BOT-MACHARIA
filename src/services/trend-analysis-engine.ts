@@ -5,45 +5,63 @@ import { ehlersProcessor, EhlersSignals, DerivMarketConfig } from './ehlers-sign
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
 
+export interface PullbackAnalysis {
+    isPullback: boolean;
+    pullbackType: 'bullish_pullback' | 'bearish_pullback' | 'none';
+    pullbackStrength: 'weak' | 'medium' | 'strong';
+    longerTermTrend: 'bullish' | 'bearish' | 'neutral';
+    confidence: number;
+    entrySignal: boolean;
+    decyclerValue?: number;
+    priceVsDecycler?: number;
+}
+
 export interface TrendAnalysis {
     symbol: string;
-    direction: TrendDirection;
-    strength: TrendStrength;
-    confidence: number; // 0-100
-    price: number | null;
-    lastUpdate: Date;
+    timestamp: number;
+    direction: 'bullish' | 'bearish' | 'neutral';
+    strength: 'weak' | 'moderate' | 'strong';
+    confidence: number;
+    score: number;
+    price: number;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
-    score: number; // Overall trading score (0-100)
-    
-    // ROC indicators for trend analysis
-    longTermROC?: number; // Long-term Rate of Change indicator (20-period)
-    shortTermROC?: number; // Short-term Rate of Change indicator (5-period)
-    rocAlignment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; // ROC alignment status
-    
-    // Enhanced Ehlers signals
-    ehlers?: EhlersSignals;
+    reason: string;
+
+    // Technical indicators
+    shortTermHMA?: number;
+    longTermHMA?: number;
+    rocAlignment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    longTermTrend?: 'bullish' | 'bearish' | 'neutral';
+    longTermTrendStrength?: number;
+
+    // Enhanced Ehlers data
+    ehlers?: {
+        decycler: number;
+        instantaneousTrendline: number;
+        snr: number;
+        netValue: number;
+        anticipatorySignal: number;
+    };
+
     ehlersRecommendation?: {
-        action: 'BUY' | 'SELL' | 'HOLD';
+        action: string;
         confidence: number;
         reason: string;
         anticipatory: boolean;
         signalStrength: 'weak' | 'medium' | 'strong';
+        isPullbackSignal?: boolean;
     };
+
+    // Enhanced pullback analysis
+    pullbackAnalysis?: PullbackAnalysis;
+
+    // Cycle trading assessment
     cycleTrading?: {
         suitable: boolean;
-        reason: string;
+        snrLevel: 'poor' | 'good' | 'excellent';
+        recommendation: string;
     };
-    
-    // Pullback analysis using Ehlers Decycler and 5+ candles
-    pullbackAnalysis?: {
-        isPullback: boolean;
-        pullbackStrength: 'weak' | 'medium' | 'strong';
-        longerTermTrend: 'bullish' | 'bearish' | 'neutral';
-        pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback';
-        confidence: number;
-        recommendation: 'BUY' | 'SELL' | 'HOLD';
-    };
-    
+
     // Deriv market specific signals
     derivSignals?: {
         riseFall: {
@@ -81,7 +99,7 @@ export class TrendAnalysisEngine {
 
     constructor(hmaCalculator: EfficientHMACalculator) {
         this.hmaCalculator = hmaCalculator;
-        
+
         // Update trend analysis periodically
         this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000); // Every 30 seconds
     }
@@ -96,15 +114,15 @@ export class TrendAnalysisEngine {
         // 210 = 2×3×5×7, so we use periods: 5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105
         const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
         this.hmaCalculator.addCandleData(candle, hmaPeriods);
-        
+
         // Process through Ehlers signal processing pipeline
         const ehlersSignals = ehlersProcessor.processPrice(symbol, close, timestamp);
-        
+
         // Update trend analysis when all HMA periods are ready
         const allPeriodsReady = hmaPeriods.every(period => 
             this.hmaCalculator.isReady(symbol, period)
         );
-        
+
         if (allPeriodsReady) {
             this.updateTrendAnalysis(symbol, close, ehlersSignals);
         }
@@ -117,7 +135,7 @@ export class TrendAnalysisEngine {
         // Calculate ROC indicators for trend analysis
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         const recentCandles = candleReconstructionEngine.getCandles(symbol, 30);
-        
+
         if (!recentCandles || recentCandles.length < 10) {
             console.log(`${symbol}: Insufficient candle data for analysis (need 10, have ${recentCandles?.length || 0})`);
             return;
@@ -126,15 +144,15 @@ export class TrendAnalysisEngine {
         const prices = recentCandles.map((candle: any) => candle.close);
         const highs = recentCandles.map((candle: any) => candle.high);
         const lows = recentCandles.map((candle: any) => candle.low);
-        
+
         // Enhanced pullback detection using at least 5 candles
         const pullbackAnalysis = this.analyzePullbackWithDecycler(recentCandles, ehlersSignals);
-        
+
         // Use default ROC periods (can be made configurable later)
         const rocPeriods = this.getROCPeriods(false); // Default to non-sensitive
         const longTermROC = this.calculateROC(prices, rocPeriods.longTerm);
         const shortTermROC = this.calculateROC(prices, rocPeriods.shortTerm);
-        
+
         if (longTermROC === null || shortTermROC === null) {
             console.log(`${symbol}: Failed to calculate ROC indicators`);
             return;
@@ -143,17 +161,17 @@ export class TrendAnalysisEngine {
         // Determine ROC alignment and trend direction
         const rocAlignment = this.determineROCAlignment(longTermROC, shortTermROC);
         const direction = this.determineTrendDirectionByROC(rocAlignment);
-        
+
         // Calculate trend strength based on ROC magnitude
         const strength = this.calculateTrendStrengthByROC(longTermROC, shortTermROC);
-        
+
         // Calculate confidence based on ROC alignment and strength
         const confidence = this.calculateConfidenceByROC(longTermROC, shortTermROC, rocAlignment);
 
         // Get ROC-based signal validation with persistence
         const rawROCSignal = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
         const persistentROCSignal = this.getPersistedSignal(symbol, rawROCSignal);
-        
+
         // Override direction based on persistent ROC signal validation
         let finalDirection = direction;
         if (persistentROCSignal === 'BULLISH') {
@@ -166,10 +184,10 @@ export class TrendAnalysisEngine {
 
         // Generate recommendation based on persistent ROC validation
         const recommendation = this.generateRecommendationByROC(finalDirection, strength, confidence, persistentROCSignal);
-        
+
         // Calculate overall score based on ROC alignment and validation
         let score = this.calculateTradingScoreByROC(finalDirection, strength, confidence, rocAlignment);
-        
+
         // Boost score significantly for valid ROC signals
         if (persistentROCSignal === 'BULLISH' || persistentROCSignal === 'BEARISH') {
             score = Math.min(95, score + 30); // Add 30 points for valid ROC signal
@@ -178,7 +196,7 @@ export class TrendAnalysisEngine {
         // Get Ehlers-based recommendations with Deriv market optimization
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
-        
+
         // Generate Deriv-specific market signals
         const riseFallConfig: DerivMarketConfig = {
             market: 'rise_fall',
@@ -187,7 +205,7 @@ export class TrendAnalysisEngine {
             minConfidence: 70,
             maxDrawdown: 20
         };
-        
+
         const higherLowerConfig: DerivMarketConfig = {
             market: 'higher_lower',
             duration: 60, // 60 seconds
@@ -195,10 +213,10 @@ export class TrendAnalysisEngine {
             minConfidence: 65,
             maxDrawdown: 15
         };
-        
+
         const riseFallSignal = ehlersProcessor.generateDerivSignal(symbol, riseFallConfig);
         const higherLowerSignal = ehlersProcessor.generateDerivSignal(symbol, higherLowerConfig);
-        
+
         const derivSignals = {
             riseFall: {
                 action: riseFallSignal.action as 'RISE' | 'FALL' | 'WAIT',
@@ -220,7 +238,7 @@ export class TrendAnalysisEngine {
         if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
             finalRecommendation = pullbackAnalysis.recommendation;
             enhancedScore = Math.min(98, pullbackAnalysis.confidence);
-            
+
             // Add bonus for strong pullbacks
             if (pullbackAnalysis.pullbackStrength === 'strong') {
                 enhancedScore = Math.min(98, enhancedScore + 10);
@@ -269,7 +287,7 @@ export class TrendAnalysisEngine {
         };
 
         this.trendData.set(symbol, analysis);
-        
+
         console.log(`ROC-Based Trend Analysis for ${symbol}: ${finalDirection.toUpperCase()} (${strength}) - ROC Signal: ${persistentROCSignal || 'NONE'} (Raw: ${rawROCSignal || 'NONE'}) - LT ROC: ${longTermROC.toFixed(3)}% ST ROC: ${shortTermROC.toFixed(3)}% - Score: ${score.toFixed(1)} - Recommendation: ${recommendation}`);
     }
 
@@ -297,11 +315,11 @@ export class TrendAnalysisEngine {
 
         const alignedCount = colorCounts[dominantColor];
         const alignmentPercentage = (alignedCount / totalCount) * 100;
-        
+
         // Short-term alignment (periods <= 21)
         const shortTermHMAs = hmaData.filter(h => h.period <= 21);
         const shortTermAligned = shortTermHMAs.filter(h => h.color === dominantColor).length;
-        const shortTermAlignment = (shortTermAligned / shortTermHMAs.length) * 100;
+        const shortTermAlignment = (shortTermHMAs.length > 0 ? (shortTermAligned / shortTermHMAs.length) * 100 : 0);
 
         // Long-term alignment (periods > 21)
         const longTermHMAs = hmaData.filter(h => h.period > 21);
@@ -346,7 +364,7 @@ export class TrendAnalysisEngine {
      */
     private calculateConfidenceByAlignment(alignment: any): number {
         let confidence = alignment.alignmentPercentage; // Base confidence from alignment percentage
-        
+
         // Bonus for strong short-term and long-term alignment
         if (alignment.shortTermAlignment >= 80 && alignment.longTermAlignment >= 80) {
             confidence += 15;
@@ -378,7 +396,7 @@ export class TrendAnalysisEngine {
 
         // Get specific signal validation using dual ROC and candle patterns
         const signalValidation = this.validateDualROCSignal(symbol);
-        
+
         if (!signalValidation) {
             return 'HOLD';
         }
@@ -471,9 +489,9 @@ export class TrendAnalysisEngine {
      */
     private getHMAColor(slope: number | null): 'green' | 'red' | 'neutral' {
         if (!slope) return 'neutral';
-        
+
         const slopeThreshold = 0.0001; // Threshold for color determination
-        
+
         if (slope > slopeThreshold) return 'green';
         if (slope < -slopeThreshold) return 'red';
         return 'neutral';
@@ -484,10 +502,10 @@ export class TrendAnalysisEngine {
      */
     private calculateROC(prices: number[], period: number = 14): number | null {
         if (prices.length < period + 1) return null;
-        
+
         const currentPrice = prices[prices.length - 1];
         const pastPrice = prices[prices.length - 1 - period];
-        
+
         return ((currentPrice - pastPrice) / pastPrice) * 100;
     }
 
@@ -513,17 +531,17 @@ export class TrendAnalysisEngine {
     private determineROCAlignment(longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
         const longTermThreshold = 0.05; // 0.05%
         const shortTermThreshold = 0.1;  // 0.1%
-        
+
         // Both ROC positive and short-term accelerating upward
         if (longTermROC > longTermThreshold && shortTermROC > shortTermThreshold && shortTermROC > longTermROC) {
             return 'BULLISH';
         }
-        
+
         // Both ROC negative and short-term accelerating downward
         if (longTermROC < -longTermThreshold && shortTermROC < -shortTermThreshold && shortTermROC < longTermROC) {
             return 'BEARISH';
         }
-        
+
         return 'NEUTRAL';
     }
 
@@ -542,13 +560,13 @@ export class TrendAnalysisEngine {
     private calculateTrendStrengthByROC(longTermROC: number, shortTermROC: number): TrendStrength {
         const rocMagnitude = Math.abs(longTermROC) + Math.abs(shortTermROC);
         const acceleration = Math.abs(shortTermROC - longTermROC);
-        
+
         if (rocMagnitude > 0.5 && acceleration > 0.2) {
             return 'strong';
         } else if (rocMagnitude > 0.2 || acceleration > 0.1) {
             return 'moderate';
         }
-        
+
         return 'weak';
     }
 
@@ -557,20 +575,20 @@ export class TrendAnalysisEngine {
      */
     private calculateConfidenceByROC(longTermROC: number, shortTermROC: number, rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL'): number {
         let confidence = 40; // Base confidence
-        
+
         // ROC alignment bonus
         if (rocAlignment !== 'NEUTRAL') {
             confidence += 30; // Major bonus for aligned ROC
         }
-        
+
         // ROC magnitude bonus
         const rocMagnitude = Math.abs(longTermROC) + Math.abs(shortTermROC);
         confidence += Math.min(20, rocMagnitude * 10);
-        
+
         // Acceleration bonus (short-term momentum stronger than long-term)
         const acceleration = Math.abs(shortTermROC - longTermROC);
         confidence += Math.min(10, acceleration * 20);
-        
+
         return Math.min(100, Math.max(0, confidence));
     }
 
@@ -580,23 +598,23 @@ export class TrendAnalysisEngine {
     private validateROCAlignment(symbol: string, longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
-        
+
         // Get recent candles for candle pattern validation
         const recentCandles = candleReconstructionEngine.getCandles(symbol, 3);
-        
+
         if (recentCandles.length < 2) {
             console.log(`${symbol}: Insufficient candle data for pattern validation`);
             return null;
         }
-        
+
         const lastCandle = recentCandles[recentCandles.length - 1];
         const previousCandle = recentCandles[recentCandles.length - 2];
-        
+
         // Determine candle colors
         const isLastCandleGreen = lastCandle.close > lastCandle.open;
         const isLastCandleRed = lastCandle.close < lastCandle.open;
 
-        // BULLISH SIGNAL CONDITIONS:
+        // BULLISHSIGNAL CONDITIONS:
         // 1. Long-term ROC positive (upward trend)
         // 2. Short-term ROC stronger positive (acceleration)
         // 3. Last candle is green and closes above previous high
@@ -605,8 +623,8 @@ export class TrendAnalysisEngine {
             shortTermROC > longTermROC && // Short-term stronger than long-term (acceleration)
             isLastCandleGreen && 
             lastCandle.close > previousCandle.high) {
-            
-            console.log(`${symbol}: ✅ ROC BULLISH signal confirmed:
+
+            console.log(`${symbol}: ✅ ROCBULLISH signal confirmed:
                 - Long-term ROC (20): ${longTermROC.toFixed(3)}% (positive trend)
                 - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating upward)
                 - ROC alignment: SHORT > LONG (${shortTermROC.toFixed(3)}% > ${longTermROC.toFixed(3)}%)
@@ -614,7 +632,7 @@ export class TrendAnalysisEngine {
                 - Closes above prev high: ${lastCandle.close.toFixed(5)} > ${previousCandle.high.toFixed(5)}`);
             return 'BULLISH';
         }
-        
+
         // BEARISH SIGNAL CONDITIONS:
         // 1. Long-term ROC negative (downward trend)
         // 2. Short-term ROC stronger negative (acceleration)
@@ -624,7 +642,7 @@ export class TrendAnalysisEngine {
             shortTermROC < longTermROC && // Short-term more negative than long-term (acceleration)
             isLastCandleRed && 
             lastCandle.close < previousCandle.low) {
-            
+
             console.log(`${symbol}: ✅ ROC BEARISH signal confirmed:
                 - Long-term ROC (20): ${longTermROC.toFixed(3)}% (negative trend)
                 - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating downward)
@@ -633,7 +651,7 @@ export class TrendAnalysisEngine {
                 - Closes below prev low: ${lastCandle.close.toFixed(5)} < ${previousCandle.low.toFixed(5)}`);
             return 'BEARISH';
         }
-        
+
         // Log why signal was not generated
         console.log(`${symbol}: ❌ ROC signal not generated:
             - Long-term ROC (20): ${longTermROC.toFixed(3)}%
@@ -641,7 +659,7 @@ export class TrendAnalysisEngine {
             - ROC alignment: ${shortTermROC > longTermROC ? 'SHORT > LONG' : shortTermROC < longTermROC ? 'SHORT < LONG' : 'EQUAL'}
             - Candle color: ${isLastCandleGreen ? 'GREEN' : isLastCandleRed ? 'RED' : 'NEUTRAL'}
             - Price action: ${lastCandle.close > previousCandle.high ? 'Above prev high' : lastCandle.close < previousCandle.low ? 'Below prev low' : 'Inside range'}`);
-        
+
         return null;
     }
 
@@ -693,41 +711,41 @@ export class TrendAnalysisEngine {
 
         const last5Candles = candles.slice(-5);
         const last10Candles = candles.slice(-10);
-        
+
         // Calculate recent price action
         const recentHighs = last5Candles.map(c => c.high);
         const recentLows = last5Candles.map(c => c.low);
         const recentCloses = last5Candles.map(c => c.close);
-        
+
         const longerHighs = last10Candles.map(c => c.high);
         const longerLows = last10Candles.map(c => c.low);
         const longerCloses = last10Candles.map(c => c.close);
-        
+
         const currentPrice = recentCloses[recentCloses.length - 1];
-        
+
         // Determine longer-term trend using Decycler if available
         let longerTermTrend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
         let decyclerTrendStrength = 0;
-        
+
         if (ehlersSignals?.decycler !== undefined && ehlersSignals?.instantaneousTrendline !== undefined) {
             const decyclerValue = ehlersSignals.decycler;
             const instantValue = ehlersSignals.instantaneousTrendline;
             const trendDirection = decyclerValue - longerCloses[longerCloses.length - 3];
-            
+
             decyclerTrendStrength = Math.abs(trendDirection / decyclerValue) * 100;
-            
+
             if (trendDirection > 0.001) {
                 longerTermTrend = 'bullish';
             } else if (trendDirection < -0.001) {
                 longerTermTrend = 'bearish';
             }
-            
+
             console.log(`📊 ${candles[0]?.symbol || 'SYMBOL'}: Decycler=${decyclerValue.toFixed(5)}, Instant=${instantValue.toFixed(5)}, Trend=${longerTermTrend}, Strength=${decyclerTrendStrength.toFixed(2)}%`);
         } else {
             // Fallback: use simple moving average of longer period
             const longerAvg = longerCloses.reduce((a, b) => a + b, 0) / longerCloses.length;
             const recentAvg = recentCloses.reduce((a, b) => a + b, 0) / recentCloses.length;
-            
+
             if (longerAvg > longerCloses[0] && recentAvg > longerAvg * 1.001) {
                 longerTermTrend = 'bullish';
                 decyclerTrendStrength = ((recentAvg - longerAvg) / longerAvg) * 100;
@@ -736,32 +754,32 @@ export class TrendAnalysisEngine {
                 decyclerTrendStrength = ((longerAvg - recentAvg) / longerAvg) * 100;
             }
         }
-        
+
         // Detect pullback patterns in the last 5 candles
         let pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback' = 'none';
         let pullbackStrength: 'weak' | 'medium' | 'strong' = 'weak';
         let confidence = 0;
-        
+
         // Bullish pullback detection (buy the dip)
         if (longerTermTrend === 'bullish') {
             const recentHigh = Math.max(...recentHighs);
             const recentLow = Math.min(...recentLows);
             const pullbackDepth = (recentHigh - currentPrice) / recentHigh;
-            
+
             // Check for pullback pattern: higher highs followed by lower lows but above key support
             const isHigherHigh = recentHigh > Math.max(...longerHighs.slice(0, -5));
             const isPullbackFromHigh = currentPrice < recentHigh * 0.998; // At least 0.2% pullback
             const isAboveSupport = currentPrice > Math.min(...longerLows.slice(-7, -2)); // Above recent support
-            
+
             // Check for reversal signs in recent candles
             const last2Candles = last5Candles.slice(-2);
             const isShowingReversal = last2Candles[1].close > last2Candles[0].low && 
                                     last2Candles[1].close > last2Candles[1].open; // Green candle after pullback
-            
+
             if (isPullbackFromHigh && isAboveSupport) {
                 pullbackType = 'bullish_pullback';
                 confidence = 60;
-                
+
                 if (isHigherHigh && isShowingReversal) {
                     pullbackStrength = 'strong';
                     confidence = 85;
@@ -776,27 +794,27 @@ export class TrendAnalysisEngine {
                 }
             }
         }
-        
+
         // Bearish pullback detection (sell the bounce)
         else if (longerTermTrend === 'bearish') {
             const recentHigh = Math.max(...recentHighs);
             const recentLow = Math.min(...recentLows);
             const bounceHeight = (currentPrice - recentLow) / recentLow;
-            
+
             // Check for bounce pattern: lower lows followed by higher highs but below key resistance
             const isLowerLow = recentLow < Math.min(...longerLows.slice(0, -5));
             const isBounceFromLow = currentPrice > recentLow * 1.002; // At least 0.2% bounce
             const isBelowResistance = currentPrice < Math.max(...longerHighs.slice(-7, -2)); // Below recent resistance
-            
+
             // Check for reversal signs in recent candles
             const last2Candles = last5Candles.slice(-2);
             const isShowingReversal = last2Candles[1].close < last2Candles[0].high && 
                                     last2Candles[1].close < last2Candles[1].open; // Red candle after bounce
-            
+
             if (isBounceFromLow && isBelowResistance) {
                 pullbackType = 'bearish_pullback';
                 confidence = 60;
-                
+
                 if (isLowerLow && isShowingReversal) {
                     pullbackStrength = 'strong';
                     confidence = 85;
@@ -811,16 +829,16 @@ export class TrendAnalysisEngine {
                 }
             }
         }
-        
+
         // Generate recommendation based on pullback analysis
         let recommendation: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
-        
+
         if (pullbackType === 'bullish_pullback' && confidence >= 70) {
             recommendation = 'BUY';
         } else if (pullbackType === 'bearish_pullback' && confidence >= 70) {
             recommendation = 'SELL';
         }
-        
+
         // Enhance confidence with Ehlers signals
         if (ehlersSignals?.anticipatorySignal !== undefined) {
             if (pullbackType === 'bullish_pullback' && ehlersSignals.anticipatorySignal > 1.0) {
@@ -831,7 +849,7 @@ export class TrendAnalysisEngine {
                 console.log(`⚡ Ehlers anticipatory signal confirms bearish pullback: ${ehlersSignals.anticipatorySignal.toFixed(2)}`);
             }
         }
-        
+
         return {
             isPullback: pullbackType !== 'none',
             pullbackStrength,
@@ -882,7 +900,7 @@ export class TrendAnalysisEngine {
         return Math.min(100, Math.max(0, score));
     }
 
-    
+
 
     /**
      * Legacy method - kept for compatibility but now calls ROC-based validation
@@ -891,7 +909,7 @@ export class TrendAnalysisEngine {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         const recentCandles = candleReconstructionEngine.getCandles(symbol, 30);
-        
+
         if (!recentCandles || recentCandles.length < 25) {
             return false;
         }
@@ -899,19 +917,19 @@ export class TrendAnalysisEngine {
         const prices = recentCandles.map((candle: any) => candle.close);
         const longTermROC = this.calculateROC(prices, 20);
         const shortTermROC = this.calculateROC(prices, 5);
-        
+
         if (longTermROC === null || shortTermROC === null) {
             return false;
         }
 
         const rocSignal = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
-        
+
         if (direction === 'bullish' && rocSignal === 'BULLISH') {
             return true;
         } else if (direction === 'bearish' && rocSignal === 'BEARISH') {
             return true;
         }
-        
+
         return false;
     }
 
@@ -923,11 +941,11 @@ export class TrendAnalysisEngine {
         if (hma5Color === 'green' && hma200Color === 'green') {
             return 'bullish';
         }
-        
+
         if (hma5Color === 'red' && hma200Color === 'red') {
             return 'bearish';
         }
-        
+
         // Mixed colors or neutral = no clear trend
         return 'neutral';
     }
@@ -944,13 +962,13 @@ export class TrendAnalysisEngine {
         // Strong when both colors align and slopes are significant
         const colorsAlign = hma5Color === hma200Color && hma5Color !== 'neutral';
         const slopeMagnitude = Math.abs(hma5Slope || 0) + Math.abs(hma200Slope || 0);
-        
+
         if (colorsAlign && slopeMagnitude > 0.01) {
             return 'strong';
         } else if (colorsAlign || slopeMagnitude > 0.005) {
             return 'moderate';
         }
-        
+
         return 'weak';
     }
 
@@ -964,16 +982,16 @@ export class TrendAnalysisEngine {
         hma200Color: string
     ): number {
         let confidence = 30; // Lower base confidence
-        
+
         // Color alignment bonus
         if (hma5Color === hma200Color && hma5Color !== 'neutral') {
             confidence += 40; // Major bonus for color alignment
         }
-        
+
         // Slope strength bonus
         const slopeMagnitude = Math.abs(hma5Slope || 0) + Math.abs(hma200Slope || 0);
         confidence += Math.min(20, slopeMagnitude * 1000);
-        
+
         // Consistency bonus - same direction slopes
         if (hma5Slope && hma200Slope) {
             const sameDirection = (hma5Slope > 0 && hma200Slope > 0) || (hma5Slope < 0 && hma200Slope < 0);
@@ -981,7 +999,7 @@ export class TrendAnalysisEngine {
                 confidence += 10;
             }
         }
-        
+
         return Math.min(100, Math.max(0, confidence));
     }
 
@@ -1003,7 +1021,7 @@ export class TrendAnalysisEngine {
                 return 'SELL';
             }
         }
-        
+
         // Moderate color alignment with decent confidence
         if (hma5Color === hma200Color && confidence > 60 && strength !== 'weak') {
             if (hma5Color === 'green') {
@@ -1012,7 +1030,7 @@ export class TrendAnalysisEngine {
                 return 'SELL';
             }
         }
-        
+
         return 'HOLD';
     }
 
@@ -1027,22 +1045,22 @@ export class TrendAnalysisEngine {
         hma200Color: string
     ): number {
         let score = 0;
-        
+
         // Base score from confidence
         score += confidence * 0.4;
-        
+
         // Color alignment bonus
         if (hma5Color === hma200Color && hma5Color !== 'neutral') {
             score += 30; // Major bonus for color alignment
         }
-        
+
         // Direction scoring
         if (direction === 'bullish' || direction === 'bearish') {
             score += 20;
         } else {
             score += 5; // Neutral gets lower score
         }
-        
+
         // Strength scoring
         switch (strength) {
             case 'strong':
@@ -1055,7 +1073,7 @@ export class TrendAnalysisEngine {
                 score += 5;
                 break;
         }
-        
+
         return Math.min(100, Math.max(0, score));
     }
 
@@ -1067,7 +1085,7 @@ export class TrendAnalysisEngine {
         const slopeThreshold = 0.0002; // Increased threshold for stronger trend confirmation
         const slopeDirection = hma200Slope && hma200Slope > slopeThreshold ? 'up' : 
                               hma200Slope && hma200Slope < -slopeThreshold ? 'down' : 'flat';
-        
+
         // Require both price position AND slope confirmation for stronger filtering
         if (priceVsHma200 && slopeDirection === 'up') return 'bullish';
         if (!priceVsHma200 && slopeDirection === 'down') return 'bearish';
@@ -1092,7 +1110,7 @@ export class TrendAnalysisEngine {
         // Calculate trend consistency over last 10 periods
         let consistentPeriods = 0;
         const currentDirection = hma200Slope > 0 ? 1 : -1;
-        
+
         for (let i = 1; i < hma200History.length; i++) {
             const periodSlope = hma200History[i].value - hma200History[i - 1].value;
             const periodDirection = periodSlope > 0 ? 1 : -1;
@@ -1121,17 +1139,17 @@ export class TrendAnalysisEngine {
     ): TrendDirection {
         // Get short-term signal
         const shortTermDirection = this.determineTrendDirection(hma5, hma40, hma5Slope, hma40Slope);
-        
+
         // Filter against long-term trend
         if (longTermTrend === 'neutral') {
             return shortTermDirection; // No filtering when long-term is neutral
         }
-        
+
         // Only allow signals that align with long-term trend
         if (shortTermDirection === longTermTrend) {
             return shortTermDirection;
         }
-        
+
         // If signals conflict, use neutral to avoid whipsaws
         return 'neutral';
     }
@@ -1158,7 +1176,7 @@ export class TrendAnalysisEngine {
             }
             return 'bearish';
         }
-        
+
         // Very close HMAs - use slope analysis
         if (hma5Slope && hma40Slope) {
             if (hma5Slope > 0 && hma40Slope > 0) {
@@ -1167,7 +1185,7 @@ export class TrendAnalysisEngine {
                 return 'bearish';
             }
         }
-        
+
         return 'neutral';
     }
 
@@ -1177,17 +1195,17 @@ export class TrendAnalysisEngine {
     private calculateTrendStrength(hma5: number, hma40: number, hma5Slope: number | null, hma40Slope: number | null, price: number): TrendStrength {
         // Calculate HMA divergence as percentage
         const divergence = Math.abs(hma5 - hma40) / price * 100;
-        
+
         // Slope strength analysis
         const slopeStrength = Math.abs(hma5Slope || 0) + Math.abs(hma40Slope || 0);
-        
+
         // Combined strength analysis
         if (divergence > 0.05 && slopeStrength > 0.01) {
             return 'strong';
         } else if (divergence > 0.02 || slopeStrength > 0.005) {
             return 'moderate';
         }
-        
+
         return 'weak';
     }
 
@@ -1196,20 +1214,20 @@ export class TrendAnalysisEngine {
      */
     private calculateConfidence(hma5: number, hma40: number, hma5Slope: number | null, hma40Slope: number | null, crossover: number): number {
         let confidence = 50; // Base confidence
-        
+
         // HMA alignment bonus
         const alignment = hma5 > hma40 ? 1 : -1;
         const slopeAlignment = (hma5Slope || 0) * alignment > 0 && (hma40Slope || 0) * alignment > 0;
-        
+
         if (slopeAlignment) {
             confidence += 20;
         }
-        
+
         // Recent crossover bonus
         if (Math.abs(crossover) === 1) {
             confidence += 15;
         }
-        
+
         // Slope consistency bonus
         if (hma5Slope && hma40Slope) {
             const slopesInSameDirection = (hma5Slope > 0 && hma40Slope > 0) || (hma5Slope < 0 && hma40Slope < 0);
@@ -1217,13 +1235,13 @@ export class TrendAnalysisEngine {
                 confidence += 10;
             }
         }
-        
+
         // Strong divergence bonus
         const divergence = Math.abs(hma5 - hma40) / Math.max(hma5, hma40);
         if (divergence > 0.001) {
             confidence += Math.min(15, divergence * 1000 * 5);
         }
-        
+
         return Math.min(100, Math.max(0, confidence));
     }
 
@@ -1239,14 +1257,14 @@ export class TrendAnalysisEngine {
                 return 'SELL';
             }
         }
-        
+
         // Recent crossover signals
         if (crossover === 1 && confidence > 60) {
             return 'BUY';
         } else if (crossover === -1 && confidence > 60) {
             return 'SELL';
         }
-        
+
         // Strong trends with moderate confidence
         if (strength === 'strong' && confidence > 60) {
             if (direction === 'bullish') {
@@ -1255,7 +1273,7 @@ export class TrendAnalysisEngine {
                 return 'SELL';
             }
         }
-        
+
         return 'HOLD';
     }
 
@@ -1268,18 +1286,18 @@ export class TrendAnalysisEngine {
         price: number, longTermTrend: TrendDirection
     ): TrendStrength {
         const baseStrength = this.calculateTrendStrength(hma5, hma40, hma5Slope, hma40Slope, price);
-        
+
         // Calculate HMA alignment (all moving in same direction)
         const allBullish = hma5 > hma40 && hma40 > hma200 && 
                           (hma5Slope || 0) > 0 && (hma40Slope || 0) > 0 && (hma200Slope || 0) > 0;
         const allBearish = hma5 < hma40 && hma40 < hma200 && 
                           (hma5Slope || 0) < 0 && (hma40Slope || 0) < 0 && (hma200Slope || 0) < 0;
-        
+
         if (allBullish || allBearish) {
             return baseStrength === 'weak' ? 'moderate' : 
                    baseStrength === 'moderate' ? 'strong' : 'strong';
         }
-        
+
         return baseStrength;
     }
 
@@ -1292,28 +1310,28 @@ export class TrendAnalysisEngine {
         crossover: number, longTermTrend: TrendDirection, direction: TrendDirection
     ): number {
         let confidence = this.calculateConfidence(hma5, hma40, hma5Slope, hma40Slope, crossover);
-        
+
         // Trend alignment bonus
         if (direction === longTermTrend && longTermTrend !== 'neutral') {
             confidence += 15; // Bonus for trend alignment
         }
-        
+
         // All HMAs aligned bonus
         const priceAboveAll = hma5 > hma40 && hma40 > hma200;
         const priceBelowAll = hma5 < hma40 && hma40 < hma200;
-        
+
         if (priceAboveAll || priceBelowAll) {
             confidence += 10; // Strong alignment bonus
         }
-        
+
         // Slope alignment bonus
         const slopesAligned = (hma5Slope || 0) * (hma40Slope || 0) > 0 && 
                              (hma40Slope || 0) * (hma200Slope || 0) > 0;
-        
+
         if (slopesAligned) {
             confidence += 10;
         }
-        
+
         return Math.min(100, Math.max(0, confidence));
     }
 
@@ -1333,10 +1351,10 @@ export class TrendAnalysisEngine {
     ): 'BUY' | 'SELL' | 'HOLD' {
         // Calculate long-term trend strength
         const longTermStrength = this.calculateLongTermTrendStrength(hma200, hma200Slope, currentPrice, symbol);
-        
+
         // Require minimum long-term trend strength (configurable threshold)
         const minTrendStrength = 60; // Only trade when long-term trend strength > 60%
-        
+
         if (longTermStrength < minTrendStrength) {
             return 'HOLD'; // Don't trade in weak or unclear long-term trends
         }
@@ -1351,7 +1369,7 @@ export class TrendAnalysisEngine {
         if (confidence < enhancedConfidenceThreshold) {
             return 'HOLD';
         }
-        
+
         return this.generateRecommendation(direction, strength, confidence, crossover);
     }
 
@@ -1366,17 +1384,17 @@ export class TrendAnalysisEngine {
         longTermTrend: TrendDirection
     ): number {
         let score = this.calculateTradingScore(direction, strength, confidence, crossover);
-        
+
         // Trend alignment bonus
         if (direction === longTermTrend && longTermTrend !== 'neutral') {
             score += 10; // Bonus for following long-term trend
         }
-        
+
         // Penalty for counter-trend signals
         if (longTermTrend !== 'neutral' && direction !== 'neutral' && direction !== longTermTrend) {
             score -= 20; // Penalty for counter-trend
         }
-        
+
         return Math.min(100, Math.max(0, score));
     }
 
@@ -1385,17 +1403,17 @@ export class TrendAnalysisEngine {
      */
     private calculateTradingScore(direction: TrendDirection, strength: TrendStrength, confidence: number, crossover: number): number {
         let score = 0;
-        
+
         // Base score from confidence
         score += confidence * 0.4;
-        
+
         // Direction scoring
         if (direction === 'bullish' || direction === 'bearish') {
             score += 20;
         } else {
             score += 5; // Neutral gets lower score
         }
-        
+
         // Strength scoring
         switch (strength) {
             case 'strong':
@@ -1408,12 +1426,12 @@ export class TrendAnalysisEngine {
                 score += 5;
                 break;
         }
-        
+
         // Crossover bonus
         if (Math.abs(crossover) === 1) {
             score += 15;
         }
-        
+
         return Math.min(100, Math.max(0, score));
     }
 
@@ -1436,7 +1454,7 @@ export class TrendAnalysisEngine {
      */
     scanMarket(symbolsInfo: Array<{ symbol: string; display_name: string }>): MarketScanResult[] {
         const results: MarketScanResult[] = [];
-        
+
         symbolsInfo.forEach(symbolInfo => {
             const trend = this.getTrendAnalysis(symbolInfo.symbol);
             if (trend) {
@@ -1449,15 +1467,15 @@ export class TrendAnalysisEngine {
                 });
             }
         });
-        
+
         // Sort by trading score (descending)
         results.sort((a, b) => b.trend.score - a.trend.score);
-        
+
         // Set ranks
         results.forEach((result, index) => {
             result.rank = index + 1;
         });
-        
+
         return results;
     }
 
@@ -1477,7 +1495,7 @@ export class TrendAnalysisEngine {
                 rank: index + 1,
                 isRecommended: trend.score > 75,
             }));
-        
+
         return opportunities;
     }
 
@@ -1487,19 +1505,19 @@ export class TrendAnalysisEngine {
     private updateAllTrends(): void {
         const symbols = this.hmaCalculator.getSymbolsWithData();
         const hmaPeriods = [5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105];
-        
+
         symbols.forEach(symbol => {
             // Check if all HMA periods are ready
             const allPeriodsReady = hmaPeriods.every(period => 
                 this.hmaCalculator.isReady(symbol, period)
             );
-            
+
             if (allPeriodsReady) {
                 // Get a few HMA values to estimate current price
                 const hma5 = this.hmaCalculator.getLatestHMA(symbol, 5);
                 const hma21 = this.hmaCalculator.getLatestHMA(symbol, 21);
                 const hma105 = this.hmaCalculator.getLatestHMA(symbol, 105);
-                
+
                 if (hma5 && hma21 && hma105) {
                     // Use the close price from price history service or estimate from HMAs
                     const estimatedPrice = (hma5.value + hma21.value + hma105.value) / 3;
@@ -1536,7 +1554,7 @@ export class TrendAnalysisEngine {
         holdRecommendations: number;
     } {
         const analyses = this.getAllTrendAnalyses();
-        
+
         return {
             symbolsAnalyzed: analyses.length,
             bullishSignals: analyses.filter(a => a.direction === 'bullish').length,
@@ -1561,7 +1579,7 @@ export class TrendAnalysisEngine {
     private getPersistedSignal(symbol: string, newSignal: 'BULLISH' | 'BEARISH' | null): 'BULLISH' | 'BEARISH' | null {
         const now = Date.now();
         const cached = this.signalCache.get(symbol);
-        
+
         // If no cache entry, create one
         if (!cached) {
             this.signalCache.set(symbol, {
@@ -1571,7 +1589,7 @@ export class TrendAnalysisEngine {
             });
             return newSignal;
         }
-        
+
         // Check if cache is expired
         if (now - cached.timestamp > this.SIGNAL_PERSISTENCE_MS) {
             // Cache expired, reset
@@ -1582,14 +1600,14 @@ export class TrendAnalysisEngine {
             });
             return newSignal;
         }
-        
+
         // If new signal matches cached signal, increment confirmation
         if (newSignal === cached.signal && newSignal !== null) {
             cached.confirmationCount++;
             cached.timestamp = now;
             return cached.signal;
         }
-        
+
         // If new signal is different from cached signal
         if (newSignal !== cached.signal) {
             // If cached signal has enough confirmations, stick with it unless new signal is strong
@@ -1610,7 +1628,7 @@ export class TrendAnalysisEngine {
                 return newSignal;
             }
         }
-        
+
         // Default: return cached signal
         return cached.signal;
     }
