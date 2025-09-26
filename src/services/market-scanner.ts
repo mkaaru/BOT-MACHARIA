@@ -261,9 +261,6 @@ export class MarketScanner {
         };
     }
 
-
-    }
-
     /**
      * Setup the tick processing pipeline
      */
