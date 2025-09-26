@@ -1120,7 +1120,7 @@ const MLTrader = observer(() => {
                                                 <div className="rec-rank">#{index + 1}</div>
                                                 <div className="rec-symbol">{rec.displayName}</div>
                                                 <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
-                                                    {rec.direction}
+                                                    {rec.direction === 'CALL' ? 'BUY NOW' : 'SELL NOW'}
                                                 </div>
                                             </div>
 
@@ -1224,11 +1224,9 @@ const MLTrader = observer(() => {
                                                     )}
 
                                                     {/* Cycle Trading Suitability */}
-                                                    {trend.cycleTrading && (
-                                                        <div className={`cycle-status ${trend.cycleTrading.suitable ? 'suitable' : 'unsuitable'}`}>
-                                                            <Text size="xs">
-                                                                {trend.cycleTrading.suitable ? '✅ Good for cycles' : '❌ Poor cycle conditions'}
-                                                            </Text>
+                                                    {trend.cycleTrading?.suitable && (
+                                                        <div className="cycle-suitability suitable">
+                                                            <Text size="xs" color="profit-success">✅ Good cycle conditions</Text>
                                                         </div>
                                                     )}
                                                 </div>
