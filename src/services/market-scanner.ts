@@ -316,54 +316,60 @@ export class MarketScanner {
     private generateMeanReversionReason(trend: TrendAnalysis): string {
         const reasons: string[] = [];
 
-        // Add trend following specific reasons
-        if (trend.recommendation === 'BUY' && trend.rocAlignment === 'BULLISH') {
-            reasons.push('BULLISH TREND - Strong Upward Momentum');
-            if (trend.confidence >= 85) {
-                reasons.push('High Confidence Bullish Signal');
+        // Add mean reversion specific reasons
+        if (trend.recommendation === 'BUY') {
+            reasons.push('OVERSOLD - Mean Reversion Buy Signal');
+            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+                reasons.push('Strong Oversold Condition');
             }
-        } else if (trend.recommendation === 'SELL' && trend.rocAlignment === 'BEARISH') {
-            reasons.push('BEARISH TREND - Strong Downward Momentum');
-            if (trend.confidence >= 85) {
-                reasons.push('High Confidence Bearish Signal');
+            if (trend.pullbackAnalysis?.pullbackType === 'bullish_pullback') {
+                reasons.push('Price Below Mean - Bounce Expected');
+            }
+        } else if (trend.recommendation === 'SELL') {
+            reasons.push('OVERBOUGHT - Mean Reversion Sell Signal');
+            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+                reasons.push('Strong Overbought Condition');
+            }
+            if (trend.pullbackAnalysis?.pullbackType === 'bearish_pullback') {
+                reasons.push('Price Above Mean - Pullback Expected');
             }
         }
 
-        // Add Ehlers signal context for trend following
-        if (trend.ehlersRecommendation && !trend.ehlersRecommendation.anticipatory) {
-            if (trend.recommendation === 'BUY' && trend.ehlers?.netValue && trend.ehlers.netValue > 0) {
-                reasons.push('Ehlers Trend Confirmation (Bullish)');
-            } else if (trend.recommendation === 'SELL' && trend.ehlers?.netValue && trend.ehlers.netValue < 0) {
-                reasons.push('Ehlers Trend Confirmation (Bearish)');
+        // Add Ehlers signal context for mean reversion
+        if (trend.ehlersRecommendation?.anticipatory) {
+            if (trend.recommendation === 'BUY' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal < -1) {
+                reasons.push('Strong Contrarian Signal (Oversold)');
+            } else if (trend.recommendation === 'SELL' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal > 1) {
+                reasons.push('Strong Contrarian Signal (Overbought)');
             }
         }
 
         // Add market regime context
-        return reasons.length > 0 ? reasons.join(' | ') : 'Trend Following Signal';
+        return reasons.length > 0 ? reasons.join(' | ') : 'Mean Reversion Signal';
     }
 
     /**
-     * Calculate duration optimized for trend following trades
+     * Calculate duration optimized for mean reversion trades
      */
-    private calculateTrendFollowingDuration(trend: TrendAnalysis): number {
-        // Trend following trades need more time to develop
-        const baselineStrength = trend.strength === 'strong' ? 25 : trend.strength === 'moderate' ? 30 : 35;
+    private calculateMeanReversionDuration(trend: TrendAnalysis): number {
+        // Mean reversion trades typically need less time than trend following
+        const baselineStrength = trend.strength === 'strong' ? 15 : trend.strength === 'moderate' ? 20 : 25;
 
-        // Longer durations for trend following
-        if (trend.strength === 'strong') {
-            return 20; // Strong trends can be followed with shorter duration
-        } else if (trend.strength === 'moderate') {
-            return 25; // Medium duration for moderate trends
+        // Shorter durations for mean reversion
+        if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+            return 10; // Very short for strong reversals
+        } else if (trend.pullbackAnalysis?.pullbackStrength === 'medium') {
+            return 15; // Medium duration
         }
 
-        return Math.max(20, baselineStrength); // Generally longer for trend following
+        return Math.max(10, baselineStrength - 5); // Generally shorter than trend following
     }
 
     /**
-     * Generate recommendation reason for trend following only
+     * Generate recommendation reason (kept for compatibility)
      */
     private generateRecommendationReason(trend: TrendAnalysis): string {
-        return this.generateTrendFollowingReason(trend);
+        return this.generateMeanReversionReason(trend); // Delegate to mean reversion logic
     }
 
     /**
@@ -896,7 +902,7 @@ export class MarketScanner {
             hma40: trend.hma40 || 0,
             currentPrice: trend.price || 0,
             suggestedStake: this.calculateOptimalStake(Math.min(100, confidence), trend.strength),
-            suggestedDuration: this.calculateTrendFollowingDuration(trend), // Use trend following duration logic
+            suggestedDuration: this.calculateMeanReversionDuration(trend), // Use mean reversion duration logic
             suggestedDurationUnit: 's',
             longTermTrend: trend.longTermTrend,
             longTermStrength: trend.longTermTrendStrength,

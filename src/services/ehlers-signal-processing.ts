@@ -795,7 +795,7 @@ export class EhlersSignalProcessor {
     }
 
     /**
-     * Calculate TREND FOLLOWING anticipatory signals
+     * Calculate MEAN REVERSION anticipatory signals (inverted logic)
      */
     private calculateAnticipatory(currentValue: number, state: NETState, enhancedSignals: Partial<EhlersSignals>): number {
         if (state.values.length < 8) return 0;
@@ -815,60 +815,60 @@ export class EhlersSignalProcessor {
         const previousROC = short[1] - short[0];
         const acceleration = recentROC - previousROC;
 
-        // Trend following anticipatory conditions
+        // Mean reversion anticipatory conditions
         let anticipatorySignal = 0;
 
-        // Use Decycler for trend analysis
+        // Use Decycler for mean reversion analysis
         if (enhancedSignals.decycler !== undefined && enhancedSignals.instantaneousTrendline !== undefined) {
             const decyclerTrend = enhancedSignals.decycler;
             const instantTrend = enhancedSignals.instantaneousTrendline;
             const trendDivergence = instantTrend - decyclerTrend;
             
-            // Check if we're in a trending market (better for trend following)
-            const isTrendingMarket = Math.abs(trendDivergence / decyclerTrend) > 0.005;
+            // Check if we're in a ranging market (better for mean reversion)
+            const isRangingMarket = Math.abs(trendDivergence / decyclerTrend) < 0.005;
 
-            // TREND FOLLOWING BULLISH: Strong upward momentum = trend continuation = buy signal
-            if (decyclerTrend > 0.001) { // Upward price action
-                // Very strong bullish trend condition
-                if (trendDivergence > 0.0008 && // Price well above Decycler (strong trend)
-                    shortMomentum > 0.002 && // Strong positive momentum
-                    acceleration > 0.0008 && // Accelerating up (strengthening trend)
-                    currentValue > 0.5) { // NET shows strong bullish
-                    anticipatorySignal += 2.5; // Strong positive = strong buy signal
-                    console.log(`📈 STRONG TREND FOLLOWING BUY: Strong uptrend - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
-                }
-                // Medium bullish trend condition
-                else if (trendDivergence > 0.0003 && // Mildly above Decycler
-                         mediumMomentum > 0.001 && // Recent rise
-                         currentValue > 0.2) { // NET bullish
-                    anticipatorySignal += 1.5; // Positive = buy signal
-                    console.log(`📈 MEDIUM TREND FOLLOWING BUY: Uptrend condition - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
-                }
-            }
-
-            // TREND FOLLOWING BEARISH: Strong downward momentum = trend continuation = sell signal
-            else if (decyclerTrend < -0.001) { // Downward price action
-                // Very strong bearish trend condition
-                if (trendDivergence < -0.0008 && // Price well below Decycler (strong downtrend)
+            // MEAN REVERSION BULLISH: Strong downward momentum = oversold = buy signal
+            if (decyclerTrend < -0.001) { // Downward price action
+                // Very strong oversold condition - strong buy signal
+                if (trendDivergence < -0.0008 && // Price well below Decycler (oversold)
                     shortMomentum < -0.002 && // Strong negative momentum
-                    acceleration < -0.0008 && // Accelerating down (strengthening downtrend)
-                    currentValue < -0.5) { // NET shows strong bearish
-                    anticipatorySignal -= 2.5; // Strong negative = strong sell signal
-                    console.log(`📉 STRONG TREND FOLLOWING SELL: Strong downtrend - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
+                    acceleration < -0.0008 && // Accelerating down (getting more oversold)
+                    currentValue < -0.5) { // NET shows extreme oversold
+                    anticipatorySignal += 2.5; // INVERTED: Strong negative = strong buy signal
+                    console.log(`🔄 STRONG MEAN REVERSION BUY: Extreme oversold - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
                 }
-                // Medium bearish trend condition
-                else if (trendDivergence < -0.0003 && // Mildly below Decycler
+                // Medium oversold condition
+                else if (trendDivergence < -0.0003 && // Mildly oversold
                          mediumMomentum < -0.001 && // Recent decline
-                         currentValue < -0.2) { // NET bearish
-                    anticipatorySignal -= 1.5; // Negative = sell signal
-                    console.log(`📉 MEDIUM TREND FOLLOWING SELL: Downtrend condition - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
+                         currentValue < -0.2) { // NET oversold
+                    anticipatorySignal += 1.5; // INVERTED: Negative = buy signal
+                    console.log(`🔄 MEDIUM MEAN REVERSION BUY: Oversold condition - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
                 }
             }
 
-            // Boost signals in trending markets (better for trend following)
-            if (isTrendingMarket && Math.abs(anticipatorySignal) > 0) {
-                anticipatorySignal *= 1.3; // 30% boost for trending markets
-                console.log(`📈 TRENDING MARKET BOOST: Enhanced trend following signal by 30%`);
+            // MEAN REVERSION BEARISH: Strong upward momentum = overbought = sell signal
+            else if (decyclerTrend > 0.001) { // Upward price action
+                // Very strong overbought condition - strong sell signal
+                if (trendDivergence > 0.0008 && // Price well above Decycler (overbought)
+                    shortMomentum > 0.002 && // Strong positive momentum
+                    acceleration > 0.0008 && // Accelerating up (getting more overbought)
+                    currentValue > 0.5) { // NET shows extreme overbought
+                    anticipatorySignal -= 2.5; // INVERTED: Strong positive = strong sell signal
+                    console.log(`🔄 STRONG MEAN REVERSION SELL: Extreme overbought - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
+                }
+                // Medium overbought condition
+                else if (trendDivergence > 0.0003 && // Mildly overbought
+                         mediumMomentum > 0.001 && // Recent rise
+                         currentValue > 0.2) { // NET overbought
+                    anticipatorySignal -= 1.5; // INVERTED: Positive = sell signal
+                    console.log(`🔄 MEDIUM MEAN REVERSION SELL: Overbought condition - Decycler=${decyclerTrend.toFixed(5)}, Divergence=${trendDivergence.toFixed(5)}`);
+                }
+            }
+
+            // Boost signals in ranging markets (better for mean reversion)
+            if (isRangingMarket && Math.abs(anticipatorySignal) > 0) {
+                anticipatorySignal *= 1.3; // 30% boost for ranging markets
+                console.log(`🔄 RANGING MARKET BOOST: Enhanced mean reversion signal by 30%`);
             }
         }
 
