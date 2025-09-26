@@ -193,9 +193,14 @@ export class TrendAnalysisEngine {
         // Calculate overall score based on ROC alignment and validation
         let score = this.calculateTradingScoreByROC(finalDirection, strength, confidence, rocAlignment);
 
-        // Boost score significantly for valid ROC signals
+        // Boost score significantly for valid ROC signals - INCREASED WEIGHT
         if (persistentROCSignal === 'BULLISH' || persistentROCSignal === 'BEARISH') {
-            score = Math.min(95, score + 30); // Add 30 points for valid ROC signal
+            score = Math.min(98, score + 45); // Increased from 30 to 45 points for valid ROC signal
+        }
+
+        // Additional ROC alignment bonus - NEW ENHANCEMENT
+        if (rocAlignment !== 'NEUTRAL') {
+            score = Math.min(98, score + 15); // Extra 15 points for any ROC alignment
         }
 
         // Get Ehlers-based recommendations with Deriv market optimization
@@ -235,12 +240,18 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // Integrate pullback analysis with recommendations
+        // Integrate pullback analysis with recommendations - ROC GETS HIGHER PRIORITY
         let finalRecommendation = recommendation;
         let enhancedScore = score;
 
-        // Priority 1: Pullback analysis with Ehlers Decycler
-        if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
+        // Priority 1: Strong ROC signals (MOVED UP IN PRIORITY)
+        if (persistentROCSignal && confidence >= 75) {
+            finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
+            enhancedScore = Math.min(98, confidence + 25); // High bonus for strong ROC
+            console.log(`🎯 ROC PRIORITY: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
+        }
+        // Priority 2: Pullback analysis with Ehlers Decycler (MOVED DOWN)
+        else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
             finalRecommendation = pullbackAnalysis.recommendation;
             enhancedScore = Math.min(98, pullbackAnalysis.confidence);
 
@@ -581,18 +592,18 @@ export class TrendAnalysisEngine {
     private calculateConfidenceByROC(longTermROC: number, shortTermROC: number, rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL'): number {
         let confidence = 40; // Base confidence
 
-        // ROC alignment bonus
+        // ROC alignment bonus - INCREASED WEIGHT
         if (rocAlignment !== 'NEUTRAL') {
-            confidence += 30; // Major bonus for aligned ROC
+            confidence += 40; // Increased from 30 to 40 points for aligned ROC
         }
 
-        // ROC magnitude bonus
+        // ROC magnitude bonus - ENHANCED
         const rocMagnitude = Math.abs(longTermROC) + Math.abs(shortTermROC);
-        confidence += Math.min(20, rocMagnitude * 10);
+        confidence += Math.min(25, rocMagnitude * 12); // Increased multiplier and cap
 
-        // Acceleration bonus (short-term momentum stronger than long-term)
+        // Acceleration bonus (short-term momentum stronger than long-term) - ENHANCED
         const acceleration = Math.abs(shortTermROC - longTermROC);
-        confidence += Math.min(10, acceleration * 20);
+        confidence += Math.min(15, acceleration * 25); // Increased multiplier and cap
 
         return Math.min(100, Math.max(0, confidence));
     }
@@ -682,10 +693,10 @@ export class TrendAnalysisEngine {
             return 'HOLD';
         }
 
-        // Apply the validated ROC signal
-        if (rocSignal === 'BULLISH' && confidence > 65) {
+        // Apply the validated ROC signal - LOWERED THRESHOLD FOR MORE SIGNALS
+        if (rocSignal === 'BULLISH' && confidence > 55) { // Lowered from 65 to 55
             return 'BUY';
-        } else if (rocSignal === 'BEARISH' && confidence > 65) {
+        } else if (rocSignal === 'BEARISH' && confidence > 55) { // Lowered from 65 to 55
             return 'SELL';
         }
 
@@ -870,9 +881,9 @@ export class TrendAnalysisEngine {
         // Base score from confidence
         score += confidence * 0.6;
 
-        // ROC alignment bonus
+        // ROC alignment bonus - INCREASED WEIGHT
         if (rocAlignment !== 'NEUTRAL') {
-            score += 25; // Major bonus for ROC alignment
+            score += 40; // Increased from 25 to 40 points for ROC alignment
         }
 
         // Direction scoring
