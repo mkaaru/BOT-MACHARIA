@@ -501,7 +501,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                             confidence: 70 + (upTicks * 2), // Higher confidence for more consecutive up ticks
                             reason: `Strong upward tick momentum (${upTicks} up, ${downTicks} down)`,
                             timestamp: Date.now(),
-                            contractType: 'CALL' // Assuming CALL for upward movement
+                            contractType: 'CALL', // Assuming CALL for upward movement
+                            recommendationType: 'TICK_SCALPING',
+                            scalpingData: { // Add placeholder scalping data
+                                entryPrice: stats.currentSpot || 0,
+                                targetPrice: (stats.currentSpot || 0) + 0.0001 * (upTicks*2), // Example target
+                                riskReward: 1.5 // Example R/R
+                            }
                         });
                     }
                     // High probability of continuing downward movement
@@ -513,7 +519,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                             confidence: 70 + (downTicks * 2),
                             reason: `Strong downward tick momentum (${downTicks} down, ${upTicks} up)`,
                             timestamp: Date.now(),
-                            contractType: 'PUT' // Assuming PUT for downward movement
+                            contractType: 'PUT', // Assuming PUT for downward movement
+                            recommendationType: 'TICK_SCALPING',
+                            scalpingData: { // Add placeholder scalping data
+                                entryPrice: stats.currentSpot || 0,
+                                targetPrice: (stats.currentSpot || 0) - 0.0001 * (downTicks*2), // Example target
+                                riskReward: 1.5 // Example R/R
+                            }
                         });
                     }
                 }
@@ -1060,6 +1072,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                     return { tradeType: 'DIGITMATCH', contractType: 'DIGITMATCH' };
                 case 'differs':
                     return { tradeType: 'DIGITDIFF', contractType: 'DIGITDIFF' };
+                case 'call':
+                    return { tradeType: 'CALL', contractType: 'CALL'};
+                case 'put':
+                    return { tradeType: 'PUT', contractType: 'PUT'};
                 default:
                     return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
             }
@@ -1067,7 +1083,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         const { tradeType, contractType } = getTradeTypeAndContract(recommendation.strategy);
 
-        const settings = {
+        const settings: TradeSettings = {
             symbol: recommendation.symbol,
             tradeType: tradeType,
             contractType: contractType,
@@ -1083,7 +1099,13 @@ const TradingHubDisplay: React.FC = observer(() => {
         } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
             settings.prediction = parseInt(recommendation.barrier || '5');
             settings.barrier = recommendation.barrier;
+        } else if (recommendation.strategy === 'call' || recommendation.strategy === 'put') {
+            // For CALL/PUT, use barrier as prediction, and contractType should reflect CALL/PUT
+            settings.prediction = parseInt(recommendation.barrier || '0'); // Barrier might not be a digit for CALL/PUT
+            settings.contractType = recommendation.contractType || (recommendation.strategy === 'call' ? 'CALL' : 'PUT');
+            settings.tradeType = settings.contractType; // Update tradeType to match contractType
         }
+
 
         console.log('Loading Trading Hub settings to Smart Trader:', {
             strategy: recommendation.strategy,
@@ -1114,6 +1136,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             else if (recommendation.strategy === 'odd') contractType = 'DIGITODD';
             else if (recommendation.strategy === 'matches') contractType = 'DIGITMATCH';
             else if (recommendation.strategy === 'differs') contractType = 'DIGITDIFF';
+            else if (recommendation.strategy === 'call') contractType = 'CALL';
+            else if (recommendation.strategy === 'put') contractType = 'PUT';
+
 
             // Default settings
             const defaultStake = 0.5;
@@ -1126,6 +1151,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 prediction = parseInt(recommendation.barrier || '5');
             } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
                 prediction = parseInt(recommendation.barrier || '5');
+            } else if (recommendation.strategy === 'call' || recommendation.strategy === 'put') {
+                 prediction = recommendation.barrier; // For call/put, barrier might be relevant
             }
 
 
@@ -1141,6 +1168,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                         return {
                             tradeTypeCategory: 'digits',
                             tradeTypeList: 'digits',
+                            contractType: getTradeTypeForStrategy(strategy)
+                        };
+                    case 'call':
+                    case 'put':
+                        return {
+                            tradeTypeCategory: 'vanilla_options', // Assuming these map to vanilla options
+                            tradeTypeList: 'vanilla_options',
                             contractType: getTradeTypeForStrategy(strategy)
                         };
                     default:
@@ -1241,7 +1275,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     <!-- Trade Options -->
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="trade_options_block">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? 'true' : 'false'}"></mutation>
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? 'true' : 'false'}" has_second_barrier="false" has_prediction="${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? 'true' : 'false'}"></mutation>
         <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
         <value name="DURATION">
           <shadow type="math_number" id="duration_number">
@@ -1563,6 +1597,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             trade_option.prediction = prediction;
         } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
             trade_option.prediction = parseInt(recommendation.barrier || '5');
+        } else if (recommendation.strategy === 'call' || recommendation.strategy === 'put') {
+            // For call/put, prediction might be the target price or a relevant metric
+            trade_option.prediction = recommendation.barrier;
         }
 
         const buy_req = {
@@ -1702,7 +1739,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 <div className="recommendations-list">
                     {result.recommendations.map((rec, index) => (
-                        <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''} ${rec.contractType || 'rise_fall'} ${rec.recommendationType?.toLowerCase()}`}>
+                        <div key={`${rec.symbol}-${rec.strategy}-${index}`} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''}`}>
                             <div className="recommendation-header">
                                 <div className="symbol-info">
                                     <Text size="s" weight="bold">{symbolMap[rec.symbol] || rec.symbol}</Text>
@@ -1799,7 +1836,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Render tick scalping recommendations
     const renderTickScalpingCard = (rec: TradeRecommendation) => {
         return (
-            <div key={rec.symbol + rec.strategy + rec.timestamp} className="recommendation-item tick-scalping-item best-recommendation">
+            <div key={rec.symbol + rec.strategy + rec.timestamp} className={`recommendation-item tick-scalping-item best-recommendation`}>
                 <div className="recommendation-header">
                     <div className="symbol-info">
                         <Text size="s" weight="bold">{symbolMap[rec.symbol] || rec.symbol}</Text>

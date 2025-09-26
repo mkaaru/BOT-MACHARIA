@@ -730,6 +730,16 @@
                                 }
                             }
 
+                            &.tick-scalping {
+                                border-left: 4px solid var(--text-profit-success);
+                                background: linear-gradient(135deg, var(--general-section-1) 0%, rgba(39, 174, 96, 0.03) 100%);
+
+                                .strategy-type-badge {
+                                    background: var(--text-profit-success);
+                                    color: white;
+                                }
+                            }
+
                             .recommendation-content {
                                 flex: 1;
 
