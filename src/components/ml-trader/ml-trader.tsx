@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
-import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
+import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-bot-builder/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
@@ -1105,7 +1105,22 @@ const MLTrader = observer(() => {
                             </div>
 
                             <div className="recommendations-grid">
-                                {recommendations.slice(0, 6).map((rec, index) => {
+                                {recommendations.map((rec, index) => {
+                                    const symbolInfo = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === rec.symbol);
+                                    const displayName = symbolInfo?.display_name || rec.symbol;
+
+                                    // Convert direction to user-friendly text
+                                    let actionText = 'HOLD';
+                                    let actionClass = 'hold-signal';
+
+                                    if (rec.direction === 'CALL') {
+                                        actionText = 'BUY NOW';
+                                        actionClass = 'buy-signal';
+                                    } else if (rec.direction === 'PUT') {
+                                        actionText = 'SELL NOW';
+                                        actionClass = 'sell-signal';
+                                    }
+                                    
                                     const trend = market_trends.get(rec.symbol);
                                     const isSelected = selected_recommendation?.symbol === rec.symbol;
 
@@ -1243,7 +1258,7 @@ const MLTrader = observer(() => {
                     ) : (
                         <div className="no-recommendations">
                             <div className="no-recommendations-header">
-                                <Text size="sm" weight="bold" color="prominent">
+                                <Text as="h3" size="sm" weight="bold" color="prominent">
                                     {localize('Market Analysis Active')}
                                 </Text>
                             </div>
@@ -1278,7 +1293,7 @@ const MLTrader = observer(() => {
 
                                 {/* Market Health Overview */}
                                 <div className="market-health-overview">
-                                    <Text size="xs" weight="bold" color="prominent">
+                                    <Text as="h3" size="xs" weight="bold" color="prominent">
                                         {localize('Current Market Analysis')}
                                     </Text>
                                     <div className="market-symbols-grid">

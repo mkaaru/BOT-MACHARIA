@@ -1308,7 +1308,7 @@
 
                         &:hover {
                             border-color: rgba(102, 126, 234, 0.4);
-                            background: linear-gradient(145deg, #5a6b7d 0%, #6b7c90 100%);
+                            background: linear-gradient(145deg, #5a6b7d 0%, #6b7280 100%);
                         }
                     }
                 }
@@ -1446,9 +1446,20 @@
                             .signal-indicator {
                                 font-size: 14px;
 
-                                &.buy { filter: hue-rotate(120deg); }
-                                &.sell { filter: hue-rotate(0deg); }
-                                &.hold { opacity: 0.6; }
+                                &.buy-signal {
+                                    background: linear-gradient(135deg, #00c851, #007e33);
+                                    color: white;
+                                }
+
+                                &.sell-signal {
+                                    background: linear-gradient(135deg, #ff4444, #cc0000);
+                                    color: white;
+                                }
+
+                                &.hold-signal {
+                                    background: linear-gradient(135deg, #ffa726, #ff8f00);
+                                    color: white;
+                                }
                             }
                         }
 

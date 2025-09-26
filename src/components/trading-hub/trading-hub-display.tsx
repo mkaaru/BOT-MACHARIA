@@ -129,7 +129,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             '🚀 Every market moment brings unique opportunities...'
         ],
         recommending: [
-            '🎯 AI preparing optimal trade recommendations...',
+            '🎯 AI preparing trade recommendations...',
             '💎 Finalizing high-confidence opportunities...',
             '🚀 Ready to present best trading setups...',
             '⚡ Truth #5: Every moment in the market is unique...',
@@ -325,7 +325,21 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const { lastDigitFrequency, currentLastDigit } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
 
-                if (totalTicks < 50) return;
+                if (totalTicks < 50) {
+                    // Add HOLD recommendation for insufficient data
+                    recommendations.push({
+                        symbol,
+                        strategy: 'hold' as any,
+                        barrier: 'insufficient_data',
+                        confidence: 0,
+                        overPercentage: 0,
+                        underPercentage: 0,
+                        reason: `HOLD - Insufficient data (${totalTicks} ticks, need 50+)`,
+                        timestamp: Date.now(),
+                        direction: 'HOLD' as any
+                    });
+                    return;
+                }
 
                 // Balanced barrier assignment ensuring BOTH over and under recommendations
                 const symbolBarrierMap: Record<string, { overBarrier: number; underBarrier: number }> = {
@@ -363,7 +377,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     }
 
                     const overPercent = (overCount / totalTicks) * 100;
-                    const underPercent = (underCount / totalTicks) * 100;
+                    const underPercent = (underCount / totalTicks) * 1>00;
 
                     const dominancePercent = strategy === 'over' ? overPercent : underPercent;
                     const oppositePercent = strategy === 'over' ? underPercent : overPercent;
@@ -852,7 +866,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
-                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped or no recommendation');
+                                                console.log('🚫 AI Auto Trade: No next trade scheduled - AI Auto Trade stopped or no recommendation');
                                             }
                                         }, 2000); // 2 seconds between trades for faster execution
                                     } else {
@@ -1089,14 +1103,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                     case 'odd':
                     case 'matches':
                     case 'differs':
-                        return { 
-                            tradeTypeCategory: 'digits', 
+                        return {
+                            tradeTypeCategory: 'digits',
                             tradeTypeList: 'digits',
                             contractType: getTradeTypeForStrategy(strategy)
                         };
                     default:
-                        return { 
-                            tradeTypeCategory: 'digits', 
+                        return {
+                            tradeTypeCategory: 'digits',
                             tradeTypeList: 'digits',
                             contractType: 'DIGITOVER'
                         };
@@ -1656,9 +1670,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {/* Updated display: CALL -> BUY NOW, PUT -> SELL NOW */}
                                     <div className="recommendation-badge">
                                         <Text size="xs" weight="bold" color={
-                                            rec.direction === 'CALL' ? 'profit-success' : 'loss-danger'
+                                            rec.direction === 'CALL' ? 'profit-success' : rec.direction === 'PUT' ? 'loss-danger' : 'general'
                                         }>
-                                            {rec.direction === 'CALL' ? 'BUY NOW' : 'SELL NOW'}
+                                            {rec.direction === 'CALL' ? 'BUY NOW' : rec.direction === 'PUT' ? 'SELL NOW' : 'HOLD'}
                                         </Text>
                                     </div>
                                     <span className={`confidence-badge confidence-${getConfidenceLevel(rec.confidence)}`}>
@@ -1675,20 +1689,24 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 </div>
                             </div>
                             <div className="recommendation-actions">
-                                <button
-                                    className="load-trade-btn"
-                                    onClick={() => loadTradeSettings(rec)}
-                                    title="Load these settings into Smart Trader"
-                                >
-                                    ⚡ Smart Trader
-                                </button>
-                                <button
-                                    className="load-bot-builder-btn"
-                                    onClick={() => loadToBotBuilder(rec)}
-                                    title="Load strategy directly to Bot Builder"
-                                >
-                                    🤖 Bot Builder
-                                </button>
+                                {rec.direction !== 'HOLD' && (
+                                    <>
+                                        <button
+                                            className="load-trade-btn"
+                                            onClick={() => loadTradeSettings(rec)}
+                                            title="Load these settings into Smart Trader"
+                                        >
+                                            ⚡ Smart Trader
+                                        </button>
+                                        <button
+                                            className="load-bot-builder-btn"
+                                            onClick={() => loadToBotBuilder(rec)}
+                                            title="Load strategy directly to Bot Builder"
+                                        >
+                                            🤖 Bot Builder
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     ))}
