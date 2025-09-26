@@ -209,17 +209,17 @@ export class MarketScanner {
                 // Convert scalping signal to trading recommendation
                 const recommendation = this.convertScalpingSignalToRecommendation(signal);
                 this.scalpingRecommendations.push(recommendation);
-                
+
                 // Keep only recent scalping recommendations (last 20)
                 if (this.scalpingRecommendations.length > 20) {
                     this.scalpingRecommendations = this.scalpingRecommendations.slice(-20);
                 }
-                
+
                 // Notify scalping callbacks
                 this.scalpingCallbacks.forEach(callback => {
                     callback(signal);
                 });
-                
+
                 console.log(`🎯 SCALPING SIGNAL: ${signal.symbol} ${signal.action} at ${signal.entryPrice} (${signal.confidence}% confidence)`);
             } catch (error) {
                 console.error('Error processing scalping signal:', error);
@@ -276,10 +276,10 @@ export class MarketScanner {
                 try {
                     // Process tick through candle reconstruction
                     candleReconstructionEngine.processTick(tick);
-                    
+
                     // Process tick through scalping engine
                     tickScalpingEngine.processTick(tick);
-                    
+
                     // Update existing scalping signals
                     tickScalpingEngine.updateSignal(tick.symbol, tick);
                 } catch (error) {
@@ -376,7 +376,7 @@ export class MarketScanner {
         if (trend.alternativeRecommendations) {
             const altType = trend.recommendationType === 'TREND_FOLLOWING' ? 'meanReversion' : 'trendFollowing';
             const altRec = trend.alternativeRecommendations[altType];
-            
+
             if (altRec.recommendation !== 'HOLD') {
                 alternativeRecommendation = {
                     direction: altRec.recommendation === 'BUY' ? 'CALL' as const : 'PUT' as const,
