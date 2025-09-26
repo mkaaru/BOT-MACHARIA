@@ -1223,14 +1223,7 @@ const MLTrader = observer(() => {
                                                         </div>
                                                     )}
 
-                                                    {/* Cycle Trading Suitability */}
-                                                    {trend.cycleTrading && (
-                                                        <div className={`cycle-status ${trend.cycleTrading.suitable ? 'suitable' : 'unsuitable'}`}>
-                                                            <Text size="xs">
-                                                                {trend.cycleTrading.suitable ? '✅ Good for cycles' : '❌ Poor cycle conditions'}
-                                                            </Text>
-                                                        </div>
-                                                    )}
+                                                    
                                                 </div>
                                             )}
 

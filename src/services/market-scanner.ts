@@ -299,10 +299,6 @@ export class MarketScanner {
         }
 
         // Add market regime context
-        if (trend.cycleTrading?.suitable) {
-            reasons.push('Ranging Market - Ideal for Mean Reversion');
-        }
-
         return reasons.length > 0 ? reasons.join(' | ') : 'Mean Reversion Signal';
     }
 
@@ -312,7 +308,7 @@ export class MarketScanner {
     private calculateMeanReversionDuration(trend: TrendAnalysis): number {
         // Mean reversion trades typically need less time than trend following
         const baselineStrength = trend.strength === 'strong' ? 15 : trend.strength === 'moderate' ? 20 : 25;
-        
+
         // Shorter durations for mean reversion
         if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
             return 10; // Very short for strong reversals
@@ -363,12 +359,15 @@ export class MarketScanner {
             reasons.push(`${trend.strength} trend strength`);
         }
 
-        // Add cycle trading suitability
-        if (trend.cycleTrading?.suitable) {
-            reasons.push('✅ Good cycle conditions');
-        } else if (trend.cycleTrading) {
-            reasons.push(`⚠️ ${trend.cycleTrading.reason}`);
+        // Add Ehlers signal context for mean reversion
+        if (trend.ehlersRecommendation?.anticipatory) {
+            if (trend.recommendation === 'BUY' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal < -1) {
+                reasons.push('Strong Contrarian Signal (Oversold)');
+            } else if (trend.recommendation === 'SELL' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal > 1) {
+                reasons.push('Strong Contrarian Signal (Overbought)');
+            }
         }
+
 
         if (trend.confidence > 80) {
             reasons.push('High confidence signal');
