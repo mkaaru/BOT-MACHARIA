@@ -17,6 +17,8 @@ export interface PullbackAnalysis {
     recommendation: 'BUY' | 'SELL' | 'HOLD';
 }
 
+export type RecommendationType = 'TREND_FOLLOWING' | 'MEAN_REVERSION';
+
 export interface TrendAnalysis {
     symbol: string;
     timestamp: number;
@@ -26,6 +28,7 @@ export interface TrendAnalysis {
     score: number;
     price: number;
     recommendation: 'BUY' | 'SELL' | 'HOLD';
+    recommendationType: RecommendationType;
     reason: string;
     lastUpdate: Date;
 
@@ -65,6 +68,20 @@ export interface TrendAnalysis {
         confidence: number;
         duration: number;
         factors: string[];
+    };
+
+    // Alternative recommendations for both strategies
+    alternativeRecommendations?: {
+        trendFollowing: {
+            recommendation: 'BUY' | 'SELL' | 'HOLD';
+            score: number;
+            reason: string;
+        };
+        meanReversion: {
+            recommendation: 'BUY' | 'SELL' | 'HOLD';
+            score: number;
+            reason: string;
+        };
     };
 
     // Cycle trading assessment
@@ -216,6 +233,12 @@ export class TrendAnalysisEngine {
             score = Math.min(98, score + 15); // Extra 15 points for any ROC alignment
         }
 
+        // Determine recommendation type based on signal source
+        let recommendationType: RecommendationType = 'TREND_FOLLOWING';
+        let finalRecommendation = recommendation;
+        let enhancedScore = score;
+        let finalReason = 'ROC Trend Following Signal';
+
         // Get Ehlers-based recommendations with Deriv market optimization
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
@@ -253,47 +276,75 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // Integrate pullback analysis with recommendations - ROC GETS HIGHER PRIORITY
-        let finalRecommendation = recommendation;
-        let enhancedScore = score;
+        // DUAL RECOMMENDATION SYSTEM: Generate both trend following and mean reversion signals
 
-        // Priority 1: Strong ROC signals (MOVED UP IN PRIORITY)
+        // === TREND FOLLOWING SIGNALS ===
+        let trendFollowingRec = 'HOLD';
+        let trendFollowingScore = score;
+        let trendFollowingReason = 'ROC Trend Following Signal';
+
+        // Priority 1: Strong ROC signals (TREND FOLLOWING)
         if (persistentROCSignal && confidence >= 75) {
-            finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
-            enhancedScore = Math.min(98, confidence + 25); // High bonus for strong ROC
-            console.log(`🎯 ROC PRIORITY: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
+            trendFollowingRec = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
+            trendFollowingScore = Math.min(98, confidence + 25);
+            trendFollowingReason = `Strong ${persistentROCSignal} ROC trend signal (${confidence.toFixed(1)}%)`;
+            console.log(`🎯 TREND FOLLOWING: ${persistentROCSignal} signal with high confidence (${trendFollowingScore.toFixed(1)}%)`);
         }
-        // Priority 2: Pullback analysis with Ehlers Decycler (MOVED DOWN)
-        else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
-            finalRecommendation = pullbackAnalysis.recommendation;
-            enhancedScore = Math.min(98, pullbackAnalysis.confidence);
+        // Strong Ehlers trend signals
+        else if (ehlersSignals && !ehlersRecommendation.anticipatory && ehlersRecommendation.confidence >= 70) {
+            trendFollowingRec = ehlersRecommendation.action;
+            trendFollowingScore = Math.min(95, ehlersRecommendation.confidence + 15);
+            trendFollowingReason = `Ehlers trend signal: ${ehlersRecommendation.reason}`;
+        }
+
+        // === MEAN REVERSION SIGNALS ===
+        let meanReversionRec = 'HOLD';
+        let meanReversionScore = 0;
+        let meanReversionReason = 'Mean Reversion Signal';
+
+        // Priority 1: Pullback analysis with Ehlers Decycler (MEAN REVERSION)
+        if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
+            meanReversionRec = pullbackAnalysis.recommendation;
+            meanReversionScore = Math.min(98, pullbackAnalysis.confidence);
+            meanReversionReason = `Mean reversion ${pullbackAnalysis.pullbackType} (${pullbackAnalysis.pullbackStrength})`;
 
             // Add bonus for strong pullbacks
             if (pullbackAnalysis.pullbackStrength === 'strong') {
-                enhancedScore = Math.min(98, enhancedScore + 10);
-                console.log(`🚀 PULLBACK PRIORITY: ${pullbackAnalysis.pullbackType.toUpperCase()} - ${pullbackAnalysis.pullbackStrength.toUpperCase()} (${enhancedScore.toFixed(1)}%)`);
+                meanReversionScore = Math.min(98, meanReversionScore + 10);
+                console.log(`🔄 MEAN REVERSION: ${pullbackAnalysis.pullbackType.toUpperCase()} - ${pullbackAnalysis.pullbackStrength.toUpperCase()} (${meanReversionScore.toFixed(1)}%)`);
             }
         }
-        // Priority 2: Strong Ehlers anticipatory signals
+        // Strong Ehlers anticipatory signals (MEAN REVERSION)
         else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(95, score + 25); // High bonus for strong anticipatory signals
-            console.log(`⚡ EHLERS PRIORITY: Strong anticipatory signal (${enhancedScore.toFixed(1)}%)`);
+            meanReversionRec = ehlersRecommendation.action;
+            meanReversionScore = Math.min(95, ehlersRecommendation.confidence + 20);
+            meanReversionReason = `Strong anticipatory signal: ${ehlersRecommendation.reason}`;
+            console.log(`⚡ MEAN REVERSION: Strong anticipatory signal (${meanReversionScore.toFixed(1)}%)`);
         }
-        // Priority 3: Medium Ehlers anticipatory signals
+        // Medium Ehlers anticipatory signals
         else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'medium') {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(90, score + 18); // Good bonus for medium anticipatory signals
+            meanReversionRec = ehlersRecommendation.action;
+            meanReversionScore = Math.min(90, ehlersRecommendation.confidence + 15);
+            meanReversionReason = `Medium anticipatory signal: ${ehlersRecommendation.reason}`;
         }
-        // Priority 4: Weak anticipatory signals only in good cycle conditions
-        else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'weak' && cycleTrading.suitable) {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(80, score + 10); // Small bonus for weak anticipatory signals
-        }
-        // Priority 5: Standard Ehlers signals as backup
-        else if (ehlersSignals && cycleTrading.suitable && ehlersRecommendation.confidence > confidence) {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.max(score, ehlersRecommendation.confidence);
+
+        // CHOOSE THE BEST SIGNAL FOR PRIMARY RECOMMENDATION
+        if (trendFollowingScore >= meanReversionScore && trendFollowingRec !== 'HOLD') {
+            finalRecommendation = trendFollowingRec;
+            enhancedScore = trendFollowingScore;
+            finalReason = trendFollowingReason;
+            recommendationType = 'TREND_FOLLOWING';
+        } else if (meanReversionScore > 0 && meanReversionRec !== 'HOLD') {
+            finalRecommendation = meanReversionRec;
+            enhancedScore = meanReversionScore;
+            finalReason = meanReversionReason;
+            recommendationType = 'MEAN_REVERSION';
+        } else {
+            // Fallback to trend following if no clear signal
+            finalRecommendation = recommendation;
+            enhancedScore = score;
+            finalReason = 'ROC Trend Following Signal';
+            recommendationType = 'TREND_FOLLOWING';
         }
 
         const analysis: TrendAnalysis = {
@@ -304,7 +355,10 @@ export class TrendAnalysisEngine {
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
+            recommendationType,
+            reason: finalReason,
             score: enhancedScore,
+            timestamp: Date.now(),
             longTermROC,
             shortTermROC,
             rocAlignment,
@@ -312,8 +366,21 @@ export class TrendAnalysisEngine {
             ehlersRecommendation,
             cycleTrading,
             derivSignals,
-            pullbackAnalysis, // Add pullback analysis results
-            sustainedMomentum, // Add sustained momentum analysis
+            pullbackAnalysis,
+            sustainedMomentum,
+            // Store both recommendation types for UI display
+            alternativeRecommendations: {
+                trendFollowing: {
+                    recommendation: trendFollowingRec,
+                    score: trendFollowingScore,
+                    reason: trendFollowingReason
+                },
+                meanReversion: {
+                    recommendation: meanReversionRec,
+                    score: meanReversionScore,
+                    reason: meanReversionReason
+                }
+            }
         };
 
         this.trendData.set(symbol, analysis);

@@ -9,6 +9,7 @@ import { useStore } from '@/hooks/useStore';
 import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
+import type { TradingRecommendation } from '@/services/market-scanner';
 import './trading-hub-display.scss';
 
 // Mock 'transactions' object if it's not globally available or imported elsewhere
@@ -1642,10 +1643,13 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 <div className="recommendations-list">
                     {result.recommendations.map((rec, index) => (
-                        <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''} ${rec.contractType || 'rise_fall'}`}>
+                        <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''} ${rec.contractType || 'rise_fall'} ${rec.recommendationType?.toLowerCase()}`}>
                             <div className="recommendation-header">
                                 <div className="symbol-info">
                                     <Text size="s" weight="bold">{symbolMap[rec.symbol] || rec.symbol}</Text>
+                                </div>
+                                <div className="strategy-type-badge">
+                                    {rec.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}
                                 </div>
                                 <div className="signal-type-badge">
                                     {rec.contractType === 'higher_lower' ? 'H/L' : 'R/F'}
@@ -1667,6 +1671,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     <Text size="xs" color="prominent">
                                         {rec.reason}
                                     </Text>
+                                    {rec.alternativeRecommendation && (
+                                        <div className="alternative-recommendation">
+                                            <Text size="xs" color="less-prominent">
+                                                Alt ({rec.alternativeRecommendation.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}): {rec.alternativeRecommendation.direction} 
+                                                ({rec.alternativeRecommendation.confidence.toFixed(0)}%)
+                                            </Text>
+                                        </div>
+                                    )}
                                     {rec.momentumAnalysis && (
                                         <div className="momentum-details">
                                             <Text size="xs" color="less-prominent">
