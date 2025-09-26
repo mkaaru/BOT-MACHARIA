@@ -1852,46 +1852,62 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Render tick scalping recommendations
     const renderTickScalpingCard = (rec: TradeRecommendation) => {
+        const displayName = symbolMap[rec.symbol] || rec.symbol;
         return (
-            <div key={rec.symbol + rec.strategy + rec.timestamp} className={`recommendation-item tick-scalping-item best-recommendation`}>
-                <div className="recommendation-header">
-                    <div className="symbol-info">
-                        <div className="symbol-name">{symbolMap[rec.symbol] || rec.symbol}</div>
-                        <span className={`strategy-label strategy-label--${rec.strategy}`}>
-                            {rec.strategy.toUpperCase()} {rec.barrier}
+            <div key={rec.symbol + rec.strategy + rec.timestamp} className="tick-scalping-card">
+                <div className="scalping-card-header">
+                    <div className="scalping-symbol-info">
+                        <h3 className="scalping-symbol-name">{displayName}</h3>
+                        <span className={`scalping-strategy-badge scalping-strategy--${rec.strategy}`}>
+                            ⚡ {rec.strategy.toUpperCase()}
                         </span>
                     </div>
-                    <span className={`confidence-badge ${getConfidenceClass(rec.confidence)}`}>
+                    <span className={`scalping-confidence-badge ${getConfidenceClass(rec.confidence)}`}>
                         {rec.confidence.toFixed(1)}%
                     </span>
                 </div>
-                <div className="recommendation-details">
-                    <div className="dominance-info">
-                        <div className="dominance-text">
-                            {rec.strategy.toUpperCase()} {rec.barrier} dominance: {rec.confidence.toFixed(1)}% vs {(100 - rec.confidence).toFixed(1)}%
+
+                <div className="scalping-card-details">
+                    <div className="scalping-signal-info">
+                        <div className="signal-strength">
+                            <span className="signal-label">Signal Strength:</span>
+                            <span className="signal-value">{rec.confidence.toFixed(1)}%</span>
                         </div>
-                        <div className="current-digit">
-                            Current {rec.scalpingData?.entryPrice} {/* Placeholder, ideally current price */}
-                        </div>
+                        {rec.scalpingData && (
+                            <div className="price-targets">
+                                <div className="price-item">
+                                    <span className="price-label">Entry:</span>
+                                    <span className="price-value">{rec.scalpingData.entryPrice?.toFixed(4) || 'N/A'}</span>
+                                </div>
+                                <div className="price-item">
+                                    <span className="price-label">Target:</span>
+                                    <span className="price-value">{rec.scalpingData.targetPrice?.toFixed(4) || 'N/A'}</span>
+                                </div>
+                                <div className="price-item">
+                                    <span className="price-label">R/R:</span>
+                                    <span className="price-value">{rec.scalpingData.riskReward?.toFixed(1) || 'N/A'}</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    <div className="recommendation-reason">
-                        <Text size="xs" color="prominent">
-                            {rec.reason}
-                        </Text>
+
+                    <div className="scalping-reason">
+                        <span className="reason-text">{rec.reason}</span>
                     </div>
                 </div>
-                <div className="recommendation-actions">
+
+                <div className="scalping-card-actions">
                     <button
-                        className="load-trade-btn"
+                        className="scalping-action-btn scalping-smart-trader-btn"
                         onClick={() => loadTradeSettings(rec)}
-                        title="Load these settings into Smart Trader"
+                        title="Load in Smart Trader"
                     >
                         📊 Smart Trader
                     </button>
                     <button
-                        className="load-bot-builder-btn"
+                        className="scalping-action-btn scalping-bot-builder-btn"
                         onClick={() => loadToBotBuilder(rec)}
-                        title="Load strategy directly to Bot Builder"
+                        title="Load in Bot Builder"
                     >
                         🤖 Bot Builder
                     </button>
@@ -2159,21 +2175,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 )}
 
-                {/* Render Tick Scalping Cards if 'tick_scalping' is selected or always if beneficial */}
-                {(selectedTradeType === 'tick_scalping' || (connectionStatus === 'ready' && tickScalpingSignals.length > 0)) && (
-                    <div className="scanner-content">
-                        {tickScalpingSignals.length > 0 && (
-                            <div className="tick-scalping-section">
-                                <div className="section-header">
-                                    <h2>Tick Scalping Recommendations</h2>
-                                </div>
-                                <div className="results-grid tick-scalping-grid">
-                                    {tickScalpingSignals.map(renderTickScalpingCard)}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                
 
 
                 <div className="scanner-content">
@@ -2271,10 +2273,32 @@ const TradingHubDisplay: React.FC = observer(() => {
                     )}
 
                     {connectionStatus === 'ready' && (scanResults.length > 0 || tickScalpingSignals.length > 0) && (
-                        <div className="volatility-cards-container">
-                            <div className="volatility-cards-grid">
-                                {scanResults.map(renderRecommendationCard)}
-                            </div>
+                        <div className="scanner-results-section">
+                            {/* Tick Scalping Cards */}
+                            {tickScalpingSignals.length > 0 && (
+                                <div className="tick-scalping-section">
+                                    <div className="section-header">
+                                        <h2>⚡ Tick Scalping Signals</h2>
+                                        <span className="signal-count">{tickScalpingSignals.length} signals</span>
+                                    </div>
+                                    <div className="tick-scalping-grid">
+                                        {tickScalpingSignals.map(renderTickScalpingCard)}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Volatility Index Cards */}
+                            {scanResults.length > 0 && (
+                                <div className="volatility-section">
+                                    <div className="section-header">
+                                        <h2>📊 Trading Opportunities</h2>
+                                        <span className="opportunity-count">{scanResults.length} opportunities</span>
+                                    </div>
+                                    <div className="volatility-cards-grid">
+                                        {scanResults.map(renderRecommendationCard)}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
