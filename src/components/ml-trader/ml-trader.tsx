@@ -1105,22 +1105,7 @@ const MLTrader = observer(() => {
                             </div>
 
                             <div className="recommendations-grid">
-                                {recommendations.map((rec, index) => {
-                                    const symbolInfo = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === rec.symbol);
-                                    const displayName = symbolInfo?.display_name || rec.symbol;
-
-                                    // Convert direction to user-friendly text
-                                    let actionText = 'HOLD';
-                                    let actionClass = 'hold-signal';
-
-                                    if (rec.direction === 'CALL') {
-                                        actionText = 'BUY NOW';
-                                        actionClass = 'buy-signal';
-                                    } else if (rec.direction === 'PUT') {
-                                        actionText = 'SELL NOW';
-                                        actionClass = 'sell-signal';
-                                    }
-                                    
+                                {recommendations.slice(0, 6).map((rec, index) => {
                                     const trend = market_trends.get(rec.symbol);
                                     const isSelected = selected_recommendation?.symbol === rec.symbol;
 
@@ -1135,7 +1120,7 @@ const MLTrader = observer(() => {
                                                 <div className="rec-rank">#{index + 1}</div>
                                                 <div className="rec-symbol">{rec.displayName}</div>
                                                 <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
-                                                    {rec.direction === 'CALL' ? 'BUY NOW' : 'SELL NOW'}
+                                                    {rec.direction}
                                                 </div>
                                             </div>
 
@@ -1239,9 +1224,11 @@ const MLTrader = observer(() => {
                                                     )}
 
                                                     {/* Cycle Trading Suitability */}
-                                                    {trend.cycleTrading?.suitable && (
-                                                        <div className="cycle-suitability suitable">
-                                                            <Text size="xs" color="profit-success">✅ Good cycle conditions</Text>
+                                                    {trend.cycleTrading && (
+                                                        <div className={`cycle-status ${trend.cycleTrading.suitable ? 'suitable' : 'unsuitable'}`}>
+                                                            <Text size="xs">
+                                                                {trend.cycleTrading.suitable ? '✅ Good for cycles' : '❌ Poor cycle conditions'}
+                                                            </Text>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1258,7 +1245,7 @@ const MLTrader = observer(() => {
                     ) : (
                         <div className="no-recommendations">
                             <div className="no-recommendations-header">
-                                <Text as="h3" size="sm" weight="bold" color="prominent">
+                                <Text size="sm" weight="bold" color="prominent">
                                     {localize('Market Analysis Active')}
                                 </Text>
                             </div>
@@ -1293,7 +1280,7 @@ const MLTrader = observer(() => {
 
                                 {/* Market Health Overview */}
                                 <div className="market-health-overview">
-                                    <Text as="h3" size="xs" weight="bold" color="prominent">
+                                    <Text size="xs" weight="bold" color="prominent">
                                         {localize('Current Market Analysis')}
                                     </Text>
                                     <div className="market-symbols-grid">

@@ -222,6 +222,7 @@ export class MarketScanner {
         const opportunities = this.trendAnalysisEngine.getTopOpportunities(count * 2);
 
         return opportunities
+            .filter(opp => opp.trend.recommendation !== 'HOLD')
             .slice(0, count)
             .map(opp => this.convertToTradingRecommendation(opp));
     }
@@ -232,20 +233,14 @@ export class MarketScanner {
     private convertToTradingRecommendation(scanResult: MarketScanResult): TradingRecommendation {
         const { trend } = scanResult;
 
-        // Determine direction based on recommendation and quality
-        let direction: 'CALL' | 'PUT' | 'HOLD' = 'HOLD';
-        
-        if (trend.recommendation === 'BUY' && trend.score >= 70 && trend.confidence >= 65) {
-            direction = 'CALL';
-        } else if (trend.recommendation === 'SELL' && trend.score >= 70 && trend.confidence >= 65) {
-            direction = 'PUT';
-        }
+        // Determine direction based on recommendation
+        const direction: 'CALL' | 'PUT' = trend.recommendation === 'BUY' ? 'CALL' : 'PUT';
 
-        // Generate reason based on direction
-        const reason = this.generateQualityBasedReason(trend, direction);
+        // Generate reason
+        const reason = this.generateRecommendationReason(trend);
 
         // Suggest optimal trading parameters
-        const suggestedStake = direction === 'HOLD' ? 0 : this.calculateOptimalStake(trend.confidence, trend.strength);
+        const suggestedStake = this.calculateOptimalStake(trend.confidence, trend.strength);
         const { duration, durationUnit } = this.calculateOptimalDuration(trend.strength, scanResult.symbol);
 
         return {
@@ -333,36 +328,6 @@ export class MarketScanner {
      */
     private generateRecommendationReason(trend: TrendAnalysis): string {
         return this.generateMeanReversionReason(trend); // Delegate to mean reversion logic
-    }
-
-    /**
-     * Generate quality-based recommendation reason
-     */
-    private generateQualityBasedReason(trend: TrendAnalysis, direction: 'CALL' | 'PUT' | 'HOLD'): string {
-        if (direction === 'HOLD') {
-            const reasons: string[] = ['⚠️ HOLD - Poor Trading Conditions'];
-            
-            if (trend.score < 70) {
-                reasons.push(`Low Signal Quality (${trend.score.toFixed(1)}%)`);
-            }
-            if (trend.confidence < 65) {
-                reasons.push(`Low Confidence (${trend.confidence.toFixed(1)}%)`);
-            }
-            if (trend.longTermTrendStrength !== undefined && trend.longTermTrendStrength < 60) {
-                reasons.push(`Weak Trend Alignment (${trend.longTermTrendStrength.toFixed(1)}%)`);
-            }
-            if (trend.cycleTrading && !trend.cycleTrading.suitable) {
-                reasons.push('Poor Cycle Conditions');
-            }
-            if (trend.ehlers && trend.ehlers.snr < 3) {
-                reasons.push(`Low Signal-to-Noise Ratio (${trend.ehlers.snr.toFixed(1)}dB)`);
-            }
-            
-            return reasons.join(' | ');
-        }
-        
-        // For BUY/SELL recommendations, use mean reversion logic
-        return this.generateMeanReversionReason(trend);
     }
 
     /**
@@ -504,29 +469,17 @@ export class MarketScanner {
         VOLATILITY_SYMBOLS.forEach(symbolInfo => {
             const symbol = symbolInfo.symbol;
             const trend = this.trendAnalysisEngine.getTrendAnalysis(symbol);
-            if (trend) { // Accept all trends, including HOLD
-                // Determine direction including HOLD for poor conditions
-                let direction: 'CALL' | 'PUT' | 'HOLD' = 'HOLD';
-                
-                if (trend.recommendation === 'BUY' && trend.score >= 70 && trend.confidence >= 65) {
-                    direction = 'CALL';
-                } else if (trend.recommendation === 'SELL' && trend.score >= 70 && trend.confidence >= 65) {
-                    direction = 'PUT';
-                } else {
-                    // Poor quality conditions - recommend HOLD
-                    direction = 'HOLD';
-                }
-
+            if (trend && trend.score >= 65) { // Lowered threshold for better capture
                 const recommendation: TradingRecommendation = {
                     symbol,
                     displayName: symbolInfo.display_name,
-                    direction,
+                    direction: trend.recommendation === 'BUY' ? 'CALL' : trend.recommendation === 'SELL' ? 'PUT' : 'HOLD',
                     confidence: trend.confidence,
                     score: trend.score,
-                    reason: this.generateQualityBasedReason(trend, direction),
+                    reason: this.generateRecommendationReason(trend),
                     timestamp: now,
                     currentPrice: trend.price || 0,
-                    suggestedStake: direction === 'HOLD' ? 0 : this.calculateOptimalStake(trend.confidence, trend.strength),
+                    suggestedStake: this.calculateOptimalStake(trend.confidence, trend.strength),
                     suggestedDuration: this.calculateOptimalDuration(trend.strength, symbol).duration,
                     suggestedDurationUnit: this.calculateOptimalDuration(trend.strength, symbol).durationUnit,
                     longTermTrend: trend.longTermTrend,
