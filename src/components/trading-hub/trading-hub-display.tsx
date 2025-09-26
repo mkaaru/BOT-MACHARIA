@@ -1744,88 +1744,106 @@ const TradingHubDisplay: React.FC = observer(() => {
             current.confidence > (best?.confidence || 0) ? current : best, null);
 
         return (
-            <div key={result.symbol} className="scanner-result-card">
-                <div className="scanner-result-header">
-                    <div className="symbol-info">
-                        <Text size="s" weight="bold">{result.displayName}</Text>
-                        <Text size="xs" color="general">{result.symbol}</Text>
+            <div key={result.symbol} className="volatility-index-card">
+                <div className="volatility-card-header">
+                    <div className="volatility-info">
+                        <h3 className="volatility-name">{result.displayName}</h3>
+                        <span className="volatility-symbol">{result.symbol}</span>
                     </div>
-                    <div className="market-health">
+                    <div className="volatility-status">
                         <div className={`health-indicator ${result.stats.tickCount >= 50 ? 'healthy' : 'limited'}`}>
                             {result.stats.tickCount >= 50 ? '🟢' : '🟡'} {result.stats.tickCount} ticks
                         </div>
-                        <div className="real-time-badge">
+                        <div className="live-indicator">
                             📈 Live
                         </div>
                     </div>
                 </div>
 
-                <div className="recommendations-list">
-                    {result.recommendations.map((rec, index) => (
-                        <div
-                            key={`${result.symbol}-${rec.strategy}-${rec.barrier}`}
-                            className={`recommendation-item ${
-                                rec === bestRec ? 'best-recommendation' : ''
-                            } ${rec.strategy}-recommendation`}
-                        >
-                            <div className="recommendation-header">
-                                <div className="symbol-info">
-                                    <div className="symbol-name">{result.displayName}</div>
-                                    <span className={`strategy-label strategy-label--${rec.strategy}`}>
-                                        {rec.strategy.toUpperCase()} {rec.barrier}
-                                    </span>
-                                </div>
-                                <span className={`confidence-badge ${getConfidenceClass(rec.confidence)}`}>
-                                    {rec.confidence.toFixed(1)}%
-                                </span>
-                            </div>
-
-                            <div className="recommendation-details">
-                                <div className="dominance-info">
-                                    <div className="dominance-text">
-                                        {rec.strategy.toUpperCase()} {rec.barrier} dominance: {rec.confidence.toFixed(1)}% vs {(100 - rec.confidence).toFixed(1)}%
-                                    </div>
-                                    <div className="current-digit">
-                                        Current {result.stats.currentLastDigit}
-                                    </div>
-                                </div>
-
-                                <div className="recommendation-stats">
-                                    {rec.overPercentage !== undefined && <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>}
-                                    {rec.underPercentage !== undefined && <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>}
-                                    <span className="stat-item">{formatTimestamp(rec.timestamp)}</span>
-                                </div>
-                            </div>
-
-                            <div className="recommendation-actions">
-                                <button
-                                    className="load-trade-btn"
-                                    onClick={() => loadTradeInSmartTrader(rec, result.symbol)}
-                                    title="Load in Smart Trader"
-                                >
-                                    📊 Smart Trader
-                                </button>
-                                <button
-                                    className="load-bot-builder-btn"
-                                    onClick={() => loadTradeInBotBuilder(rec, result.symbol)}
-                                    title="Load in Bot Builder"
-                                >
-                                    🤖 Bot Builder
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                <div className="volatility-stats">
+                    <div className="stat-item">
+                        <span className="stat-label">Current Digit:</span>
+                        <span className="stat-value">{result.stats.currentLastDigit}</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Most Frequent:</span>
+                        <span className="stat-value">{result.stats.mostFrequentDigit}</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Least Frequent:</span>
+                        <span className="stat-value">{result.stats.leastFrequentDigit}</span>
+                    </div>
                 </div>
 
+                {result.recommendations.length > 0 && (
+                    <div className="recommendations-section">
+                        <h4 className="recommendations-title">Trading Recommendations</h4>
+                        <div className="recommendations-grid">
+                            {result.recommendations.map((rec, index) => (
+                                <div
+                                    key={`${result.symbol}-${rec.strategy}-${rec.barrier}`}
+                                    className={`recommendation-card ${
+                                        rec === bestRec ? 'best-recommendation' : ''
+                                    } ${rec.strategy}-recommendation`}
+                                >
+                                    <div className="rec-header">
+                                        <span className={`strategy-badge strategy-badge--${rec.strategy}`}>
+                                            {rec.strategy.toUpperCase()} {rec.barrier}
+                                        </span>
+                                        <span className={`confidence-badge ${getConfidenceClass(rec.confidence)}`}>
+                                            {rec.confidence.toFixed(1)}%
+                                        </span>
+                                    </div>
+
+                                    <div className="rec-details">
+                                        <div className="dominance-display">
+                                            <span className="dominance-text">
+                                                {rec.confidence.toFixed(1)}% vs {(100 - rec.confidence).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="rec-stats">
+                                            {rec.overPercentage !== undefined && (
+                                                <span className="rec-stat">Over: {rec.overPercentage.toFixed(1)}%</span>
+                                            )}
+                                            {rec.underPercentage !== undefined && (
+                                                <span className="rec-stat">Under: {rec.underPercentage.toFixed(1)}%</span>
+                                            )}
+                                            <span className="rec-time">{formatTimestamp(rec.timestamp)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="rec-actions">
+                                        <button
+                                            className="action-btn smart-trader-btn"
+                                            onClick={() => loadTradeInSmartTrader(rec, result.symbol)}
+                                            title="Load in Smart Trader"
+                                        >
+                                            📊 Smart Trader
+                                        </button>
+                                        <button
+                                            className="action-btn bot-builder-btn"
+                                            onClick={() => loadTradeInBotBuilder(rec, result.symbol)}
+                                            title="Load in Bot Builder"
+                                        >
+                                            🤖 Bot Builder
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {result.o5u4Data && result.o5u4Data.conditionsMetCount >= 3 && (
-                    <div className="o5u4-opportunity">
+                    <div className="o5u4-section">
                         <div className="o5u4-header">
                             <span className="o5u4-badge">🎯 O5U4 Opportunity</span>
                             <span className="o5u4-score">{result.o5u4Data.score.toFixed(0)} pts</span>
                         </div>
-                        <Text size="xs" color="general">
+                        <div className="o5u4-details">
                             Conditions met: {result.o5u4Data.conditionsMetCount}/3 | Sample: {result.o5u4Data.details.sampleSize}
-                        </Text>
+                        </div>
                     </div>
                 )}
             </div>
@@ -2253,8 +2271,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                     )}
 
                     {connectionStatus === 'ready' && (scanResults.length > 0 || tickScalpingSignals.length > 0) && (
-                        <div className="results-grid">
-                            {scanResults.map(renderRecommendationCard)}
+                        <div className="volatility-cards-container">
+                            <div className="volatility-cards-grid">
+                                {scanResults.map(renderRecommendationCard)}
+                            </div>
                         </div>
                     )}
                 </div>
