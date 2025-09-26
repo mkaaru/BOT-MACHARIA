@@ -197,6 +197,7 @@ export class MarketScanner {
             this.updateStatus();
             this.updateRecommendations();
         }, 5000);
+    }
 
     /**
      * Setup tick scalping engine callbacks

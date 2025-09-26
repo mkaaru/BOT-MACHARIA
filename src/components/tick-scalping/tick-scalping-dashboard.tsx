@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/shared_ui/button';
-import { Text } from '@/components/shared_ui/text';
-import { Modal } from '@/components/shared_ui/modal';
+import Button from '@/components/shared_ui/button';
+import Text from '@/components/shared_ui/text';
+import Modal from '@/components/shared_ui/modal';
 import { marketScanner } from '@/services/market-scanner';
 import { ScalpingSignal, ScalpingStats } from '@/services/tick-scalping-engine';
 import './tick-scalping-dashboard.scss';
