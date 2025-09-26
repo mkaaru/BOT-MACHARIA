@@ -146,8 +146,8 @@ export class TrendAnalysisEngine {
         const highs = recentCandles.map((candle: any) => candle.high);
         const lows = recentCandles.map((candle: any) => candle.low);
 
-        // Simple pullback detection for trend continuation
-        const pullbackInfo = this.analyzePullbackWithDecycler(recentCandles, ehlersSignals);
+        // Simple trend continuation analysis
+        const trendContinuationInfo = this.analyzeTrendContinuation(recentCandles, ehlersSignals);
 
         // Detect sustained momentum for Higher/Lower trades
         const sustainedMomentum = this.detectSustainedMomentum(symbol, recentCandles, ehlersSignals);
@@ -769,95 +769,32 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Simplified pullback analysis for trend continuation (not mean reversion)
+     * Simple trend continuation analysis for trend following only
      */
-    private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): any {
+    private analyzeTrendContinuation(candles: any[], ehlersSignals?: EhlersSignals): any {
         if (candles.length < 5) {
             return {
-                isPullback: false,
-                pullbackStrength: 'weak',
-                longerTermTrend: 'neutral',
-                pullbackType: 'none',
-                confidence: 0,
-                recommendation: 'HOLD',
+                isTrendContinuation: false,
+                confidence: 0
             };
         }
 
         const last5Candles = candles.slice(-5);
-        const last10Candles = candles.slice(-10);
-
-        // Calculate recent price action for mean reversion analysis
-        const recentHighs = last5Candles.map(c => c.high);
-        const recentLows = last5Candles.map(c => c.low);
         const recentCloses = last5Candles.map(c => c.close);
-
-        const longerHighs = last10Candles.map(c => c.high);
-        const longerLows = last10Candles.map(c => c.low);
-        const longerCloses = last10Candles.map(c => c.close);
-
         const currentPrice = recentCloses[recentCloses.length - 1];
-        const recentHigh = Math.max(...recentHighs);
-        const recentLow = Math.min(...recentLows);
-        const longerHigh = Math.max(...longerHighs);
-        const longerLow = Math.min(...longerLows);
+        const previousPrice = recentCloses[0];
 
-        // Calculate mean/midpoint for reversion analysis
-        const recentMidpoint = (recentHigh + recentLow) / 2;
-        const longerMidpoint = (longerHigh + longerLow) / 2;
-
-        // Determine market regime using Decycler
-        let marketRegime: 'trending' | 'ranging' | 'neutral' = 'neutral';
-        let regimeStrength = 0;
-
-        if (ehlersSignals?.decycler !== undefined && ehlersSignals?.instantaneousTrendline !== undefined) {
-            const decyclerValue = ehlersSignals.decycler;
-            const instantValue = ehlersSignals.instantaneousTrendline;
-            const trendDivergence = Math.abs(instantValue - decyclerValue) / decyclerValue;
-
-            regimeStrength = trendDivergence * 100;
-
-            // Mean reversion works best in ranging markets
-            if (trendDivergence < 0.005) { // Less than 0.5% divergence suggests ranging
-                marketRegime = 'ranging';
-            } else {
-                marketRegime = 'trending';
-            }
-
-            console.log(`📊 MEAN REVERSION ANALYSIS ${candles[0]?.symbol || 'SYMBOL'}: Decycler=${decyclerValue.toFixed(5)}, Instant=${instantValue.toFixed(5)}, Regime=${marketRegime}, Divergence=${(trendDivergence*100).toFixed(2)}%`);
-        } else {
-            // Fallback: use price volatility to determine regime
-            const priceRange = (recentHigh - recentLow) / recentMidpoint;
-            if (priceRange > 0.01) { // > 1% range suggests trending
-                marketRegime = 'trending';
-                regimeStrength = priceRange * 100;
-            } else {
-                marketRegime = 'ranging';
-                regimeStrength = (1 - priceRange) * 100;
-            }
-        }
-
-        // Simple trend continuation detection (not mean reversion)
-        let isPullback = false;
+        // Simple trend continuation based on price direction
+        const priceChange = (currentPrice - previousPrice) / previousPrice;
         let confidence = 0;
 
-        // Only detect healthy pullbacks in strong trends for continuation
-        if (marketRegime === 'trending') {
-            const priceMovement = (currentPrice - longerMidpoint) / longerMidpoint;
-            
-            // Small pullback in strong uptrend - potential continuation
-            if (priceMovement > 0.005 && (recentHigh - currentPrice) / recentHigh < 0.01) {
-                isPullback = true;
-                confidence = 40; // Low confidence, just informational
-            }
-            // Small pullback in strong downtrend - potential continuation  
-            else if (priceMovement < -0.005 && (currentPrice - recentLow) / recentLow < 0.01) {
-                isPullback = true;
-                confidence = 40; // Low confidence, just informational
-            }
+        // Detect trend continuation momentum
+        if (Math.abs(priceChange) > 0.002) { // 0.2% minimum movement
+            confidence = Math.min(50, Math.abs(priceChange) * 1000 * 10);
         }
         
         return {
-            isPullback,
+            isTrendContinuation: confidence > 20,
             confidence
         };
     }

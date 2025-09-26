@@ -339,31 +339,31 @@ export class MarketScanner {
         }
 
         // Add market regime context
-        return reasons.length > 0 ? reasons.join(' | ') : 'Mean Reversion Signal';
+        return reasons.length > 0 ? reasons.join(' | ') : 'Trend Following Signal';
     }
 
     /**
-     * Calculate duration optimized for mean reversion trades
+     * Calculate duration optimized for trend following trades
      */
-    private calculateMeanReversionDuration(trend: TrendAnalysis): number {
-        // Mean reversion trades typically need less time than trend following
-        const baselineStrength = trend.strength === 'strong' ? 15 : trend.strength === 'moderate' ? 20 : 25;
+    private calculateTrendFollowingDuration(trend: TrendAnalysis): number {
+        // Trend following trades need more time to develop
+        const baselineStrength = trend.strength === 'strong' ? 25 : trend.strength === 'moderate' ? 30 : 35;
 
-        // Shorter durations for mean reversion
-        if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
-            return 10; // Very short for strong reversals
-        } else if (trend.pullbackAnalysis?.pullbackStrength === 'medium') {
-            return 15; // Medium duration
+        // Longer durations for trend following
+        if (trend.strength === 'strong') {
+            return 20; // Strong trends can be followed with shorter duration
+        } else if (trend.strength === 'moderate') {
+            return 25; // Medium duration for moderate trends
         }
 
-        return Math.max(10, baselineStrength - 5); // Generally shorter than trend following
+        return Math.max(20, baselineStrength); // Generally longer for trend following
     }
 
     /**
-     * Generate recommendation reason (kept for compatibility)
+     * Generate recommendation reason for trend following only
      */
     private generateRecommendationReason(trend: TrendAnalysis): string {
-        return this.generateMeanReversionReason(trend); // Delegate to mean reversion logic
+        return this.generateTrendFollowingReason(trend);
     }
 
     /**
@@ -896,7 +896,7 @@ export class MarketScanner {
             hma40: trend.hma40 || 0,
             currentPrice: trend.price || 0,
             suggestedStake: this.calculateOptimalStake(Math.min(100, confidence), trend.strength),
-            suggestedDuration: this.calculateMeanReversionDuration(trend), // Use mean reversion duration logic
+            suggestedDuration: this.calculateTrendFollowingDuration(trend), // Use trend following duration logic
             suggestedDurationUnit: 's',
             longTermTrend: trend.longTermTrend,
             longTermStrength: trend.longTermTrendStrength,
