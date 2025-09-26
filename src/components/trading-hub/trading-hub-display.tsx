@@ -1716,6 +1716,29 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     };
 
+    // Helper to format timestamp
+    const formatTimestamp = (timestamp: number) => {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    // Helper to get confidence class
+    const getConfidenceClass = (confidence: number): string => {
+        if (confidence >= 85) return 'excellent';
+        if (confidence >= 75) return 'high';
+        if (confidence >= 65) return 'medium';
+        return 'low';
+    };
+
+    // Renamed functions to match the changes snippet
+    const loadTradeInSmartTrader = (rec: TradeRecommendation, symbol: string) => {
+        loadTradeSettings(rec);
+    };
+
+    const loadTradeInBotBuilder = (rec: TradeRecommendation, symbol: string) => {
+        loadToBotBuilder(rec);
+    };
+
     const renderRecommendationCard = (result: ScanResult) => {
         const bestRec = result.recommendations.reduce((best, current) =>
             current.confidence > (best?.confidence || 0) ? current : best, null);
@@ -1739,77 +1762,53 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 <div className="recommendations-list">
                     {result.recommendations.map((rec, index) => (
-                        <div key={`${rec.symbol}-${rec.strategy}-${index}`} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''}`}>
+                        <div
+                            key={`${result.symbol}-${rec.strategy}-${rec.barrier}`}
+                            className={`recommendation-item ${
+                                rec === bestRec ? 'best-recommendation' : ''
+                            } ${rec.strategy}-recommendation`}
+                        >
                             <div className="recommendation-header">
                                 <div className="symbol-info">
-                                    <Text size="s" weight="bold">{symbolMap[rec.symbol] || rec.symbol}</Text>
-                                </div>
-                                <div className="strategy-type-badge">
-                                    {rec.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}
-                                </div>
-                                <div className="signal-type-badge">
-                                    {rec.contractType === 'higher_lower' ? 'H/L' : 'R/F'}
-                                </div>
-                                <div className="confidence-badge">
-                                    {rec.confidence.toFixed(1)}%
-                                </div>
-                            </div>
-                            <div className="recommendation-content">
-                                <div className="strategy-badge">
+                                    <div className="symbol-name">{result.displayName}</div>
                                     <span className={`strategy-label strategy-label--${rec.strategy}`}>
-                                        {rec.strategy === 'call' ? 'BUY NOW' :
-                                         rec.strategy === 'put' ? 'SELL NOW' :
-                                         rec.strategy === 'hold' ? 'PLEASE WAIT' :
-                                         rec.strategy.toUpperCase()} {rec.barrier}
+                                        {rec.strategy.toUpperCase()} {rec.barrier}
                                     </span>
                                 </div>
-                                <div className="recommendation-reason">
-                                    <Text size="xs" color="prominent">
-                                        {rec.reason}
-                                    </Text>
-                                    {rec.alternativeRecommendation && (
-                                        <div className="alternative-recommendation">
-                                            <Text size="xs" color="less-prominent">
-                                                Alt ({rec.alternativeRecommendation.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}): {rec.alternativeRecommendation.direction}
-                                                ({rec.alternativeRecommendation.confidence.toFixed(0)}%)
-                                            </Text>
-                                        </div>
-                                    )}
-                                    {rec.momentumAnalysis && (
-                                        <div className="momentum-details">
-                                            <Text size="xs" color="less-prominent">
-                                                Momentum: {rec.momentumAnalysis.strength.toFixed(0)}% |
-                                                Duration: {rec.momentumAnalysis.duration} periods |
-                                                Expected: {rec.momentumAnalysis.expectedDuration}s
-                                            </Text>
-                                            <div className="momentum-factors">
-                                                {rec.momentumAnalysis.factors.slice(0, 3).map((factor, idx) => (
-                                                    <span key={idx} className="factor-tag">
-                                                        {factor.replace(/_/g, ' ')}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                <span className={`confidence-badge ${getConfidenceClass(rec.confidence)}`}>
+                                    {rec.confidence.toFixed(1)}%
+                                </span>
+                            </div>
+
+                            <div className="recommendation-details">
+                                <div className="dominance-info">
+                                    <div className="dominance-text">
+                                        {rec.strategy.toUpperCase()} {rec.barrier} dominance: {rec.confidence.toFixed(1)}% vs {(100 - rec.confidence).toFixed(1)}%
+                                    </div>
+                                    <div className="current-digit">
+                                        Current {result.stats.currentLastDigit}
+                                    </div>
                                 </div>
+
                                 <div className="recommendation-stats">
-                                    <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>
-                                    <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>
-                                    <span className="stat-item">Diff: {Math.abs(rec.overPercentage - rec.underPercentage).toFixed(1)}%</span>
+                                    {rec.overPercentage !== undefined && <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>}
+                                    {rec.underPercentage !== undefined && <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>}
+                                    <span className="stat-item">{formatTimestamp(rec.timestamp)}</span>
                                 </div>
                             </div>
+
                             <div className="recommendation-actions">
                                 <button
                                     className="load-trade-btn"
-                                    onClick={() => loadTradeSettings(rec)}
-                                    title="Load these settings into Smart Trader"
+                                    onClick={() => loadTradeInSmartTrader(rec, result.symbol)}
+                                    title="Load in Smart Trader"
                                 >
-                                    ⚡ Smart Trader
+                                    📊 Smart Trader
                                 </button>
                                 <button
                                     className="load-bot-builder-btn"
-                                    onClick={() => loadToBotBuilder(rec)}
-                                    title="Load strategy directly to Bot Builder"
+                                    onClick={() => loadTradeInBotBuilder(rec, result.symbol)}
+                                    title="Load in Bot Builder"
                                 >
                                     🤖 Bot Builder
                                 </button>
@@ -1839,23 +1838,23 @@ const TradingHubDisplay: React.FC = observer(() => {
             <div key={rec.symbol + rec.strategy + rec.timestamp} className={`recommendation-item tick-scalping-item best-recommendation`}>
                 <div className="recommendation-header">
                     <div className="symbol-info">
-                        <Text size="s" weight="bold">{symbolMap[rec.symbol] || rec.symbol}</Text>
-                    </div>
-                    <div className="strategy-type-badge">
-                        TICK SCALP
-                    </div>
-                    <div className="signal-type-badge">
-                        {rec.contractType === 'CALL' ? 'BUY' : 'SELL'}
-                    </div>
-                    <div className="confidence-badge">
-                        {rec.confidence.toFixed(1)}%
-                    </div>
-                </div>
-                <div className="recommendation-content">
-                    <div className="strategy-badge">
+                        <div className="symbol-name">{symbolMap[rec.symbol] || rec.symbol}</div>
                         <span className={`strategy-label strategy-label--${rec.strategy}`}>
                             {rec.strategy.toUpperCase()} {rec.barrier}
                         </span>
+                    </div>
+                    <span className={`confidence-badge ${getConfidenceClass(rec.confidence)}`}>
+                        {rec.confidence.toFixed(1)}%
+                    </span>
+                </div>
+                <div className="recommendation-details">
+                    <div className="dominance-info">
+                        <div className="dominance-text">
+                            {rec.strategy.toUpperCase()} {rec.barrier} dominance: {rec.confidence.toFixed(1)}% vs {(100 - rec.confidence).toFixed(1)}%
+                        </div>
+                        <div className="current-digit">
+                            Current {rec.scalpingData?.entryPrice} {/* Placeholder, ideally current price */}
+                        </div>
                     </div>
                     <div className="recommendation-reason">
                         <Text size="xs" color="prominent">
@@ -1869,7 +1868,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         onClick={() => loadTradeSettings(rec)}
                         title="Load these settings into Smart Trader"
                     >
-                        ⚡ Smart Trader
+                        📊 Smart Trader
                     </button>
                     <button
                         className="load-bot-builder-btn"
