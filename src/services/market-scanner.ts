@@ -316,31 +316,25 @@ export class MarketScanner {
     private generateMeanReversionReason(trend: TrendAnalysis): string {
         const reasons: string[] = [];
 
-        // Add mean reversion specific reasons
-        if (trend.recommendation === 'BUY') {
-            reasons.push('OVERSOLD - Mean Reversion Buy Signal');
-            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
-                reasons.push('Strong Oversold Condition');
+        // Add trend following specific reasons
+        if (trend.recommendation === 'BUY' && trend.rocAlignment === 'BULLISH') {
+            reasons.push('BULLISH TREND - Strong Upward Momentum');
+            if (trend.confidence >= 85) {
+                reasons.push('High Confidence Bullish Signal');
             }
-            if (trend.pullbackAnalysis?.pullbackType === 'bullish_pullback') {
-                reasons.push('Price Below Mean - Bounce Expected');
-            }
-        } else if (trend.recommendation === 'SELL') {
-            reasons.push('OVERBOUGHT - Mean Reversion Sell Signal');
-            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
-                reasons.push('Strong Overbought Condition');
-            }
-            if (trend.pullbackAnalysis?.pullbackType === 'bearish_pullback') {
-                reasons.push('Price Above Mean - Pullback Expected');
+        } else if (trend.recommendation === 'SELL' && trend.rocAlignment === 'BEARISH') {
+            reasons.push('BEARISH TREND - Strong Downward Momentum');
+            if (trend.confidence >= 85) {
+                reasons.push('High Confidence Bearish Signal');
             }
         }
 
-        // Add Ehlers signal context for mean reversion
-        if (trend.ehlersRecommendation?.anticipatory) {
-            if (trend.recommendation === 'BUY' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal < -1) {
-                reasons.push('Strong Contrarian Signal (Oversold)');
-            } else if (trend.recommendation === 'SELL' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal > 1) {
-                reasons.push('Strong Contrarian Signal (Overbought)');
+        // Add Ehlers signal context for trend following
+        if (trend.ehlersRecommendation && !trend.ehlersRecommendation.anticipatory) {
+            if (trend.recommendation === 'BUY' && trend.ehlers?.netValue && trend.ehlers.netValue > 0) {
+                reasons.push('Ehlers Trend Confirmation (Bullish)');
+            } else if (trend.recommendation === 'SELL' && trend.ehlers?.netValue && trend.ehlers.netValue < 0) {
+                reasons.push('Ehlers Trend Confirmation (Bearish)');
             }
         }
 
