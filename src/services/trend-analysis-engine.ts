@@ -609,22 +609,32 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate ROC alignment for trading signals
+     * Validate ROC alignment for trading signals with enhanced confluence
      */
     private validateROCAlignment(symbol: string, longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
 
-        // Get recent candles for candle pattern validation
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 3);
+        // Get recent candles for comprehensive pattern validation
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 10);
 
-        if (recentCandles.length < 2) {
+        if (recentCandles.length < 5) {
             console.log(`${symbol}: Insufficient candle data for pattern validation`);
             return null;
         }
 
         const lastCandle = recentCandles[recentCandles.length - 1];
         const previousCandle = recentCandles[recentCandles.length - 2];
+        const last5Candles = recentCandles.slice(-5);
+
+        // Enhanced multi-timeframe validation
+        const confluenceFactors = this.calculateConfluenceFactors(symbol, longTermROC, shortTermROC, last5Candles);
+        
+        // Require minimum confluence score for signal validation
+        if (confluenceFactors.score < 0.65) {
+            console.log(`${symbol}: Confluence score too low: ${confluenceFactors.score.toFixed(2)}`);
+            return null;
+        }
 
         // Determine candle colors
         const isLastCandleGreen = lastCandle.close > lastCandle.open;
@@ -680,7 +690,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate recommendation based on ROC alignment
+     * Generate recommendation based on ROC alignment with adaptive thresholds
      */
     private generateRecommendationByROC(
         direction: TrendDirection,
@@ -693,14 +703,62 @@ export class TrendAnalysisEngine {
             return 'HOLD';
         }
 
-        // Apply the validated ROC signal - LOWERED THRESHOLD FOR MORE SIGNALS
-        if (rocSignal === 'BULLISH' && confidence > 55) { // Lowered from 65 to 55
+        // Dynamic threshold based on market conditions
+        const adaptiveThreshold = this.calculateAdaptiveThreshold(strength, direction);
+        
+        // Apply the validated ROC signal with adaptive thresholds
+        if (rocSignal === 'BULLISH' && confidence > adaptiveThreshold.bullish) {
             return 'BUY';
-        } else if (rocSignal === 'BEARISH' && confidence > 55) { // Lowered from 65 to 55
+        } else if (rocSignal === 'BEARISH' && confidence > adaptiveThreshold.bearish) {
             return 'SELL';
         }
 
         return 'HOLD';
+    }
+
+    /**
+     * Calculate adaptive thresholds based on market strength and volatility
+     */
+    private calculateAdaptiveThreshold(strength: TrendStrength, direction: TrendDirection): {
+        bullish: number;
+        bearish: number;
+    } {
+        let baseThreshold = 65; // Conservative base
+
+        // Adjust based on trend strength
+        switch (strength) {
+            case 'strong':
+                baseThreshold = 55; // Lower threshold for strong trends
+                break;
+            case 'moderate':
+                baseThreshold = 65; // Standard threshold
+                break;
+            case 'weak':
+                baseThreshold = 75; // Higher threshold for weak trends
+                break;
+        }
+
+        // Further adjustment based on recent performance
+        const recentPerformance = this.getRecentSignalPerformance();
+        if (recentPerformance.winRate > 0.7) {
+            baseThreshold -= 5; // More aggressive when performing well
+        } else if (recentPerformance.winRate < 0.4) {
+            baseThreshold += 10; // More conservative when performing poorly
+        }
+
+        return {
+            bullish: baseThreshold,
+            bearish: baseThreshold
+        };
+    }
+
+    /**
+     * Track recent signal performance for adaptive learning
+     */
+    private getRecentSignalPerformance(): { winRate: number; totalSignals: number } {
+        // This would integrate with your transaction store to track win/loss
+        // For now, return neutral performance
+        return { winRate: 0.5, totalSignals: 0 };
     }
 
     /**
@@ -865,6 +923,156 @@ export class TrendAnalysisEngine {
             confidence,
             recommendation
         };
+    }
+
+    /**
+     * Calculate confluence factors for signal validation
+     */
+    private calculateConfluenceFactors(symbol: string, longTermROC: number, shortTermROC: number, candles: any[]): {
+        score: number;
+        factors: string[];
+    } {
+        const factors: string[] = [];
+        let score = 0;
+
+        // Factor 1: ROC Momentum Alignment (25% weight)
+        const rocMomentum = Math.abs(shortTermROC) > Math.abs(longTermROC) * 1.2;
+        if (rocMomentum) {
+            score += 0.25;
+            factors.push('ROC_MOMENTUM');
+        }
+
+        // Factor 2: Volume Confirmation (using candle size as proxy) (20% weight)
+        const avgCandleSize = candles.slice(0, -1).reduce((sum, c) => sum + Math.abs(c.close - c.open), 0) / (candles.length - 1);
+        const lastCandleSize = Math.abs(candles[candles.length - 1].close - candles[candles.length - 1].open);
+        if (lastCandleSize > avgCandleSize * 1.3) {
+            score += 0.20;
+            factors.push('VOLUME_CONFIRM');
+        }
+
+        // Factor 3: Price Pattern Validation (20% weight)
+        const pricePattern = this.validatePricePattern(candles);
+        if (pricePattern.isValid) {
+            score += 0.20;
+            factors.push(`PATTERN_${pricePattern.type}`);
+        }
+
+        // Factor 4: Support/Resistance Respect (15% weight)
+        const srLevel = this.checkSupportResistance(candles);
+        if (srLevel.respected) {
+            score += 0.15;
+            factors.push('SR_RESPECT');
+        }
+
+        // Factor 5: Time-based Filter (10% weight)
+        const timeFilter = this.checkTimeBasedFilter();
+        if (timeFilter) {
+            score += 0.10;
+            factors.push('TIME_FILTER');
+        }
+
+        // Factor 6: Volatility Filter (10% weight)
+        const volatilityOk = this.checkVolatilityFilter(candles);
+        if (volatilityOk) {
+            score += 0.10;
+            factors.push('VOLATILITY_OK');
+        }
+
+        return { score, factors };
+    }
+
+    /**
+     * Validate price patterns for better entry timing
+     */
+    private validatePricePattern(candles: any[]): { isValid: boolean; type: string } {
+        if (candles.length < 3) return { isValid: false, type: 'INSUFFICIENT_DATA' };
+
+        const last3 = candles.slice(-3);
+        const closes = last3.map(c => c.close);
+        const highs = last3.map(c => c.high);
+        const lows = last3.map(c => c.low);
+
+        // Higher highs and higher lows pattern
+        if (closes[2] > closes[1] && closes[1] > closes[0] && 
+            lows[2] > lows[1] && lows[1] > lows[0]) {
+            return { isValid: true, type: 'UPTREND' };
+        }
+
+        // Lower highs and lower lows pattern
+        if (closes[2] < closes[1] && closes[1] < closes[0] && 
+            highs[2] < highs[1] && highs[1] < highs[0]) {
+            return { isValid: true, type: 'DOWNTREND' };
+        }
+
+        // Consolidation with breakout
+        const range = Math.max(...highs) - Math.min(...lows);
+        const avgPrice = closes.reduce((a, b) => a + b, 0) / closes.length;
+        if (range / avgPrice < 0.003) { // Less than 0.3% range
+            return { isValid: true, type: 'CONSOLIDATION' };
+        }
+
+        return { isValid: false, type: 'NO_PATTERN' };
+    }
+
+    /**
+     * Check support/resistance level respect
+     */
+    private checkSupportResistance(candles: any[]): { respected: boolean; level?: number } {
+        if (candles.length < 5) return { respected: false };
+
+        const recent5 = candles.slice(-5);
+        const highs = recent5.map(c => c.high);
+        const lows = recent5.map(c => c.low);
+        const currentPrice = recent5[recent5.length - 1].close;
+
+        // Find potential resistance (recent high that was touched multiple times)
+        const recentHigh = Math.max(...highs);
+        const touchesHigh = highs.filter(h => Math.abs(h - recentHigh) / recentHigh < 0.001).length;
+
+        // Find potential support (recent low that was touched multiple times)
+        const recentLow = Math.min(...lows);
+        const touchesLow = lows.filter(l => Math.abs(l - recentLow) / recentLow < 0.001).length;
+
+        // If price respects support/resistance (bounces off)
+        if (touchesHigh >= 2 && currentPrice < recentHigh * 0.995) {
+            return { respected: true, level: recentHigh };
+        }
+
+        if (touchesLow >= 2 && currentPrice > recentLow * 1.005) {
+            return { respected: true, level: recentLow };
+        }
+
+        return { respected: false };
+    }
+
+    /**
+     * Time-based filter to avoid low-probability periods
+     */
+    private checkTimeBasedFilter(): boolean {
+        const now = new Date();
+        const hour = now.getUTCHours();
+        const minute = now.getUTCMinutes();
+
+        // Avoid first 5 minutes of each hour (news/volatility spikes)
+        if (minute < 5) return false;
+
+        // Focus on high-activity periods for synthetic indices
+        // Best times: 8-12 UTC, 13-17 UTC (overlapping sessions)
+        return (hour >= 8 && hour <= 12) || (hour >= 13 && hour <= 17);
+    }
+
+    /**
+     * Volatility filter to ensure adequate price movement
+     */
+    private checkVolatilityFilter(candles: any[]): boolean {
+        if (candles.length < 5) return false;
+
+        const recent5 = candles.slice(-5);
+        const ranges = recent5.map(c => (c.high - c.low) / c.close);
+        const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
+
+        // Require minimum volatility for clear signals (0.1% to 1%)
+        return avgRange >= 0.001 && avgRange <= 0.01;
     }
 
     /**
