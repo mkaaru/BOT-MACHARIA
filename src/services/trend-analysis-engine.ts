@@ -328,23 +328,77 @@ export class TrendAnalysisEngine {
             meanReversionReason = `Medium anticipatory signal: ${ehlersRecommendation.reason}`;
         }
 
-        // CHOOSE THE BEST SIGNAL FOR PRIMARY RECOMMENDATION
+        // VALIDATE ROC ALIGNMENT WITH RECOMMENDATION DIRECTION
+        const validateROCAlignment = (rec: string, rocAlign: 'BULLISH' | 'BEARISH' | 'NEUTRAL'): boolean => {
+            // For valid signals, ROC alignment must match recommendation direction
+            if (rec === 'BUY' && rocAlign !== 'BULLISH') {
+                console.log(`❌ ${symbol}: BUY recommendation rejected - ROC alignment is ${rocAlign}, expected BULLISH`);
+                return false;
+            }
+            if (rec === 'SELL' && rocAlign !== 'BEARISH') {
+                console.log(`❌ ${symbol}: SELL recommendation rejected - ROC alignment is ${rocAlign}, expected BEARISH`);
+                return false;
+            }
+            return true;
+        };
+
+        // CHOOSE THE BEST SIGNAL FOR PRIMARY RECOMMENDATION WITH ROC VALIDATION
         if (trendFollowingScore >= meanReversionScore && trendFollowingRec !== 'HOLD') {
-            finalRecommendation = trendFollowingRec;
-            enhancedScore = trendFollowingScore;
-            finalReason = trendFollowingReason;
-            recommendationType = 'TREND_FOLLOWING';
+            // Validate trend following recommendation with ROC alignment
+            if (validateROCAlignment(trendFollowingRec, rocAlignment)) {
+                finalRecommendation = trendFollowingRec;
+                enhancedScore = trendFollowingScore;
+                finalReason = trendFollowingReason;
+                recommendationType = 'TREND_FOLLOWING';
+            } else {
+                // ROC alignment mismatch - invalidate trend following
+                finalRecommendation = 'HOLD';
+                enhancedScore = 0;
+                finalReason = `ROC alignment mismatch: ${rocAlignment} vs ${trendFollowingRec}`;
+                recommendationType = 'TREND_FOLLOWING';
+            }
         } else if (meanReversionScore > 0 && meanReversionRec !== 'HOLD') {
-            finalRecommendation = meanReversionRec;
-            enhancedScore = meanReversionScore;
-            finalReason = meanReversionReason;
-            recommendationType = 'MEAN_REVERSION';
+            // For mean reversion, we use contrarian logic - ROC alignment should be OPPOSITE
+            const isValidMeanReversion = (rec: string, rocAlign: 'BULLISH' | 'BEARISH' | 'NEUTRAL'): boolean => {
+                // Mean reversion: Buy when ROC is bearish (oversold), Sell when ROC is bullish (overbought)
+                if (rec === 'BUY' && rocAlign === 'BEARISH') {
+                    console.log(`✅ ${symbol}: Mean reversion BUY valid - ROC is BEARISH (oversold condition)`);
+                    return true;
+                }
+                if (rec === 'SELL' && rocAlign === 'BULLISH') {
+                    console.log(`✅ ${symbol}: Mean reversion SELL valid - ROC is BULLISH (overbought condition)`);
+                    return true;
+                }
+                console.log(`❌ ${symbol}: Mean reversion ${rec} rejected - ROC alignment is ${rocAlign}`);
+                return false;
+            };
+
+            if (isValidMeanReversion(meanReversionRec, rocAlignment)) {
+                finalRecommendation = meanReversionRec;
+                enhancedScore = meanReversionScore;
+                finalReason = meanReversionReason;
+                recommendationType = 'MEAN_REVERSION';
+            } else {
+                // Invalid mean reversion signal
+                finalRecommendation = 'HOLD';
+                enhancedScore = 0;
+                finalReason = `Mean reversion validation failed: ${rocAlignment} vs ${meanReversionRec}`;
+                recommendationType = 'MEAN_REVERSION';
+            }
         } else {
-            // Fallback to trend following if no clear signal
-            finalRecommendation = recommendation;
-            enhancedScore = score;
-            finalReason = 'ROC Trend Following Signal';
-            recommendationType = 'TREND_FOLLOWING';
+            // No valid signals or fallback - ensure ROC alignment validation
+            if (validateROCAlignment(recommendation, rocAlignment)) {
+                finalRecommendation = recommendation;
+                enhancedScore = score;
+                finalReason = 'ROC Trend Following Signal';
+                recommendationType = 'TREND_FOLLOWING';
+            } else {
+                // All signals fail ROC validation
+                finalRecommendation = 'HOLD';
+                enhancedScore = 0;
+                finalReason = 'No valid signals - ROC alignment mismatch';
+                recommendationType = 'TREND_FOLLOWING';
+            }
         }
 
         const analysis: TrendAnalysis = {
@@ -368,17 +422,23 @@ export class TrendAnalysisEngine {
             derivSignals,
             pullbackAnalysis,
             sustainedMomentum,
-            // Store both recommendation types for UI display
+            // Store both recommendation types for UI display with ROC validation
             alternativeRecommendations: {
                 trendFollowing: {
-                    recommendation: trendFollowingRec,
-                    score: trendFollowingScore,
-                    reason: trendFollowingReason
+                    recommendation: validateROCAlignment(trendFollowingRec, rocAlignment) ? trendFollowingRec : 'HOLD',
+                    score: validateROCAlignment(trendFollowingRec, rocAlignment) ? trendFollowingScore : 0,
+                    reason: validateROCAlignment(trendFollowingRec, rocAlignment) ? trendFollowingReason : 'ROC alignment mismatch'
                 },
                 meanReversion: {
-                    recommendation: meanReversionRec,
-                    score: meanReversionScore,
-                    reason: meanReversionReason
+                    recommendation: ((meanReversionRec === 'BUY' && rocAlignment === 'BEARISH') || 
+                                   (meanReversionRec === 'SELL' && rocAlignment === 'BULLISH') || 
+                                   meanReversionRec === 'HOLD') ? meanReversionRec : 'HOLD',
+                    score: ((meanReversionRec === 'BUY' && rocAlignment === 'BEARISH') || 
+                           (meanReversionRec === 'SELL' && rocAlignment === 'BULLISH') || 
+                           meanReversionRec === 'HOLD') ? meanReversionScore : 0,
+                    reason: ((meanReversionRec === 'BUY' && rocAlignment === 'BEARISH') || 
+                            (meanReversionRec === 'SELL' && rocAlignment === 'BULLISH') || 
+                            meanReversionRec === 'HOLD') ? meanReversionReason : 'Mean reversion ROC mismatch'
                 }
             }
         };
