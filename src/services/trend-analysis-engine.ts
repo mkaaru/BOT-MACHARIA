@@ -202,12 +202,6 @@ export class TrendAnalysisEngine {
             score = Math.min(98, score + 15); // Extra 15 points for any ROC alignment
         }
 
-        // Determine recommendation type based on signal source
-        let recommendationType: RecommendationType = 'TREND_FOLLOWING';
-        let finalRecommendation = recommendation;
-        let enhancedScore = score;
-        let finalReason = 'ROC Trend Following Signal';
-
         // Get Ehlers-based recommendations with Deriv market optimization
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
@@ -262,6 +256,7 @@ export class TrendAnalysisEngine {
         };
 
         // TREND FOLLOWING SIGNAL GENERATION
+        let recommendationType: RecommendationType = 'TREND_FOLLOWING';
         let finalRecommendation = 'HOLD';
         let enhancedScore = 0;
         let finalReason = 'No trend following signal';
