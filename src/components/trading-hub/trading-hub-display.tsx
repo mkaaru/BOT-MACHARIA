@@ -9,7 +9,6 @@ import { useStore } from '@/hooks/useStore';
 import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
-import type { TradingRecommendation } from '@/services/market-scanner';
 import './trading-hub-display.scss';
 
 // Mock 'transactions' object if it's not globally available or imported elsewhere
@@ -56,7 +55,6 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [realTimeStats, setRealTimeStats] = useState<Record<string, MarketStats>>({});
     const [bestRecommendation, setBestRecommendation] = useState<TradeRecommendation | null>(null);
     const [o5u4Opportunities, setO5u4Opportunities] = useState<O5U4Conditions[]>([]);
-    const [tickScalpingSignals, setTickScalpingSignals] = useState<TradeRecommendation[]>([]); // State for tick scalping signals
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'scanning' | 'ready' | 'error'>('connecting');
     const [statusMessage, setStatusMessage] = useState('Initializing market scanner...');
     const [symbolsAnalyzed, setSymbolsAnalyzed] = useState(0);
@@ -313,7 +311,6 @@ const TradingHubDisplay: React.FC = observer(() => {
     const generateScanResults = useCallback((): ScanResult[] => {
         const results: ScanResult[] = [];
         const currentStats = { ...marketStats, ...realTimeStats }; // Merge with real-time data
-        const tickSignals: TradeRecommendation[] = []; // Store tick scalping signals
 
         Object.keys(currentStats).forEach(symbol => {
             const stats = currentStats[symbol];
@@ -382,8 +379,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: overPercent,
                             underPercentage: underPercent,
                             reason: `${strategy.toUpperCase()} ${barrier} dominance: ${dominancePercent.toFixed(1)}% vs ${oppositePercent.toFixed(1)}%, current ${currentLastDigit}`,
-                            timestamp: Date.now(),
-                            contractType: 'higher_lower' // Explicitly set for Higher/Lower signals
+                            timestamp: Date.now()
                         });
                     }
                 });
@@ -409,8 +405,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: evenPercent,
                             underPercentage: oddPercent,
                             reason: `STRONG EVEN dominance: ${evenPercent.toFixed(1)}% vs ${oddPercent.toFixed(1)}%, current ${stats.currentLastDigit}`,
-                            timestamp: Date.now(),
-                            contractType: 'rise_fall' // Explicitly set for Rise/Fall signals
+                            timestamp: Date.now()
                         });
                     }
 
@@ -423,8 +418,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: evenPercent,
                             underPercentage: oddPercent,
                             reason: `STRONG ODD dominance: ${oddPercent.toFixed(1)}% vs ${evenPercent.toFixed(1)}%, current ${stats.currentLastDigit}`,
-                            timestamp: Date.now(),
-                            contractType: 'rise_fall' // Explicitly set for Rise/Fall signals
+                            timestamp: Date.now()
                         });
                     }
                 }
@@ -452,8 +446,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: mostFreqPercent,
                             underPercentage: 100 - mostFreqPercent,
                             reason: `Digit ${mostFrequentDigit} appears ${mostFreqPercent.toFixed(1)}% of time`,
-                            timestamp: Date.now(),
-                            contractType: 'higher_lower' // Explicitly set for Higher/Lower signals
+                            timestamp: Date.now()
                         });
                     }
 
@@ -468,69 +461,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: leastFreqPercent,
                             underPercentage: 100 - leastFreqPercent,
                             reason: `Digit ${leastFrequentDigit} appears only ${leastFreqPercent.toFixed(1)}% of time`,
-                            timestamp: Date.now(),
-                            contractType: 'higher_lower' // Explicitly set for Higher/Lower signals
+                            timestamp: Date.now()
                         });
                     }
                 }
             };
-
-            // Tick Scalping Recommendations (Example: based on momentum or specific tick patterns)
-            // This is a placeholder; actual implementation would involve more sophisticated tick analysis.
-            const generateTickScalpingRecs = () => {
-                // Example: Simple check for rapid price movement in one direction
-                // In a real scenario, this would involve analyzing sequences of ticks for patterns.
-                const tickData = stats.tickHistory || []; // Assuming tickHistory is available
-                if (tickData.length >= 5) {
-                    let upTicks = 0;
-                    let downTicks = 0;
-                    for (let i = 0; i < tickData.length - 1; i++) {
-                        if (tickData[i+1] > tickData[i]) {
-                            upTicks++;
-                        } else if (tickData[i+1] < tickData[i]) {
-                            downTicks++;
-                        }
-                    }
-
-                    // High probability of continuing upward movement
-                    if (upTicks >= 4 && downTicks <= 1) {
-                        tickSignals.push({
-                            symbol,
-                            strategy: 'call', // Or a specific tick scalping strategy
-                            barrier: (stats.currentSpot || 0).toString(), // Use current price as a reference
-                            confidence: 70 + (upTicks * 2), // Higher confidence for more consecutive up ticks
-                            reason: `Strong upward tick momentum (${upTicks} up, ${downTicks} down)`,
-                            timestamp: Date.now(),
-                            contractType: 'CALL', // Assuming CALL for upward movement
-                            recommendationType: 'TICK_SCALPING',
-                            scalpingData: { // Add placeholder scalping data
-                                entryPrice: stats.currentSpot || 0,
-                                targetPrice: (stats.currentSpot || 0) + 0.0001 * (upTicks*2), // Example target
-                                riskReward: 1.5 // Example R/R
-                            }
-                        });
-                    }
-                    // High probability of continuing downward movement
-                    else if (downTicks >= 4 && upTicks <= 1) {
-                        tickSignals.push({
-                            symbol,
-                            strategy: 'put', // Or a specific tick scalping strategy
-                            barrier: (stats.currentSpot || 0).toString(),
-                            confidence: 70 + (downTicks * 2),
-                            reason: `Strong downward tick momentum (${downTicks} down, ${upTicks} up)`,
-                            timestamp: Date.now(),
-                            contractType: 'PUT', // Assuming PUT for downward movement
-                            recommendationType: 'TICK_SCALPING',
-                            scalpingData: { // Add placeholder scalping data
-                                entryPrice: stats.currentSpot || 0,
-                                targetPrice: (stats.currentSpot || 0) - 0.0001 * (downTicks*2), // Example target
-                                riskReward: 1.5 // Example R/R
-                            }
-                        });
-                    }
-                }
-            };
-
 
             // Apply filters based on selected trade type
             if (selectedTradeType === 'all' || selectedTradeType === 'over_under') {
@@ -542,12 +477,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             if (selectedTradeType === 'all' || selectedTradeType === 'matches_differs') {
                 generateMatchesDiffersRecs();
             }
-
-            // Generate tick scalping recommendations
-            if (selectedTradeType === 'all' || selectedTradeType === 'tick_scalping') { // Add a 'tick_scalping' filter option if needed
-                generateTickScalpingRecs();
-            }
-
 
             // Check for O5U4 opportunities
             const o5u4Data = o5u4Opportunities.find(opp => opp.symbol === symbol);
@@ -563,17 +492,11 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
         });
 
-        // Sort main recommendations by confidence
-        const sortedResults = results.sort((a, b) => {
+        return results.sort((a, b) => {
             const aMaxConf = Math.max(...a.recommendations.map(r => r.confidence), 0);
             const bMaxConf = Math.max(...b.recommendations.map(r => r.confidence), 0);
             return bMaxConf - aMaxConf;
         });
-
-        // Update tick scalping signals state
-        setTickScalpingSignals(tickSignals.sort((a, b) => b.confidence - a.confidence));
-
-        return sortedResults;
     }, [marketStats, realTimeStats, o5u4Opportunities, selectedTradeType]);
 
     // Update scan results when data changes
@@ -913,7 +836,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
-                                                console.log('🚫 AI Auto Trade: No next trade scheduled - AI Auto Trade stopped');
+                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped or no recommendation');
                                             }
                                         }, 2000); // 2 seconds between trades for faster execution
                                     } else {
@@ -1052,7 +975,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         for (let i = 0; i < highestTimeoutId; i++) {
             clearTimeout(i);
         }
-        console.log('Cleated all pending timeouts to prevent delayed trade executions');
+        console.log('🧹 Cleared all pending timeouts to prevent delayed trade executions');
     };
 
     // Load trade settings to Smart Trader
@@ -1072,10 +995,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                     return { tradeType: 'DIGITMATCH', contractType: 'DIGITMATCH' };
                 case 'differs':
                     return { tradeType: 'DIGITDIFF', contractType: 'DIGITDIFF' };
-                case 'call':
-                    return { tradeType: 'CALL', contractType: 'CALL'};
-                case 'put':
-                    return { tradeType: 'PUT', contractType: 'PUT'};
                 default:
                     return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
             }
@@ -1083,7 +1002,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         const { tradeType, contractType } = getTradeTypeAndContract(recommendation.strategy);
 
-        const settings: TradeSettings = {
+        const settings = {
             symbol: recommendation.symbol,
             tradeType: tradeType,
             contractType: contractType,
@@ -1099,13 +1018,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
             settings.prediction = parseInt(recommendation.barrier || '5');
             settings.barrier = recommendation.barrier;
-        } else if (recommendation.strategy === 'call' || recommendation.strategy === 'put') {
-            // For CALL/PUT, use barrier as prediction, and contractType should reflect CALL/PUT
-            settings.prediction = parseInt(recommendation.barrier || '0'); // Barrier might not be a digit for CALL/PUT
-            settings.contractType = recommendation.contractType || (recommendation.strategy === 'call' ? 'CALL' : 'PUT');
-            settings.tradeType = settings.contractType; // Update tradeType to match contractType
         }
-
 
         console.log('Loading Trading Hub settings to Smart Trader:', {
             strategy: recommendation.strategy,
@@ -1136,9 +1049,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             else if (recommendation.strategy === 'odd') contractType = 'DIGITODD';
             else if (recommendation.strategy === 'matches') contractType = 'DIGITMATCH';
             else if (recommendation.strategy === 'differs') contractType = 'DIGITDIFF';
-            else if (recommendation.strategy === 'call') contractType = 'CALL';
-            else if (recommendation.strategy === 'put') contractType = 'PUT';
-
 
             // Default settings
             const defaultStake = 0.5;
@@ -1151,8 +1061,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 prediction = parseInt(recommendation.barrier || '5');
             } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
                 prediction = parseInt(recommendation.barrier || '5');
-            } else if (recommendation.strategy === 'call' || recommendation.strategy === 'put') {
-                 prediction = recommendation.barrier; // For call/put, barrier might be relevant
             }
 
 
@@ -1168,13 +1076,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                         return {
                             tradeTypeCategory: 'digits',
                             tradeTypeList: 'digits',
-                            contractType: getTradeTypeForStrategy(strategy)
-                        };
-                    case 'call':
-                    case 'put':
-                        return {
-                            tradeTypeCategory: 'vanilla_options', // Assuming these map to vanilla options
-                            tradeTypeList: 'vanilla_options',
                             contractType: getTradeTypeForStrategy(strategy)
                         };
                     default:
@@ -1275,7 +1176,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     <!-- Trade Options -->
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="trade_options_block">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? 'true' : 'false'}" has_second_barrier="false" has_prediction="${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? 'true' : 'false'}"></mutation>
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="${['over', 'under', 'matches', 'differs'].includes(recommendation.strategy) ? 'true' : 'false'}"></mutation>
         <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
         <value name="DURATION">
           <shadow type="math_number" id="duration_number">
@@ -1597,9 +1498,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             trade_option.prediction = prediction;
         } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
             trade_option.prediction = parseInt(recommendation.barrier || '5');
-        } else if (recommendation.strategy === 'call' || recommendation.strategy === 'put') {
-            // For call/put, prediction might be the target price or a relevant metric
-            trade_option.prediction = recommendation.barrier;
         }
 
         const buy_req = {
@@ -1716,206 +1614,85 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     };
 
-    // Helper to format timestamp
-    const formatTimestamp = (timestamp: number) => {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
-
-    // Helper to get confidence class
-    const getConfidenceClass = (confidence: number): string => {
-        if (confidence >= 85) return 'excellent';
-        if (confidence >= 75) return 'high';
-        if (confidence >= 65) return 'medium';
-        return 'low';
-    };
-
-    // Renamed functions to match the changes snippet
-    const loadTradeInSmartTrader = (rec: TradeRecommendation, symbol: string) => {
-        loadTradeSettings(rec);
-    };
-
-    const loadTradeInBotBuilder = (rec: TradeRecommendation, symbol: string) => {
-        loadToBotBuilder(rec);
-    };
-
     const renderRecommendationCard = (result: ScanResult) => {
         const bestRec = result.recommendations.reduce((best, current) =>
             current.confidence > (best?.confidence || 0) ? current : best, null);
 
         return (
-            <div key={result.symbol} className="volatility-index-card">
-                <div className="volatility-card-header">
-                    <div className="volatility-info">
-                        <h3 className="volatility-name">{result.displayName}</h3>
-                        <span className="volatility-symbol">{result.symbol}</span>
+            <div key={result.symbol} className="scanner-result-card">
+                <div className="scanner-result-header">
+                    <div className="symbol-info">
+                        <Text size="s" weight="bold">{result.displayName}</Text>
+                        <Text size="xs" color="general">{result.symbol}</Text>
                     </div>
-                    <div className="volatility-status">
+                    <div className="market-health">
                         <div className={`health-indicator ${result.stats.tickCount >= 50 ? 'healthy' : 'limited'}`}>
                             {result.stats.tickCount >= 50 ? '🟢' : '🟡'} {result.stats.tickCount} ticks
                         </div>
-                        <div className="live-indicator">
+                        <div className="real-time-badge">
                             📈 Live
                         </div>
                     </div>
                 </div>
 
-                <div className="volatility-stats">
-                    <div className="stat-item">
-                        <span className="stat-label">Current Digit:</span>
-                        <span className="stat-value">{result.stats.currentLastDigit}</span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-label">Most Frequent:</span>
-                        <span className="stat-value">{result.stats.mostFrequentDigit}</span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-label">Least Frequent:</span>
-                        <span className="stat-value">{result.stats.leastFrequentDigit}</span>
-                    </div>
+                <div className="recommendations-list">
+                    {result.recommendations.map((rec, index) => (
+                        <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''}`}>
+                            <div className="recommendation-content">
+                                <div className="strategy-badge">
+                                    <span className={`strategy-label strategy-label--${rec.strategy}`}>
+                                        {rec.strategy === 'call' ? 'BUY NOW' :
+                                         rec.strategy === 'put' ? 'SELL NOW' :
+                                         rec.strategy === 'hold' ? 'PLEASE WAIT' :
+                                         rec.strategy.toUpperCase()} {rec.barrier}
+                                    </span>
+                                    <span className={`confidence-badge confidence-${getConfidenceLevel(rec.confidence)}`}>
+                                        {rec.confidence.toFixed(1)}%
+                                    </span>
+                                </div>
+                                <Text size="xs" color="general" className="recommendation-reason">
+                                    {rec.reason}
+                                </Text>
+                                <div className="recommendation-stats">
+                                    <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>
+                                    <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>
+                                    <span className="stat-item">Diff: {Math.abs(rec.overPercentage - rec.underPercentage).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div className="recommendation-actions">
+                                <button
+                                    className="load-trade-btn"
+                                    onClick={() => loadTradeSettings(rec)}
+                                    title="Load these settings into Smart Trader"
+                                >
+                                    ⚡ Smart Trader
+                                </button>
+                                <button
+                                    className="load-bot-builder-btn"
+                                    onClick={() => loadToBotBuilder(rec)}
+                                    title="Load strategy directly to Bot Builder"
+                                >
+                                    🤖 Bot Builder
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
-                {result.recommendations.length > 0 && (
-                    <div className="recommendations-section">
-                        <h4 className="recommendations-title">Trading Recommendations</h4>
-                        <div className="recommendations-grid">
-                            {result.recommendations.map((rec, index) => (
-                                <div
-                                    key={`${result.symbol}-${rec.strategy}-${rec.barrier}`}
-                                    className={`recommendation-card ${
-                                        rec === bestRec ? 'best-recommendation' : ''
-                                    } ${rec.strategy}-recommendation`}
-                                >
-                                    <div className="rec-header">
-                                        <span className={`strategy-badge strategy-badge--${rec.strategy}`}>
-                                            {rec.strategy.toUpperCase()} {rec.barrier}
-                                        </span>
-                                        <span className={`confidence-badge ${getConfidenceClass(rec.confidence)}`}>
-                                            {rec.confidence.toFixed(1)}%
-                                        </span>
-                                    </div>
-
-                                    <div className="rec-details">
-                                        <div className="dominance-display">
-                                            <span className="dominance-text">
-                                                {rec.confidence.toFixed(1)}% vs {(100 - rec.confidence).toFixed(1)}%
-                                            </span>
-                                        </div>
-                                        
-                                        <div className="rec-stats">
-                                            {rec.overPercentage !== undefined && (
-                                                <span className="rec-stat">Over: {rec.overPercentage.toFixed(1)}%</span>
-                                            )}
-                                            {rec.underPercentage !== undefined && (
-                                                <span className="rec-stat">Under: {rec.underPercentage.toFixed(1)}%</span>
-                                            )}
-                                            <span className="rec-time">{formatTimestamp(rec.timestamp)}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="rec-actions">
-                                        <button
-                                            className="action-btn smart-trader-btn"
-                                            onClick={() => loadTradeInSmartTrader(rec, result.symbol)}
-                                            title="Load in Smart Trader"
-                                        >
-                                            📊 Smart Trader
-                                        </button>
-                                        <button
-                                            className="action-btn bot-builder-btn"
-                                            onClick={() => loadTradeInBotBuilder(rec, result.symbol)}
-                                            title="Load in Bot Builder"
-                                        >
-                                            🤖 Bot Builder
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
                 {result.o5u4Data && result.o5u4Data.conditionsMetCount >= 3 && (
-                    <div className="o5u4-section">
+                    <div className="o5u4-opportunity">
                         <div className="o5u4-header">
                             <span className="o5u4-badge">🎯 O5U4 Opportunity</span>
                             <span className="o5u4-score">{result.o5u4Data.score.toFixed(0)} pts</span>
                         </div>
-                        <div className="o5u4-details">
+                        <Text size="xs" color="general">
                             Conditions met: {result.o5u4Data.conditionsMetCount}/3 | Sample: {result.o5u4Data.details.sampleSize}
-                        </div>
+                        </Text>
                     </div>
                 )}
             </div>
         );
     };
-
-    // Render tick scalping recommendations
-    const renderTickScalpingCard = (rec: TradeRecommendation) => {
-        const displayName = symbolMap[rec.symbol] || rec.symbol;
-        return (
-            <div key={rec.symbol + rec.strategy + rec.timestamp} className="tick-scalping-card">
-                <div className="scalping-card-header">
-                    <div className="scalping-symbol-info">
-                        <h3 className="scalping-symbol-name">{displayName}</h3>
-                        <span className={`scalping-strategy-badge scalping-strategy--${rec.strategy}`}>
-                            ⚡ {rec.strategy.toUpperCase()}
-                        </span>
-                    </div>
-                    <span className={`scalping-confidence-badge ${getConfidenceClass(rec.confidence)}`}>
-                        {rec.confidence.toFixed(1)}%
-                    </span>
-                </div>
-
-                <div className="scalping-card-details">
-                    <div className="scalping-signal-info">
-                        <div className="signal-strength">
-                            <span className="signal-label">Signal Strength:</span>
-                            <span className="signal-value">{rec.confidence.toFixed(1)}%</span>
-                        </div>
-                        {rec.scalpingData && (
-                            <div className="price-targets">
-                                <div className="price-item">
-                                    <span className="price-label">Entry:</span>
-                                    <span className="price-value">{rec.scalpingData.entryPrice?.toFixed(4) || 'N/A'}</span>
-                                </div>
-                                <div className="price-item">
-                                    <span className="price-label">Target:</span>
-                                    <span className="price-value">{rec.scalpingData.targetPrice?.toFixed(4) || 'N/A'}</span>
-                                </div>
-                                <div className="price-item">
-                                    <span className="price-label">R/R:</span>
-                                    <span className="price-value">{rec.scalpingData.riskReward?.toFixed(1) || 'N/A'}</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="scalping-reason">
-                        <span className="reason-text">{rec.reason}</span>
-                    </div>
-                </div>
-
-                <div className="scalping-card-actions">
-                    <button
-                        className="scalping-action-btn scalping-smart-trader-btn"
-                        onClick={() => loadTradeSettings(rec)}
-                        title="Load in Smart Trader"
-                    >
-                        📊 Smart Trader
-                    </button>
-                    <button
-                        className="scalping-action-btn scalping-bot-builder-btn"
-                        onClick={() => loadToBotBuilder(rec)}
-                        title="Load in Bot Builder"
-                    >
-                        🤖 Bot Builder
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
 
     const getConfidenceLevel = (confidence: number): string => {
         if (confidence >= 85) return 'excellent';
@@ -1974,8 +1751,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {type.label}
                                 </option>
                             ))}
-                            {/* Option for Tick Scalping */}
-                            <option value="tick_scalping">Tick Scalping</option>
                         </select>
                     </div>
 
@@ -2010,10 +1785,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="summary-item">
                                 <span className="summary-value">{o5u4Opportunities.length}</span>
                                 <span className="summary-label">O5U4 Setups</span>
-                            </div>
-                            <div className="summary-item">
-                                <span className="summary-value">{tickScalpingSignals.length}</span>
-                                <span className="summary-label">Tick Scalping</span>
                             </div>
                         </div>
 
@@ -2175,10 +1946,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 )}
 
-                
-
-
-                <div className="scanner-content">
+                <div className="scanner-results">
                     {connectionStatus === 'error' && (
                         <div className="scanner-error">
                             <div className="error-icon">⚠️</div>
@@ -2261,7 +2029,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                     )}
 
-                    {connectionStatus === 'ready' && scanResults.length === 0 && tickScalpingSignals.length === 0 && (
+                    {connectionStatus === 'ready' && scanResults.length === 0 && (
                         <div className="no-opportunities">
                             <div className="no-opportunities-icon">🔍</div>
                             <Text size="s" color="general">No trading opportunities found</Text>
@@ -2272,33 +2040,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                     )}
 
-                    {connectionStatus === 'ready' && (scanResults.length > 0 || tickScalpingSignals.length > 0) && (
-                        <div className="scanner-results-section">
-                            {/* Tick Scalping Cards */}
-                            {tickScalpingSignals.length > 0 && (
-                                <div className="tick-scalping-section">
-                                    <div className="section-header">
-                                        <h2>⚡ Tick Scalping Signals</h2>
-                                        <span className="signal-count">{tickScalpingSignals.length} signals</span>
-                                    </div>
-                                    <div className="tick-scalping-grid">
-                                        {tickScalpingSignals.map(renderTickScalpingCard)}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Volatility Index Cards */}
-                            {scanResults.length > 0 && (
-                                <div className="volatility-section">
-                                    <div className="section-header">
-                                        <h2>📊 Trading Opportunities</h2>
-                                        <span className="opportunity-count">{scanResults.length} opportunities</span>
-                                    </div>
-                                    <div className="volatility-cards-grid">
-                                        {scanResults.map(renderRecommendationCard)}
-                                    </div>
-                                </div>
-                            )}
+                    {connectionStatus === 'ready' && scanResults.length > 0 && (
+                        <div className="results-grid">
+                            {scanResults.map(renderRecommendationCard)}
                         </div>
                     )}
                 </div>
