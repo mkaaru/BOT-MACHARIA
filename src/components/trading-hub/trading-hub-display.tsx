@@ -836,7 +836,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
-                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped or no recommendation');
+                                                console.log('🚫 AI Auto Trade: No next trade scheduled - AI Auto Trade stopped or no recommendation');
                                             }
                                         }, 2000); // 2 seconds between trades for faster execution
                                     } else {
@@ -1650,9 +1650,27 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         {rec.confidence.toFixed(1)}%
                                     </span>
                                 </div>
-                                <Text size="xs" color="general" className="recommendation-reason">
-                                    {rec.reason}
-                                </Text>
+                                <div className="recommendation-reason">
+                                    <Text size="xs" color="prominent">
+                                        {rec.reason}
+                                    </Text>
+                                    {rec.momentumAnalysis && (
+                                        <div className="momentum-details">
+                                            <Text size="xs" color="less-prominent">
+                                                Momentum: {rec.momentumAnalysis.strength.toFixed(0)}% | 
+                                                Duration: {rec.momentumAnalysis.duration} periods | 
+                                                Expected: {rec.momentumAnalysis.expectedDuration}s
+                                            </Text>
+                                            <div className="momentum-factors">
+                                                {rec.momentumAnalysis.factors.slice(0, 3).map((factor, idx) => (
+                                                    <span key={idx} className="factor-tag">
+                                                        {factor.replace(/_/g, ' ')}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="recommendation-stats">
                                     <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>
                                     <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>

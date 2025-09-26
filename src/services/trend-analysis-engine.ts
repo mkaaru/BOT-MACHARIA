@@ -57,6 +57,16 @@ export interface TrendAnalysis {
     // Enhanced pullback analysis
     pullbackAnalysis?: PullbackAnalysis;
 
+    // Sustained momentum analysis for Higher/Lower trades
+    sustainedMomentum?: {
+        hasSustainedMomentum: boolean;
+        direction: 'HIGHER' | 'LOWER' | 'NEUTRAL';
+        strength: number;
+        confidence: number;
+        duration: number;
+        factors: string[];
+    };
+
     // Cycle trading assessment
     cycleTrading?: {
         suitable: boolean;
@@ -152,6 +162,9 @@ export class TrendAnalysisEngine {
 
         // Enhanced pullback detection using at least 5 candles
         const pullbackAnalysis = this.analyzePullbackWithDecycler(recentCandles, ehlersSignals);
+
+        // Detect sustained momentum for Higher/Lower trades
+        const sustainedMomentum = this.detectSustainedMomentum(symbol, recentCandles, ehlersSignals);
 
         // Use default ROC periods (can be made configurable later)
         const rocPeriods = this.getROCPeriods(false); // Default to non-sensitive
@@ -300,6 +313,7 @@ export class TrendAnalysisEngine {
             cycleTrading,
             derivSignals,
             pullbackAnalysis, // Add pullback analysis results
+            sustainedMomentum, // Add sustained momentum analysis
         };
 
         this.trendData.set(symbol, analysis);
@@ -922,6 +936,194 @@ export class TrendAnalysisEngine {
             pullbackType,
             confidence,
             recommendation
+        };
+    }
+
+    /**
+     * Detect sustained momentum for Higher/Lower trades
+     */
+    private detectSustainedMomentum(symbol: string, candles: any[], ehlersSignals?: EhlersSignals): {
+        hasSustainedMomentum: boolean;
+        direction: 'HIGHER' | 'LOWER' | 'NEUTRAL';
+        strength: number;
+        confidence: number;
+        duration: number;
+        factors: string[];
+    } {
+        if (candles.length < 15) {
+            return {
+                hasSustainedMomentum: false,
+                direction: 'NEUTRAL',
+                strength: 0,
+                confidence: 0,
+                duration: 0,
+                factors: []
+            };
+        }
+
+        const prices = candles.map(c => c.close);
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+        const volumes = candles.map(c => c.tickCount || 1); // Use tick count as volume proxy
+
+        const factors: string[] = [];
+        let strength = 0;
+        let confidence = 0;
+        let direction: 'HIGHER' | 'LOWER' | 'NEUTRAL' = 'NEUTRAL';
+
+        // 1. Multi-timeframe ROC momentum alignment
+        const shortROC = this.calculateROC(prices, 3);
+        const mediumROC = this.calculateROC(prices, 7);
+        const longROC = this.calculateROC(prices, 14);
+
+        if (shortROC && mediumROC && longROC) {
+            // Bullish momentum alignment
+            if (shortROC > 0.1 && mediumROC > 0.05 && longROC > 0.02 && 
+                shortROC > mediumROC && mediumROC > longROC) {
+                direction = 'HIGHER';
+                strength += 25;
+                confidence += 20;
+                factors.push('multi_timeframe_bullish_momentum');
+            }
+            // Bearish momentum alignment
+            else if (shortROC < -0.1 && mediumROC < -0.05 && longROC < -0.02 && 
+                     shortROC < mediumROC && mediumROC < longROC) {
+                direction = 'LOWER';
+                strength += 25;
+                confidence += 20;
+                factors.push('multi_timeframe_bearish_momentum');
+            }
+        }
+
+        // 2. Consecutive candle direction (momentum persistence)
+        const last5Candles = candles.slice(-5);
+        const bullishCandles = last5Candles.filter(c => c.close > c.open).length;
+        const bearishCandles = last5Candles.filter(c => c.close < c.open).length;
+
+        if (bullishCandles >= 4) {
+            if (direction === 'HIGHER') strength += 20;
+            confidence += 15;
+            factors.push('consecutive_bullish_candles');
+        } else if (bearishCandles >= 4) {
+            if (direction === 'LOWER') strength += 20;
+            confidence += 15;
+            factors.push('consecutive_bearish_candles');
+        }
+
+        // 3. Volume-weighted momentum (using tick count)
+        const recentVolume = volumes.slice(-5).reduce((a, b) => a + b, 0);
+        const olderVolume = volumes.slice(-10, -5).reduce((a, b) => a + b, 0);
+        const volumeIncrease = (recentVolume - olderVolume) / olderVolume;
+
+        if (volumeIncrease > 0.2) { // 20% volume increase
+            strength += 15;
+            confidence += 10;
+            factors.push('increasing_volume');
+        }
+
+        // 4. Higher highs / Lower lows pattern
+        const recentHighs = highs.slice(-5);
+        const recentLows = lows.slice(-5);
+        const olderHighs = highs.slice(-10, -5);
+        const olderLows = lows.slice(-10, -5);
+
+        const higherHighs = Math.max(...recentHighs) > Math.max(...olderHighs);
+        const higherLows = Math.min(...recentLows) > Math.min(...olderLows);
+        const lowerHighs = Math.max(...recentHighs) < Math.max(...olderHighs);
+        const lowerLows = Math.min(...recentLows) < Math.min(...olderLows);
+
+        if (higherHighs && higherLows && direction === 'HIGHER') {
+            strength += 20;
+            confidence += 15;
+            factors.push('higher_highs_higher_lows');
+        } else if (lowerHighs && lowerLows && direction === 'LOWER') {
+            strength += 20;
+            confidence += 15;
+            factors.push('lower_highs_lower_lows');
+        }
+
+        // 5. Ehlers momentum indicators
+        if (ehlersSignals) {
+            const { anticipatorySignal, netValue, trend, instantaneousTrendline, decycler } = ehlersSignals;
+
+            // Strong anticipatory signals
+            if (Math.abs(anticipatorySignal) > 1.5) {
+                if (anticipatorySignal > 0 && direction === 'HIGHER') {
+                    strength += 15;
+                    confidence += 12;
+                    factors.push('ehlers_bullish_anticipatory');
+                } else if (anticipatorySignal < 0 && direction === 'LOWER') {
+                    strength += 15;
+                    confidence += 12;
+                    factors.push('ehlers_bearish_anticipatory');
+                }
+            }
+
+            // Trend alignment with instantaneous vs longer-term
+            if (instantaneousTrendline && decycler) {
+                const trendDivergence = (instantaneousTrendline - decycler) / decycler;
+                if (Math.abs(trendDivergence) > 0.001) { // 0.1% divergence
+                    if (trendDivergence > 0 && direction === 'HIGHER') {
+                        strength += 10;
+                        confidence += 8;
+                        factors.push('instant_above_decycler');
+                    } else if (trendDivergence < 0 && direction === 'LOWER') {
+                        strength += 10;
+                        confidence += 8;
+                        factors.push('instant_below_decycler');
+                    }
+                }
+            }
+        }
+
+        // 6. Price acceleration (rate of change of ROC)
+        if (shortROC && mediumROC) {
+            const acceleration = shortROC - mediumROC;
+            if (Math.abs(acceleration) > 0.05) {
+                if (acceleration > 0 && direction === 'HIGHER') {
+                    strength += 10;
+                    confidence += 8;
+                    factors.push('positive_acceleration');
+                } else if (acceleration < 0 && direction === 'LOWER') {
+                    strength += 10;
+                    confidence += 8;
+                    factors.push('negative_acceleration');
+                }
+            }
+        }
+
+        // 7. Momentum duration estimation
+        let duration = 0;
+        const currentPrice = prices[prices.length - 1];
+        
+        // Count consecutive periods in same direction
+        for (let i = prices.length - 2; i >= 0; i--) {
+            if (direction === 'HIGHER' && prices[i] < currentPrice) {
+                duration++;
+            } else if (direction === 'LOWER' && prices[i] > currentPrice) {
+                duration++;
+            } else {
+                break;
+            }
+        }
+
+        // Bonus for sustained duration
+        if (duration >= 5) {
+            strength += 10;
+            confidence += 5;
+            factors.push('sustained_duration');
+        }
+
+        // Final validation - require minimum thresholds
+        const hasSustainedMomentum = strength >= 50 && confidence >= 40 && factors.length >= 3;
+
+        return {
+            hasSustainedMomentum,
+            direction: hasSustainedMomentum ? direction : 'NEUTRAL',
+            strength: Math.min(100, strength),
+            confidence: Math.min(100, confidence),
+            duration,
+            factors
         };
     }
 
