@@ -377,7 +377,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     }
 
                     const overPercent = (overCount / totalTicks) * 100;
-                    const underPercent = (underCount / totalTicks) * 1>00;
+                    const underPercent = (underCount / totalTicks) * 100;
 
                     const dominancePercent = strategy === 'over' ? overPercent : underPercent;
                     const oppositePercent = strategy === 'over' ? underPercent : overPercent;

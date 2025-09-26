@@ -241,9 +241,6 @@ export class MarketScanner {
             direction = 'PUT';
         }
 
-        // Generate reason
-        const reason = this.generateRecommendationReason(trend);
-
         // Generate reason based on direction
         const reason = this.generateQualityBasedReason(trend, direction);
 
