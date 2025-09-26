@@ -17,6 +17,11 @@ import {
     TrendAnalysis,
     MarketScanResult
 } from './trend-analysis-engine';
+import {
+    tickScalpingEngine,
+    ScalpingSignal,
+    ScalpingStats
+} from './tick-scalping-engine';
 
 // Placeholder for DerivMarketConfig if it's used elsewhere and needs to be defined
 interface DerivMarketConfig {
@@ -42,7 +47,7 @@ export interface TradingRecommendation {
     score: number;
     currentPrice: number;
     reason: string;
-    recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION';
+    recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION' | 'TICK_SCALPING';
     hma5: number;
     hma40: number;
     suggestedStake: number;
@@ -57,7 +62,7 @@ export interface TradingRecommendation {
     barrier?: string;
     timestamp: number;
     validUntil?: number;
-    contractType?: 'rise_fall' | 'higher_lower';
+    contractType?: 'rise_fall' | 'higher_lower' | 'tick_scalping';
     momentumAnalysis?: {
         strength: number;
         duration: number;
@@ -70,7 +75,16 @@ export interface TradingRecommendation {
         direction: 'CALL' | 'PUT' | 'HOLD';
         confidence: number;
         reason: string;
-        recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION';
+        recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION' | 'TICK_SCALPING';
+    };
+    // Tick scalping specific fields
+    scalpingData?: {
+        entryPrice: number;
+        targetPrice: number;
+        stopLoss: number;
+        riskReward: number;
+        tickMomentum: number;
+        volatility: number;
     };
 }
 
@@ -83,7 +97,9 @@ export class MarketScanner {
     private candleCallbacks: Map<string, (candle: CandleData) => void> = new Map();
     private statusCallbacks: Set<(status: ScannerStatus) => void> = new Set();
     private recommendationCallbacks: Set<(recommendations: TradingRecommendation[]) => void> = new Set();
+    private scalpingCallbacks: Set<(signal: ScalpingSignal) => void> = new Set();
     private recommendations: TradingRecommendation[] = [];
+    private scalpingRecommendations: TradingRecommendation[] = [];
     private persistentRecommendations: Map<string, {
         recommendation: TradingRecommendation;
         timestamp: number;
@@ -108,6 +124,9 @@ export class MarketScanner {
 
         // Update status periodically
         setInterval(() => this.updateStatus(), 10 * 1000); // Every 10 seconds
+
+        // Setup scalping engine callbacks
+        this.setupScalpingCallbacks();
     }
 
     /**
@@ -178,6 +197,70 @@ export class MarketScanner {
             this.updateStatus();
             this.updateRecommendations();
         }, 5000);
+
+    /**
+     * Setup tick scalping engine callbacks
+     */
+    private setupScalpingCallbacks(): void {
+        // Listen for scalping signals
+        tickScalpingEngine.onScalpingSignal((signal: ScalpingSignal) => {
+            try {
+                // Convert scalping signal to trading recommendation
+                const recommendation = this.convertScalpingSignalToRecommendation(signal);
+                this.scalpingRecommendations.push(recommendation);
+                
+                // Keep only recent scalping recommendations (last 20)
+                if (this.scalpingRecommendations.length > 20) {
+                    this.scalpingRecommendations = this.scalpingRecommendations.slice(-20);
+                }
+                
+                // Notify scalping callbacks
+                this.scalpingCallbacks.forEach(callback => {
+                    callback(signal);
+                });
+                
+                console.log(`🎯 SCALPING SIGNAL: ${signal.symbol} ${signal.action} at ${signal.entryPrice} (${signal.confidence}% confidence)`);
+            } catch (error) {
+                console.error('Error processing scalping signal:', error);
+            }
+        });
+    }
+
+    /**
+     * Convert scalping signal to trading recommendation
+     */
+    private convertScalpingSignalToRecommendation(signal: ScalpingSignal): TradingRecommendation {
+        const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === signal.symbol);
+        const displayName = symbolInfo?.display_name || signal.symbol;
+
+        return {
+            symbol: signal.symbol,
+            displayName,
+            direction: signal.action === 'BUY' ? 'CALL' : 'PUT',
+            confidence: signal.confidence,
+            score: signal.confidence,
+            currentPrice: signal.entryPrice,
+            reason: `🏃‍♂️ TICK SCALPING: ${signal.reasoning}`,
+            recommendationType: 'TICK_SCALPING',
+            hma5: 0,
+            hma40: 0,
+            suggestedStake: 1.0,
+            suggestedDuration: Math.min(signal.duration, 60), // Max 60 seconds for scalping
+            suggestedDurationUnit: 's',
+            timestamp: signal.timestamp,
+            contractType: 'tick_scalping',
+            scalpingData: {
+                entryPrice: signal.entryPrice,
+                targetPrice: signal.targetPrice,
+                stopLoss: signal.stopLoss,
+                riskReward: signal.riskReward,
+                tickMomentum: signal.tickMomentum,
+                volatility: signal.volatility
+            }
+        };
+    }
+
+
     }
 
     /**
@@ -192,6 +275,12 @@ export class MarketScanner {
                 try {
                     // Process tick through candle reconstruction
                     candleReconstructionEngine.processTick(tick);
+                    
+                    // Process tick through scalping engine
+                    tickScalpingEngine.processTick(tick);
+                    
+                    // Update existing scalping signals
+                    tickScalpingEngine.updateSignal(tick.symbol, tick);
                 } catch (error) {
                     console.error(`Error processing tick for ${symbol}:`, error);
                     this.addError(`Tick processing error for ${symbol}: ${error}`);
@@ -248,11 +337,21 @@ export class MarketScanner {
         }
 
         const opportunities = this.trendAnalysisEngine.getTopOpportunities(count * 2);
-
-        return opportunities
+        const trendRecommendations = opportunities
             .filter(opp => opp.trend.recommendation !== 'HOLD')
             .slice(0, count)
             .map(opp => this.convertToTradingRecommendation(opp));
+
+        // Combine trend and scalping recommendations
+        const allRecommendations = [
+            ...trendRecommendations,
+            ...this.scalpingRecommendations.slice(-5) // Include last 5 scalping signals
+        ];
+
+        // Sort by confidence and return top recommendations
+        return allRecommendations
+            .sort((a, b) => b.confidence - a.confidence)
+            .slice(0, count);
     }
 
     /**
@@ -798,6 +897,51 @@ export class MarketScanner {
 
     /**
      * Generate Enhanced Deriv-specific signals with momentum and pullback analysis
+
+    /**
+     * Subscribe to scalping signal changes
+     */
+    onScalpingSignal(callback: (signal: ScalpingSignal) => void): () => void {
+        this.scalpingCallbacks.add(callback);
+        return () => this.scalpingCallbacks.delete(callback);
+    }
+
+    /**
+     * Get current scalping statistics
+     */
+    getScalpingStats(): ScalpingStats {
+        return tickScalpingEngine.getStats();
+    }
+
+    /**
+     * Get active scalping signals
+     */
+    getActiveScalpingSignals(): ScalpingSignal[] {
+        return tickScalpingEngine.getActiveSignals();
+    }
+
+    /**
+     * Update scalping configuration
+     */
+    updateScalpingConfig(config: Partial<any>): void {
+        tickScalpingEngine.updateConfig(config);
+    }
+
+    /**
+     * Close all active scalping signals
+     */
+    closeAllScalpingSignals(): void {
+        tickScalpingEngine.closeAllSignals();
+    }
+
+    /**
+     * Reset scalping statistics
+     */
+    resetScalpingStats(): void {
+        tickScalpingEngine.resetStats();
+    }
+
+
      */
     generateDerivSignal(symbol: string, config: DerivMarketConfig): {
         action: string;
