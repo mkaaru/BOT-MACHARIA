@@ -379,7 +379,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: overPercent,
                             underPercentage: underPercent,
                             reason: `${strategy.toUpperCase()} ${barrier} dominance: ${dominancePercent.toFixed(1)}% vs ${oppositePercent.toFixed(1)}%, current ${currentLastDigit}`,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
+                            contractType: 'higher_lower' // Explicitly set for Higher/Lower signals
                         });
                     }
                 });
@@ -405,7 +406,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: evenPercent,
                             underPercentage: oddPercent,
                             reason: `STRONG EVEN dominance: ${evenPercent.toFixed(1)}% vs ${oddPercent.toFixed(1)}%, current ${stats.currentLastDigit}`,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
+                            contractType: 'rise_fall' // Explicitly set for Rise/Fall signals
                         });
                     }
 
@@ -418,7 +420,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: evenPercent,
                             underPercentage: oddPercent,
                             reason: `STRONG ODD dominance: ${oddPercent.toFixed(1)}% vs ${evenPercent.toFixed(1)}%, current ${stats.currentLastDigit}`,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
+                            contractType: 'rise_fall' // Explicitly set for Rise/Fall signals
                         });
                     }
                 }
@@ -446,7 +449,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: mostFreqPercent,
                             underPercentage: 100 - mostFreqPercent,
                             reason: `Digit ${mostFrequentDigit} appears ${mostFreqPercent.toFixed(1)}% of time`,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
+                            contractType: 'higher_lower' // Explicitly set for Higher/Lower signals
                         });
                     }
 
@@ -461,7 +465,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             overPercentage: leastFreqPercent,
                             underPercentage: 100 - leastFreqPercent,
                             reason: `Digit ${leastFrequentDigit} appears only ${leastFreqPercent.toFixed(1)}% of time`,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
+                            contractType: 'higher_lower' // Explicitly set for Higher/Lower signals
                         });
                     }
                 }
@@ -1637,7 +1642,18 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 <div className="recommendations-list">
                     {result.recommendations.map((rec, index) => (
-                        <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''}`}>
+                        <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''} ${rec.contractType || 'rise_fall'}`}>
+                            <div className="recommendation-header">
+                                <div className="symbol-info">
+                                    <Text size="s" weight="bold">{symbolMap[rec.symbol] || rec.symbol}</Text>
+                                </div>
+                                <div className="signal-type-badge">
+                                    {rec.contractType === 'higher_lower' ? 'H/L' : 'R/F'}
+                                </div>
+                                <div className="confidence-badge">
+                                    {rec.confidence.toFixed(1)}%
+                                </div>
+                            </div>
                             <div className="recommendation-content">
                                 <div className="strategy-badge">
                                     <span className={`strategy-label strategy-label--${rec.strategy}`}>
@@ -1645,9 +1661,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                          rec.strategy === 'put' ? 'SELL NOW' :
                                          rec.strategy === 'hold' ? 'PLEASE WAIT' :
                                          rec.strategy.toUpperCase()} {rec.barrier}
-                                    </span>
-                                    <span className={`confidence-badge confidence-${getConfidenceLevel(rec.confidence)}`}>
-                                        {rec.confidence.toFixed(1)}%
                                     </span>
                                 </div>
                                 <div className="recommendation-reason">
@@ -1657,8 +1670,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {rec.momentumAnalysis && (
                                         <div className="momentum-details">
                                             <Text size="xs" color="less-prominent">
-                                                Momentum: {rec.momentumAnalysis.strength.toFixed(0)}% | 
-                                                Duration: {rec.momentumAnalysis.duration} periods | 
+                                                Momentum: {rec.momentumAnalysis.strength.toFixed(0)}% |
+                                                Duration: {rec.momentumAnalysis.duration} periods |
                                                 Expected: {rec.momentumAnalysis.expectedDuration}s
                                             </Text>
                                             <div className="momentum-factors">
@@ -1964,7 +1977,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 )}
 
-                <div className="scanner-results">
+                <div className="scanner-content">
                     {connectionStatus === 'error' && (
                         <div className="scanner-error">
                             <div className="error-icon">⚠️</div>
