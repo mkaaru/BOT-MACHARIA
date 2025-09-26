@@ -894,9 +894,6 @@ export class MarketScanner {
     }
 
     /**
-     * Generate Enhanced Deriv-specific signals with momentum and pullback analysis
-
-    /**
      * Subscribe to scalping signal changes
      */
     onScalpingSignal(callback: (signal: ScalpingSignal) => void): () => void {
@@ -939,7 +936,8 @@ export class MarketScanner {
         tickScalpingEngine.resetStats();
     }
 
-
+    /**
+     * Generate Enhanced Deriv-specific signals with momentum and pullback analysis
      */
     generateDerivSignal(symbol: string, config: DerivMarketConfig): {
         action: string;
