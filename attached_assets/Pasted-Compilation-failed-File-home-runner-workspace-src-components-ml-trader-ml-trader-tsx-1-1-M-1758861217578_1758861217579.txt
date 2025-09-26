@@ -1,0 +1,60 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × Module not found: Can't resolve '@/external/bot-bot-builder/services/api/appId' in '/home/runner/workspace/src/components/ml-trader'
+   ╭─[7:80]
+ 5 │ import Text from '@/components/shared_ui/text';
+ 6 │ import { localize } from '@deriv-com/translations';
+ 7 │ import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-bot-builder/services/api/appId';
+   ·                                                                                 ───────────────────────────────────────────────
+ 8 │ import { contract_stages } from '@/constants/contract-stage';
+ 9 │ import { useStore } from '@/hooks/useStore';
+   ╰────/nFile: /home/runner/workspace/src/components/trading-hub/trading-hub-display.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Legacy octal literals are not available when targeting ECMAScript 5 and higher
+  │     │      ╭─[/home/runner/workspace/src/components/trading-hub/trading-hub-display.tsx:380:1]
+  │     │  377 │                     }
+  │     │  378 │
+  │     │  379 │                     const overPercent = (overCount / totalTicks) * 100;
+  │     │  380 │                     const underPercent = (underCount / totalTicks) * 1>00;
+  │     │      ·                                                                        ──
+  │     │  381 │
+  │     │  382 │                     const dominancePercent = strategy === 'over' ? overPercent : underPercent;
+  │     │  383 │                     const oppositePercent = strategy === 'over' ? underPercent : overPercent;
+  │     │      ╰────
+  │     │   × Legacy octal escape is not permitted in strict mode
+  │     │      ╭─[/home/runner/workspace/src/components/trading-hub/trading-hub-display.tsx:380:1]
+  │     │  377 │                     }
+  │     │  378 │
+  │     │  379 │                     const overPercent = (overCount / totalTicks) * 100;
+  │     │  380 │                     const underPercent = (underCount / totalTicks) * 1>00;
+  │     │      ·                                                                        ──
+  │     │  381 │
+  │     │  382 │                     const dominancePercent = strategy === 'over' ? overPercent : underPercent;
+  │     │  383 │                     const oppositePercent = strategy === 'over' ? underPercent : overPercent;
+  │     │      ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error/nFile: /home/runner/workspace/src/services/market-scanner.ts:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `reason` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/services/market-scanner.ts:245:1]
+        │  242 │         }
+        │  243 │
+        │  244 │         // Generate reason
+        │  245 │         const reason = this.generateRecommendationReason(trend);
+        │      ·               ───┬──
+        │      ·                  ╰── previous definition of `reason` here
+        │  246 │
+        │  247 │         // Generate reason based on direction
+        │  248 │         const reason = this.generateQualityBasedReason(trend, direction);
+        │      ·               ───┬──
+        │      ·                  ╰── `reason` redefined here
+        │  249 │
+        │  250 │         // Suggest optimal trading parameters
+        │  251 │         const suggestedStake = direction === 'HOLD' ? 0 : this.calculateOptimalStake(trend.confidence, trend.strength);
+        │      ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
