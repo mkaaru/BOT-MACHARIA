@@ -10,7 +10,6 @@ import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from 
 import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import type { TradingRecommendation } from '@/services/market-scanner';
-import TickScalpingDashboard from '@/components/tick-scalping/tick-scalping-dashboard'; // Import TickScalpingDashboard
 import './trading-hub-display.scss';
 
 // Mock 'transactions' object if it's not globally available or imported elsewhere
@@ -100,9 +99,6 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Refs for managing active contract subscriptions and stop flag
     const activeContractSubscriptionsRef = useRef<Set<string>>(new Set());
     const aiAutoTradeStopFlagRef = useRef<boolean>(false);
-
-    // Tick Scalping Dashboard State
-    const [showScalpingDashboard, setShowScalpingDashboard] = useState(false);
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -1678,7 +1674,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {rec.alternativeRecommendation && (
                                         <div className="alternative-recommendation">
                                             <Text size="xs" color="less-prominent">
-                                                Alt ({rec.alternativeRecommendation.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}): {rec.alternativeRecommendation.direction}
+                                                Alt ({rec.alternativeRecommendation.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}): {rec.alternativeRecommendation.direction} 
                                                 ({rec.alternativeRecommendation.confidence.toFixed(0)}%)
                                             </Text>
                                         </div>
@@ -1753,36 +1749,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         setSelectedTradeSettings(null);
     };
 
-    const handleStartAnalysis = () => {
-        // This function would typically re-initialize or restart the market scanner
-        // For now, we'll just simulate the state change
-        setIsScanning(true);
-        setConnectionStatus('scanning');
-        setStatusMessage('Restarting market scanner...');
-        // In a real implementation, you'd call marketAnalyzer.start() or similar
-        // and handle the connection status updates
-        // For demonstration, we'll just reset the state after a short delay
-        setTimeout(() => {
-            setConnectionStatus('ready');
-            setStatusMessage('Market scanner is active.');
-            setIsScanning(false); // Assume it starts scanning and becomes ready
-        }, 2000);
-    };
-
-    const handleStopAnalysis = () => {
-        // This function would typically stop the market scanner
-        setIsScanning(false);
-        setConnectionStatus('connected'); // Or 'stopped' state if you have one
-        setStatusMessage('Market scanner stopped.');
-        // In a real implementation, you'd call marketAnalyzer.stop()
-    };
-
-    const handleRefresh = () => {
-        // Reload the data or re-run the scan
-        setLastUpdateTime(Date.now());
-        // Potentially re-trigger the scan logic if needed
-    };
-
     return (
         <div className="trading-hub-scanner">
             {/* Smart Trader Modal */}
@@ -1844,147 +1810,286 @@ const TradingHubDisplay: React.FC = observer(() => {
                             </Text>
                         </div>
                     )}
-
-                    <div className="header-controls">
-                        <Button
-                            primary
-                            onClick={handleStartAnalysis}
-                            disabled={isAnalysisRunning}
-                        >
-                            {isAnalysisRunning ? 'Analysis Running...' : 'Start Analysis'}
-                        </Button>
-
-                        <Button
-                            secondary
-                            onClick={handleStopAnalysis}
-                            disabled={!isAnalysisRunning}
-                        >
-                            Stop Analysis
-                        </Button>
-
-                        <Button
-                            secondary
-                            onClick={() => setShowScalpingDashboard(true)}
-                        >
-                            🏃‍♂️ Scalping Dashboard
-                        </Button>
-
-                        <Button
-                            secondary
-                            onClick={handleRefresh}
-                        >
-                            Refresh
-                        </Button>
-                    </div>
                 </div>
             </div>
 
             <div className="scanner-content">
-                {connectionStatus === 'error' && (
-                    <div className="scanner-error">
-                        <div className="error-icon">⚠️</div>
-                        <Text size="s" color="prominent">Connection Error</Text>
-                        <Text size="xs" color="general">{statusMessage}</Text>
-                        <button
-                            className="retry-btn"
-                            onClick={() => window.location.reload()}
-                        >
-                            Retry Connection
-                        </button>
-                    </div>
-                )}
-
-                {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
-                    <div className="scanner-loading">
-                        <div className="ai-scanning-display">
-                            <div className="ai-brain-icon">🧠</div>
-                            <div className="scanning-content">
-                                <div className="ai-status-header">
-                                    <Text size="m" weight="bold" color="prominent">
-                                        AI Market Scanner Active
-                                    </Text>
-                                    <div className="scanning-dots">
-                                        <span className="dot"></span>
-                                        <span className="dot"></span>
-                                        <span className="dot"></span>
-                                    </div>
-                                </div>
-
-                                <Text size="s" color="general" className="ai-current-message">
-                                    {currentAiMessage || statusMessage}
-                                </Text>
-
-                                {processingSymbol && (
-                                    <div className="processing-symbol">
-                                        <Text size="xs" color="general">
-                                            📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
-                                        </Text>
-                                    </div>
-                                )}
-
-                                <div className="ai-progress-section">
-                                    <div className="progress-bar-ai">
-                                        <div
-                                            className="progress-fill-ai"
-                                            style={{ width: `${scanProgress}%` }}
-                                        ></div>
-                                    </div>
-                                    <Text size="xs" color="general" className="progress-text">
-                                        AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
-                                    </Text>
-                                </div>
-
-                                <div className="ai-capabilities">
-                                    <div className="capability-item">✓ Pattern Recognition</div>
-                                    <div className="capability-item">✓ Statistical Analysis</div>
-                                    <div className="capability-item">✓ Probability Calculation</div>
-                                    <div className="capability-item">✓ Risk Assessment</div>
-                                </div>
-
-                                <div className="trading-truths-section">
-                                    <Text size="xs" weight="bold" color="prominent" className="truths-header">
-                                        📚 5 Fundamental Truths of Trading
-                                    </Text>
-                                    <div className="trading-truths">
-                                        <div className="truth-item">1. Anything can happen</div>
-                                        <div className="truth-item">2. You don\'t need to know what\'s next to profit</div>
-                                        <div className="truth-item">3. Random distribution between wins and losses</div>
-                                        <div className="truth-item">4. An edge = higher probability indication</div>
-                                        <div className="truth-item">5. Every market moment is unique</div>
-                                    </div>
-                                </div>
-
-                                <Text size="xs" color="general" className="ai-disclaimer">
-                                    🎯 AI is analyzing market patterns using these fundamental trading principles
-                                </Text>
+                {connectionStatus === 'ready' && scanResults.length > 0 && (
+                    <div className="scanner-summary">
+                        <div className="summary-stats">
+                            <div className="summary-item">
+                                <span className="summary-value">{scanResults.length}</span>
+                                <span className="summary-label">Opportunities Found</span>
+                            </div>
+                            <div className="summary-item">
+                                <span className="summary-value">{symbolsAnalyzed}</span>
+                                <span className="summary-label">Markets Scanned</span>
+                            </div>
+                            <div className="summary-item">
+                                <span className="summary-value">{o5u4Opportunities.length}</span>
+                                <span className="summary-label">O5U4 Setups</span>
                             </div>
                         </div>
+
+                        {bestRecommendation && (
+                            <div className="best-recommendation-highlight">
+                                <div className="highlight-header">
+                                    <span className="crown-icon">👑</span>
+                                    <Text size="s" weight="bold">Best Opportunity</Text>
+                                    {isAiAutoTrading && (
+                                        <div className="ai-trading-indicator">
+                                            <span className="trading-status-dot"></span>
+                                            AI Auto Trading Active
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="highlight-content">
+                                    <div className="highlight-trade">
+                                        <span className="highlight-symbol">{symbolMap[bestRecommendation.symbol]}</span>
+                                        <span className={`highlight-strategy strategy-label--${bestRecommendation.strategy}`}>
+                                            {bestRecommendation.strategy === 'call' ? 'BUY NOW' :
+                                             bestRecommendation.strategy === 'put' ? 'SELL NOW' :
+                                             bestRecommendation.strategy === 'hold' ? 'PLEASE WAIT' :
+                                             bestRecommendation.strategy.toUpperCase()} {bestRecommendation.barrier}
+                                        </span>
+                                        <span className="highlight-confidence">
+                                            {bestRecommendation.confidence.toFixed(1)}%
+                                        </span>
+                                    </div>
+
+                                    {!isAiAutoTrading && (
+                                        <div className="ai-config-section">
+                                            <div className="ai-config-row">
+                                                <div className="ai-config-field">
+                                                    <label>Stop Loss (USD):</label>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step={0.01}
+                                                        value={aiTradeConfig.stopLoss || 0}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            stopLoss: Math.max(0, Number(e.target.value))
+                                                        }))}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                                <div className="ai-config-field">
+                                                    <label>Take Profit (USD):</label>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step={0.01}
+                                                        value={aiTradeConfig.takeProfit || 0}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            takeProfit: Math.max(0, Number(e.target.value))
+                                                        }))}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="ai-config-row">
+                                                <div className="ai-config-field">
+                                                    <label>Over/Under (after loss):</label>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        max={9}
+                                                        value={aiTradeConfig.ouPredPostLoss}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            ouPredPostLoss: Math.max(0, Math.min(9, Number(e.target.value)))
+                                                        }))}
+                                                    />
+                                                </div>
+                                                <div className="ai-config-field">
+                                                    <label htmlFor="ai-martingale-multiplier">Martingale Multiplier:</label>
+                                                    <input
+                                                        id="ai-martingale-multiplier"
+                                                        type="number"
+                                                        min={1}
+                                                        step="0.1"
+                                                        value={aiMartingaleMultiplier}
+                                                        onChange={e => setAiMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                                        placeholder="1.0"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="ai-config-row">
+                                                <div className="ai-config-field">
+                                                    <label>Stake:</label>
+                                                    <input
+                                                        type="number"
+                                                        min={0.35}
+                                                        step={0.01}
+                                                        value={aiTradeConfig.stake}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            stake: Math.max(0.35, Number(e.target.value))
+                                                        }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {aiTradeStatus && (
+                                        <div className="ai-trade-status">
+                                            <Text size="xs" color={aiTradeStatus.includes('Error') || aiTradeStatus.includes('LOSS') ? 'loss-danger' : 'prominent'}>
+                                                {aiTradeStatus}
+                                            </Text>
+                                        </div>
+                                    )}
+
+                                    <div className="highlight-actions">
+                                        <button
+                                            className="highlight-load-btn"
+                                            onClick={() => loadTradeSettings(bestRecommendation)}
+                                        >
+                                            ⚡ Smart Trader
+                                        </button>
+                                        <button
+                                            className="highlight-bot-builder-btn"
+                                            onClick={() => loadToBotBuilder(bestRecommendation)}
+                                        >
+                                            🤖 Bot Builder
+                                        </button>
+                                        <button
+                                            className={`highlight-ai-auto-btn ${isAiAutoTrading ? 'active' : ''}`}
+                                            onClick={isAiAutoTrading ? stopAiAutoTrade : startAiAutoTrade}
+                                        >
+                                            {isAiAutoTrading ? '🛑 Stop AI Auto Trade' : '🤖 AI Auto Trade'}
+                                        </button>
+                                    </div>
+
+                                    {/* AI Auto Trade Status */}
+                                    {isAiAutoTradeActive && currentAiTrade && (
+                                        <div className="ai-auto-trade-status">
+                                            <div className="ai-status-header">
+                                                <span className="ai-status-icon">🤖</span>
+                                                <Text size="xs" weight="bold" color="profit-success">
+                                                    AI Auto Trade Active
+                                                </Text>
+                                            </div>
+                                            <Text size="xs" color="general">
+                                                Trading: {symbolMap[currentAiTrade.symbol]} - {currentAiTrade.strategy === 'call' ? 'BUY NOW' :
+                                                 currentAiTrade.strategy === 'put' ? 'SELL NOW' :
+                                                 currentAiTrade.strategy === 'hold' ? 'PLEASE WAIT' :
+                                                 currentAiTrade.strategy.toUpperCase()} {currentAiTrade.barrier}
+                                            </Text>
+                                            <Text size="xs" color="general">
+                                                Confidence: {currentAiTrade.confidence.toFixed(1)}% | Martingale: {aiMartingaleMultiplier}x
+                                            </Text>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {connectionStatus === 'ready' && scanResults.length === 0 && (
-                    <div className="no-opportunities">
-                        <div className="no-opportunities-icon">🔍</div>
-                        <Text size="s" color="general">No trading opportunities found</Text>
-                        <Text size="xs" color="general">
-                            Market conditions don't meet our criteria for high-confidence trades.
-                            The scanner will continue monitoring for new opportunities.
-                        </Text>
-                    </div>
-                )}
+                <div className="scanner-content">
+                    {connectionStatus === 'error' && (
+                        <div className="scanner-error">
+                            <div className="error-icon">⚠️</div>
+                            <Text size="s" color="prominent">Connection Error</Text>
+                            <Text size="xs" color="general">{statusMessage}</Text>
+                            <button
+                                className="retry-btn"
+                                onClick={() => window.location.reload()}
+                            >
+                                Retry Connection
+                            </button>
+                        </div>
+                    )}
 
-                {connectionStatus === 'ready' && scanResults.length > 0 && (
-                    <div className="results-grid">
-                        {scanResults.map(renderRecommendationCard)}
-                    </div>
-                )}
+                    {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
+                        <div className="scanner-loading">
+                            <div className="ai-scanning-display">
+                                <div className="ai-brain-icon">🧠</div>
+                                <div className="scanning-content">
+                                    <div className="ai-status-header">
+                                        <Text size="m" weight="bold" color="prominent">
+                                            AI Market Scanner Active
+                                        </Text>
+                                        <div className="scanning-dots">
+                                            <span className="dot"></span>
+                                            <span className="dot"></span>
+                                            <span className="dot"></span>
+                                        </div>
+                                    </div>
+
+                                    <Text size="s" color="general" className="ai-current-message">
+                                        {currentAiMessage || statusMessage}
+                                    </Text>
+
+                                    {processingSymbol && (
+                                        <div className="processing-symbol">
+                                            <Text size="xs" color="general">
+                                                📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
+                                            </Text>
+                                        </div>
+                                    )}
+
+                                    <div className="ai-progress-section">
+                                        <div className="progress-bar-ai">
+                                            <div
+                                                className="progress-fill-ai"
+                                                style={{ width: `${scanProgress}%` }}
+                                            ></div>
+                                        </div>
+                                        <Text size="xs" color="general" className="progress-text">
+                                            AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
+                                        </Text>
+                                    </div>
+
+                                    <div className="ai-capabilities">
+                                        <div className="capability-item">✓ Pattern Recognition</div>
+                                        <div className="capability-item">✓ Statistical Analysis</div>
+                                        <div className="capability-item">✓ Probability Calculation</div>
+                                        <div className="capability-item">✓ Risk Assessment</div>
+                                    </div>
+
+                                    <div className="trading-truths-section">
+                                        <Text size="xs" weight="bold" color="prominent" className="truths-header">
+                                            📚 5 Fundamental Truths of Trading
+                                        </Text>
+                                        <div className="trading-truths">
+                                            <div className="truth-item">1. Anything can happen</div>
+                                            <div className="truth-item">2. You don\'t need to know what\'s next to profit</div>
+                                            <div className="truth-item">3. Random distribution between wins and losses</div>
+                                            <div className="truth-item">4. An edge = higher probability indication</div>
+                                            <div className="truth-item">5. Every market moment is unique</div>
+                                        </div>
+                                    </div>
+
+                                    <Text size="xs" color="general" className="ai-disclaimer">
+                                        🎯 AI is analyzing market patterns using these fundamental trading principles
+                                    </Text>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {connectionStatus === 'ready' && scanResults.length === 0 && (
+                        <div className="no-opportunities">
+                            <div className="no-opportunities-icon">🔍</div>
+                            <Text size="s" color="general">No trading opportunities found</Text>
+                            <Text size="xs" color="general">
+                                Market conditions don't meet our criteria for high-confidence trades.
+                                The scanner will continue monitoring for new opportunities.
+                            </Text>
+                        </div>
+                    )}
+
+                    {connectionStatus === 'ready' && scanResults.length > 0 && (
+                        <div className="results-grid">
+                            {scanResults.map(renderRecommendationCard)}
+                        </div>
+                    )}
+                </div>
             </div>
-
-            {/* Tick Scalping Dashboard */}
-            <TickScalpingDashboard
-                isOpen={showScalpingDashboard}
-                onClose={() => setShowScalpingDashboard(false)}
-            />
         </div>
     );
 });

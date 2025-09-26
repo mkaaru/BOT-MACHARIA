@@ -17,11 +17,6 @@ import {
     TrendAnalysis,
     MarketScanResult
 } from './trend-analysis-engine';
-import {
-    tickScalpingEngine,
-    ScalpingSignal,
-    ScalpingStats
-} from './tick-scalping-engine';
 
 // Placeholder for DerivMarketConfig if it's used elsewhere and needs to be defined
 interface DerivMarketConfig {
@@ -47,7 +42,7 @@ export interface TradingRecommendation {
     score: number;
     currentPrice: number;
     reason: string;
-    recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION' | 'TICK_SCALPING';
+    recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION';
     hma5: number;
     hma40: number;
     suggestedStake: number;
@@ -62,7 +57,7 @@ export interface TradingRecommendation {
     barrier?: string;
     timestamp: number;
     validUntil?: number;
-    contractType?: 'rise_fall' | 'higher_lower' | 'tick_scalping';
+    contractType?: 'rise_fall' | 'higher_lower';
     momentumAnalysis?: {
         strength: number;
         duration: number;
@@ -75,16 +70,7 @@ export interface TradingRecommendation {
         direction: 'CALL' | 'PUT' | 'HOLD';
         confidence: number;
         reason: string;
-        recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION' | 'TICK_SCALPING';
-    };
-    // Tick scalping specific fields
-    scalpingData?: {
-        entryPrice: number;
-        targetPrice: number;
-        stopLoss: number;
-        riskReward: number;
-        tickMomentum: number;
-        volatility: number;
+        recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION';
     };
 }
 
@@ -97,9 +83,7 @@ export class MarketScanner {
     private candleCallbacks: Map<string, (candle: CandleData) => void> = new Map();
     private statusCallbacks: Set<(status: ScannerStatus) => void> = new Set();
     private recommendationCallbacks: Set<(recommendations: TradingRecommendation[]) => void> = new Set();
-    private scalpingCallbacks: Set<(signal: ScalpingSignal) => void> = new Set();
     private recommendations: TradingRecommendation[] = [];
-    private scalpingRecommendations: TradingRecommendation[] = [];
     private persistentRecommendations: Map<string, {
         recommendation: TradingRecommendation;
         timestamp: number;
@@ -124,9 +108,6 @@ export class MarketScanner {
 
         // Update status periodically
         setInterval(() => this.updateStatus(), 10 * 1000); // Every 10 seconds
-
-        // Setup scalping engine callbacks
-        this.setupScalpingCallbacks();
     }
 
     /**
@@ -200,68 +181,6 @@ export class MarketScanner {
     }
 
     /**
-     * Setup tick scalping engine callbacks
-     */
-    private setupScalpingCallbacks(): void {
-        // Listen for scalping signals
-        tickScalpingEngine.onScalpingSignal((signal: ScalpingSignal) => {
-            try {
-                // Convert scalping signal to trading recommendation
-                const recommendation = this.convertScalpingSignalToRecommendation(signal);
-                this.scalpingRecommendations.push(recommendation);
-
-                // Keep only recent scalping recommendations (last 20)
-                if (this.scalpingRecommendations.length > 20) {
-                    this.scalpingRecommendations = this.scalpingRecommendations.slice(-20);
-                }
-
-                // Notify scalping callbacks
-                this.scalpingCallbacks.forEach(callback => {
-                    callback(signal);
-                });
-
-                console.log(`🎯 SCALPING SIGNAL: ${signal.symbol} ${signal.action} at ${signal.entryPrice} (${signal.confidence}% confidence)`);
-            } catch (error) {
-                console.error('Error processing scalping signal:', error);
-            }
-        });
-    }
-
-    /**
-     * Convert scalping signal to trading recommendation
-     */
-    private convertScalpingSignalToRecommendation(signal: ScalpingSignal): TradingRecommendation {
-        const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === signal.symbol);
-        const displayName = symbolInfo?.display_name || signal.symbol;
-
-        return {
-            symbol: signal.symbol,
-            displayName,
-            direction: signal.action === 'BUY' ? 'CALL' : 'PUT',
-            confidence: signal.confidence,
-            score: signal.confidence,
-            currentPrice: signal.entryPrice,
-            reason: `🏃‍♂️ TICK SCALPING: ${signal.reasoning}`,
-            recommendationType: 'TICK_SCALPING',
-            hma5: 0,
-            hma40: 0,
-            suggestedStake: 1.0,
-            suggestedDuration: Math.min(signal.duration, 60), // Max 60 seconds for scalping
-            suggestedDurationUnit: 's',
-            timestamp: signal.timestamp,
-            contractType: 'tick_scalping',
-            scalpingData: {
-                entryPrice: signal.entryPrice,
-                targetPrice: signal.targetPrice,
-                stopLoss: signal.stopLoss,
-                riskReward: signal.riskReward,
-                tickMomentum: signal.tickMomentum,
-                volatility: signal.volatility
-            }
-        };
-    }
-
-    /**
      * Setup the tick processing pipeline
      */
     private setupTickProcessingPipeline(): void {
@@ -273,12 +192,6 @@ export class MarketScanner {
                 try {
                     // Process tick through candle reconstruction
                     candleReconstructionEngine.processTick(tick);
-
-                    // Process tick through scalping engine
-                    tickScalpingEngine.processTick(tick);
-
-                    // Update existing scalping signals
-                    tickScalpingEngine.updateSignal(tick.symbol, tick);
                 } catch (error) {
                     console.error(`Error processing tick for ${symbol}:`, error);
                     this.addError(`Tick processing error for ${symbol}: ${error}`);
@@ -335,21 +248,11 @@ export class MarketScanner {
         }
 
         const opportunities = this.trendAnalysisEngine.getTopOpportunities(count * 2);
-        const trendRecommendations = opportunities
+
+        return opportunities
             .filter(opp => opp.trend.recommendation !== 'HOLD')
             .slice(0, count)
             .map(opp => this.convertToTradingRecommendation(opp));
-
-        // Combine trend and scalping recommendations
-        const allRecommendations = [
-            ...trendRecommendations,
-            ...this.scalpingRecommendations.slice(-5) // Include last 5 scalping signals
-        ];
-
-        // Sort by confidence and return top recommendations
-        return allRecommendations
-            .sort((a, b) => b.confidence - a.confidence)
-            .slice(0, count);
     }
 
     /**
@@ -373,7 +276,7 @@ export class MarketScanner {
         if (trend.alternativeRecommendations) {
             const altType = trend.recommendationType === 'TREND_FOLLOWING' ? 'meanReversion' : 'trendFollowing';
             const altRec = trend.alternativeRecommendations[altType];
-
+            
             if (altRec.recommendation !== 'HOLD') {
                 alternativeRecommendation = {
                     direction: altRec.recommendation === 'BUY' ? 'CALL' as const : 'PUT' as const,
@@ -413,60 +316,54 @@ export class MarketScanner {
     private generateMeanReversionReason(trend: TrendAnalysis): string {
         const reasons: string[] = [];
 
-        // Add mean reversion specific reasons
-        if (trend.recommendation === 'BUY') {
-            reasons.push('OVERSOLD - Mean Reversion Buy Signal');
-            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
-                reasons.push('Strong Oversold Condition');
+        // Add trend following specific reasons
+        if (trend.recommendation === 'BUY' && trend.rocAlignment === 'BULLISH') {
+            reasons.push('BULLISH TREND - Strong Upward Momentum');
+            if (trend.confidence >= 85) {
+                reasons.push('High Confidence Bullish Signal');
             }
-            if (trend.pullbackAnalysis?.pullbackType === 'bullish_pullback') {
-                reasons.push('Price Below Mean - Bounce Expected');
-            }
-        } else if (trend.recommendation === 'SELL') {
-            reasons.push('OVERBOUGHT - Mean Reversion Sell Signal');
-            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
-                reasons.push('Strong Overbought Condition');
-            }
-            if (trend.pullbackAnalysis?.pullbackType === 'bearish_pullback') {
-                reasons.push('Price Above Mean - Pullback Expected');
+        } else if (trend.recommendation === 'SELL' && trend.rocAlignment === 'BEARISH') {
+            reasons.push('BEARISH TREND - Strong Downward Momentum');
+            if (trend.confidence >= 85) {
+                reasons.push('High Confidence Bearish Signal');
             }
         }
 
-        // Add Ehlers signal context for mean reversion
-        if (trend.ehlersRecommendation?.anticipatory) {
-            if (trend.recommendation === 'BUY' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal < -1) {
-                reasons.push('Strong Contrarian Signal (Oversold)');
-            } else if (trend.recommendation === 'SELL' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal > 1) {
-                reasons.push('Strong Contrarian Signal (Overbought)');
+        // Add Ehlers signal context for trend following
+        if (trend.ehlersRecommendation && !trend.ehlersRecommendation.anticipatory) {
+            if (trend.recommendation === 'BUY' && trend.ehlers?.netValue && trend.ehlers.netValue > 0) {
+                reasons.push('Ehlers Trend Confirmation (Bullish)');
+            } else if (trend.recommendation === 'SELL' && trend.ehlers?.netValue && trend.ehlers.netValue < 0) {
+                reasons.push('Ehlers Trend Confirmation (Bearish)');
             }
         }
 
         // Add market regime context
-        return reasons.length > 0 ? reasons.join(' | ') : 'Mean Reversion Signal';
+        return reasons.length > 0 ? reasons.join(' | ') : 'Trend Following Signal';
     }
 
     /**
-     * Calculate duration optimized for mean reversion trades
+     * Calculate duration optimized for trend following trades
      */
-    private calculateMeanReversionDuration(trend: TrendAnalysis): number {
-        // Mean reversion trades typically need less time than trend following
-        const baselineStrength = trend.strength === 'strong' ? 15 : trend.strength === 'moderate' ? 20 : 25;
+    private calculateTrendFollowingDuration(trend: TrendAnalysis): number {
+        // Trend following trades need more time to develop
+        const baselineStrength = trend.strength === 'strong' ? 25 : trend.strength === 'moderate' ? 30 : 35;
 
-        // Shorter durations for mean reversion
-        if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
-            return 10; // Very short for strong reversals
-        } else if (trend.pullbackAnalysis?.pullbackStrength === 'medium') {
-            return 15; // Medium duration
+        // Longer durations for trend following
+        if (trend.strength === 'strong') {
+            return 20; // Strong trends can be followed with shorter duration
+        } else if (trend.strength === 'moderate') {
+            return 25; // Medium duration for moderate trends
         }
 
-        return Math.max(10, baselineStrength - 5); // Generally shorter than trend following
+        return Math.max(20, baselineStrength); // Generally longer for trend following
     }
 
     /**
-     * Generate recommendation reason (kept for compatibility)
+     * Generate recommendation reason for trend following only
      */
     private generateRecommendationReason(trend: TrendAnalysis): string {
-        return this.generateMeanReversionReason(trend); // Delegate to mean reversion logic
+        return this.generateTrendFollowingReason(trend);
     }
 
     /**
@@ -894,49 +791,6 @@ export class MarketScanner {
     }
 
     /**
-     * Subscribe to scalping signal changes
-     */
-    onScalpingSignal(callback: (signal: ScalpingSignal) => void): () => void {
-        this.scalpingCallbacks.add(callback);
-        return () => this.scalpingCallbacks.delete(callback);
-    }
-
-    /**
-     * Get current scalping statistics
-     */
-    getScalpingStats(): ScalpingStats {
-        return tickScalpingEngine.getStats();
-    }
-
-    /**
-     * Get active scalping signals
-     */
-    getActiveScalpingSignals(): ScalpingSignal[] {
-        return tickScalpingEngine.getActiveSignals();
-    }
-
-    /**
-     * Update scalping configuration
-     */
-    updateScalpingConfig(config: Partial<any>): void {
-        tickScalpingEngine.updateConfig(config);
-    }
-
-    /**
-     * Close all active scalping signals
-     */
-    closeAllScalpingSignals(): void {
-        tickScalpingEngine.closeAllSignals();
-    }
-
-    /**
-     * Reset scalping statistics
-     */
-    resetScalpingStats(): void {
-        tickScalpingEngine.resetStats();
-    }
-
-    /**
      * Generate Enhanced Deriv-specific signals with momentum and pullback analysis
      */
     generateDerivSignal(symbol: string, config: DerivMarketConfig): {
@@ -1042,7 +896,7 @@ export class MarketScanner {
             hma40: trend.hma40 || 0,
             currentPrice: trend.price || 0,
             suggestedStake: this.calculateOptimalStake(Math.min(100, confidence), trend.strength),
-            suggestedDuration: this.calculateMeanReversionDuration(trend), // Use mean reversion duration logic
+            suggestedDuration: this.calculateTrendFollowingDuration(trend), // Use trend following duration logic
             suggestedDurationUnit: 's',
             longTermTrend: trend.longTermTrend,
             longTermStrength: trend.longTermTrendStrength,
