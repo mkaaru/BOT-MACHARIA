@@ -956,3 +956,285 @@
         }
     }
 }
+
+// Tick Scalping Section Styles
+.tick-scalping-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: var(--general-section-1);
+    border-radius: 8px;
+    border: 1px solid var(--border-normal);
+
+    .scalping-header {
+        margin-bottom: 16px;
+
+        .scalping-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+
+            .scalping-icon {
+                font-size: 20px;
+            }
+
+            .scalping-stats {
+                display: flex;
+                gap: 8px;
+                margin-left: auto;
+
+                .stat-badge {
+                    background: var(--general-main-2);
+                    color: var(--text-general);
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+            }
+        }
+    }
+
+    .scalping-signals-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+
+        .scalping-signal-card {
+            background: var(--general-main-1);
+            border: 1px solid var(--border-normal);
+            border-radius: 6px;
+            padding: 16px;
+            transition: all 0.2s ease;
+
+            &:hover {
+                border-color: var(--brand-red-coral);
+                box-shadow: 0 2px 8px rgba(255, 68, 79, 0.1);
+            }
+
+            &.buy {
+                border-left: 4px solid var(--text-profit-success);
+            }
+
+            &.sell {
+                border-left: 4px solid var(--text-loss-danger);
+            }
+
+            .signal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+
+                .signal-symbol {
+                    font-weight: 600;
+                    color: var(--text-general);
+                    font-size: 14px;
+                }
+
+                .signal-action {
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: 600;
+
+                    &.buy {
+                        background: var(--status-success-transparent);
+                        color: var(--text-profit-success);
+                    }
+
+                    &.sell {
+                        background: var(--status-danger-transparent);
+                        color: var(--text-loss-danger);
+                    }
+                }
+
+                .signal-confidence {
+                    background: var(--general-main-2);
+                    color: var(--text-general);
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+            }
+
+            .signal-details {
+                margin-bottom: 12px;
+
+                .price-info {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+
+                    span {
+                        font-size: 11px;
+                        color: var(--text-less-prominent);
+                        font-weight: 500;
+                    }
+
+                    .entry-price {
+                        color: var(--text-general);
+                    }
+
+                    .target-price {
+                        color: var(--text-profit-success);
+                    }
+
+                    .stop-loss {
+                        color: var(--text-loss-danger);
+                    }
+                }
+
+                .signal-metrics {
+                    display: flex;
+                    justify-content: space-between;
+
+                    span {
+                        font-size: 11px;
+                        color: var(--text-less-prominent);
+                        font-weight: 500;
+                    }
+                }
+            }
+
+            .signal-reasoning {
+                margin-bottom: 12px;
+                padding: 8px;
+                background: var(--general-section-2);
+                border-radius: 4px;
+                font-size: 11px;
+                line-height: 1.4;
+            }
+
+            .signal-actions {
+                display: flex;
+                gap: 8px;
+
+                button {
+                    flex: 1;
+                    padding: 8px 12px;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+
+                    &.scalping-trade-btn {
+                        background: var(--brand-red-coral);
+                        color: white;
+
+                        &:hover {
+                            background: var(--brand-red-dark);
+                        }
+                    }
+
+                    &.load-scalping-bot-btn {
+                        background: var(--general-main-2);
+                        color: var(--text-general);
+                        border: 1px solid var(--border-normal);
+
+                        &:hover {
+                            background: var(--general-section-1);
+                            border-color: var(--brand-red-coral);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    .active-scalping-signals {
+        padding: 16px;
+        background: var(--general-main-2);
+        border-radius: 6px;
+        border: 1px solid var(--border-normal);
+
+        .active-signals-list {
+            margin-top: 12px;
+
+            .active-signal-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 12px;
+                background: var(--general-main-1);
+                border-radius: 4px;
+                margin-bottom: 8px;
+                font-size: 12px;
+
+                &:last-child {
+                    margin-bottom: 0;
+                }
+
+                .active-symbol {
+                    font-weight: 600;
+                    color: var(--text-general);
+                }
+
+                .active-action {
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-weight: 600;
+
+                    &.buy {
+                        background: var(--status-success-transparent);
+                        color: var(--text-profit-success);
+                    }
+
+                    &.sell {
+                        background: var(--status-danger-transparent);
+                        color: var(--text-loss-danger);
+                    }
+                }
+
+                .active-entry,
+                .active-target {
+                    color: var(--text-less-prominent);
+                    font-family: monospace;
+                }
+
+                .active-duration {
+                    color: var(--text-general);
+                    font-weight: 600;
+                }
+            }
+        }
+    }
+}
+
+// Mobile responsive styles for scalping section
+@media (max-width: 768px) {
+    .tick-scalping-section {
+        padding: 16px;
+
+        .scalping-signals-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+
+            .scalping-signal-card {
+                padding: 12px;
+
+                .signal-actions {
+                    flex-direction: column;
+
+                    button {
+                        width: 100%;
+                    }
+                }
+            }
+        }
+
+        .scalping-header .scalping-title {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+
+            .scalping-stats {
+                margin-left: 0;
+            }
+        }
+    }
+}
+}

@@ -56,6 +56,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [realTimeStats, setRealTimeStats] = useState<Record<string, MarketStats>>({});
     const [bestRecommendation, setBestRecommendation] = useState<TradeRecommendation | null>(null);
     const [o5u4Opportunities, setO5u4Opportunities] = useState<O5U4Conditions[]>([]);
+    const [tickScalpingSignals, setTickScalpingSignals] = useState<TradeRecommendation[]>([]); // State for tick scalping signals
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'scanning' | 'ready' | 'error'>('connecting');
     const [statusMessage, setStatusMessage] = useState('Initializing market scanner...');
     const [symbolsAnalyzed, setSymbolsAnalyzed] = useState(0);
@@ -312,6 +313,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const generateScanResults = useCallback((): ScanResult[] => {
         const results: ScanResult[] = [];
         const currentStats = { ...marketStats, ...realTimeStats }; // Merge with real-time data
+        const tickSignals: TradeRecommendation[] = []; // Store tick scalping signals
 
         Object.keys(currentStats).forEach(symbol => {
             const stats = currentStats[symbol];
@@ -473,6 +475,51 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }
             };
 
+            // Tick Scalping Recommendations (Example: based on momentum or specific tick patterns)
+            // This is a placeholder; actual implementation would involve more sophisticated tick analysis.
+            const generateTickScalpingRecs = () => {
+                // Example: Simple check for rapid price movement in one direction
+                // In a real scenario, this would involve analyzing sequences of ticks for patterns.
+                const tickData = stats.tickHistory || []; // Assuming tickHistory is available
+                if (tickData.length >= 5) {
+                    let upTicks = 0;
+                    let downTicks = 0;
+                    for (let i = 0; i < tickData.length - 1; i++) {
+                        if (tickData[i+1] > tickData[i]) {
+                            upTicks++;
+                        } else if (tickData[i+1] < tickData[i]) {
+                            downTicks++;
+                        }
+                    }
+
+                    // High probability of continuing upward movement
+                    if (upTicks >= 4 && downTicks <= 1) {
+                        tickSignals.push({
+                            symbol,
+                            strategy: 'call', // Or a specific tick scalping strategy
+                            barrier: (stats.currentSpot || 0).toString(), // Use current price as a reference
+                            confidence: 70 + (upTicks * 2), // Higher confidence for more consecutive up ticks
+                            reason: `Strong upward tick momentum (${upTicks} up, ${downTicks} down)`,
+                            timestamp: Date.now(),
+                            contractType: 'CALL' // Assuming CALL for upward movement
+                        });
+                    }
+                    // High probability of continuing downward movement
+                    else if (downTicks >= 4 && upTicks <= 1) {
+                        tickSignals.push({
+                            symbol,
+                            strategy: 'put', // Or a specific tick scalping strategy
+                            barrier: (stats.currentSpot || 0).toString(),
+                            confidence: 70 + (downTicks * 2),
+                            reason: `Strong downward tick momentum (${downTicks} down, ${upTicks} up)`,
+                            timestamp: Date.now(),
+                            contractType: 'PUT' // Assuming PUT for downward movement
+                        });
+                    }
+                }
+            };
+
+
             // Apply filters based on selected trade type
             if (selectedTradeType === 'all' || selectedTradeType === 'over_under') {
                 generateOverUnderRecs();
@@ -483,6 +530,12 @@ const TradingHubDisplay: React.FC = observer(() => {
             if (selectedTradeType === 'all' || selectedTradeType === 'matches_differs') {
                 generateMatchesDiffersRecs();
             }
+
+            // Generate tick scalping recommendations
+            if (selectedTradeType === 'all' || selectedTradeType === 'tick_scalping') { // Add a 'tick_scalping' filter option if needed
+                generateTickScalpingRecs();
+            }
+
 
             // Check for O5U4 opportunities
             const o5u4Data = o5u4Opportunities.find(opp => opp.symbol === symbol);
@@ -498,11 +551,17 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
         });
 
-        return results.sort((a, b) => {
+        // Sort main recommendations by confidence
+        const sortedResults = results.sort((a, b) => {
             const aMaxConf = Math.max(...a.recommendations.map(r => r.confidence), 0);
             const bMaxConf = Math.max(...b.recommendations.map(r => r.confidence), 0);
             return bMaxConf - aMaxConf;
         });
+
+        // Update tick scalping signals state
+        setTickScalpingSignals(tickSignals.sort((a, b) => b.confidence - a.confidence));
+
+        return sortedResults;
     }, [marketStats, realTimeStats, o5u4Opportunities, selectedTradeType]);
 
     // Update scan results when data changes
@@ -842,7 +901,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
-                                                console.log('🚫 AI Auto Trade: No next trade scheduled - AI Auto Trade stopped or no recommendation');
+                                                console.log('🚫 AI Auto Trade: No next trade scheduled - AI Auto Trade stopped');
                                             }
                                         }, 2000); // 2 seconds between trades for faster execution
                                     } else {
@@ -981,7 +1040,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         for (let i = 0; i < highestTimeoutId; i++) {
             clearTimeout(i);
         }
-        console.log('🧹 Cleared all pending timeouts to prevent delayed trade executions');
+        console.log('Cleated all pending timeouts to prevent delayed trade executions');
     };
 
     // Load trade settings to Smart Trader
@@ -1674,7 +1733,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {rec.alternativeRecommendation && (
                                         <div className="alternative-recommendation">
                                             <Text size="xs" color="less-prominent">
-                                                Alt ({rec.alternativeRecommendation.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}): {rec.alternativeRecommendation.direction} 
+                                                Alt ({rec.alternativeRecommendation.recommendationType === 'TREND_FOLLOWING' ? 'TREND' : 'REVERSION'}): {rec.alternativeRecommendation.direction}
                                                 ({rec.alternativeRecommendation.confidence.toFixed(0)}%)
                                             </Text>
                                         </div>
@@ -1737,6 +1796,57 @@ const TradingHubDisplay: React.FC = observer(() => {
         );
     };
 
+    // Render tick scalping recommendations
+    const renderTickScalpingCard = (rec: TradeRecommendation) => {
+        return (
+            <div key={rec.symbol + rec.strategy + rec.timestamp} className="recommendation-item tick-scalping-item best-recommendation">
+                <div className="recommendation-header">
+                    <div className="symbol-info">
+                        <Text size="s" weight="bold">{symbolMap[rec.symbol] || rec.symbol}</Text>
+                    </div>
+                    <div className="strategy-type-badge">
+                        TICK SCALP
+                    </div>
+                    <div className="signal-type-badge">
+                        {rec.contractType === 'CALL' ? 'BUY' : 'SELL'}
+                    </div>
+                    <div className="confidence-badge">
+                        {rec.confidence.toFixed(1)}%
+                    </div>
+                </div>
+                <div className="recommendation-content">
+                    <div className="strategy-badge">
+                        <span className={`strategy-label strategy-label--${rec.strategy}`}>
+                            {rec.strategy.toUpperCase()} {rec.barrier}
+                        </span>
+                    </div>
+                    <div className="recommendation-reason">
+                        <Text size="xs" color="prominent">
+                            {rec.reason}
+                        </Text>
+                    </div>
+                </div>
+                <div className="recommendation-actions">
+                    <button
+                        className="load-trade-btn"
+                        onClick={() => loadTradeSettings(rec)}
+                        title="Load these settings into Smart Trader"
+                    >
+                        ⚡ Smart Trader
+                    </button>
+                    <button
+                        className="load-bot-builder-btn"
+                        onClick={() => loadToBotBuilder(rec)}
+                        title="Load strategy directly to Bot Builder"
+                    >
+                        🤖 Bot Builder
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+
     const getConfidenceLevel = (confidence: number): string => {
         if (confidence >= 85) return 'excellent';
         if (confidence >= 75) return 'high';
@@ -1794,6 +1904,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {type.label}
                                 </option>
                             ))}
+                            {/* Option for Tick Scalping */}
+                            <option value="tick_scalping">Tick Scalping</option>
                         </select>
                     </div>
 
@@ -1828,6 +1940,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="summary-item">
                                 <span className="summary-value">{o5u4Opportunities.length}</span>
                                 <span className="summary-label">O5U4 Setups</span>
+                            </div>
+                            <div className="summary-item">
+                                <span className="summary-value">{tickScalpingSignals.length}</span>
+                                <span className="summary-label">Tick Scalping</span>
                             </div>
                         </div>
 
@@ -1989,6 +2105,23 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 )}
 
+                {/* Render Tick Scalping Cards if 'tick_scalping' is selected or always if beneficial */}
+                {(selectedTradeType === 'tick_scalping' || (connectionStatus === 'ready' && tickScalpingSignals.length > 0)) && (
+                    <div className="scanner-content">
+                        {tickScalpingSignals.length > 0 && (
+                            <div className="tick-scalping-section">
+                                <div className="section-header">
+                                    <h2>Tick Scalping Recommendations</h2>
+                                </div>
+                                <div className="results-grid tick-scalping-grid">
+                                    {tickScalpingSignals.map(renderTickScalpingCard)}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+
                 <div className="scanner-content">
                     {connectionStatus === 'error' && (
                         <div className="scanner-error">
@@ -2072,7 +2205,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                     )}
 
-                    {connectionStatus === 'ready' && scanResults.length === 0 && (
+                    {connectionStatus === 'ready' && scanResults.length === 0 && tickScalpingSignals.length === 0 && (
                         <div className="no-opportunities">
                             <div className="no-opportunities-icon">🔍</div>
                             <Text size="s" color="general">No trading opportunities found</Text>
@@ -2083,7 +2216,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                     )}
 
-                    {connectionStatus === 'ready' && scanResults.length > 0 && (
+                    {connectionStatus === 'ready' && (scanResults.length > 0 || tickScalpingSignals.length > 0) && (
                         <div className="results-grid">
                             {scanResults.map(renderRecommendationCard)}
                         </div>
