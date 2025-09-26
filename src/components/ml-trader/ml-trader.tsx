@@ -1120,7 +1120,7 @@ const MLTrader = observer(() => {
                                                 <div className="rec-rank">#{index + 1}</div>
                                                 <div className="rec-symbol">{rec.displayName}</div>
                                                 <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
-                                                    {rec.direction}
+                                                    {rec.direction === 'CALL' ? 'BUY NOW' : rec.direction === 'PUT' ? 'SELL NOW' : rec.direction === 'HOLD' ? 'PLEASE WAIT' : rec.direction}
                                                 </div>
                                             </div>
 

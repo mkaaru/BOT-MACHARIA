@@ -789,6 +789,12 @@
                         color: #dc2626;
                         border: 1px solid #ef4444;
                     }
+
+                    &.hold {
+                        background: linear-gradient(135deg, #fefce8, #fef3c7);
+                        color: #d97706;
+                        border: 1px solid #f59e0b;
+                    }
                 }
             }
 

@@ -1073,14 +1073,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                     case 'odd':
                     case 'matches':
                     case 'differs':
-                        return { 
-                            tradeTypeCategory: 'digits', 
+                        return {
+                            tradeTypeCategory: 'digits',
                             tradeTypeList: 'digits',
                             contractType: getTradeTypeForStrategy(strategy)
                         };
                     default:
-                        return { 
-                            tradeTypeCategory: 'digits', 
+                        return {
+                            tradeTypeCategory: 'digits',
                             tradeTypeList: 'digits',
                             contractType: 'DIGITOVER'
                         };
@@ -1587,7 +1587,10 @@ const TradingHubDisplay: React.FC = observer(() => {
             'even': 'DIGITEVEN',
             'odd': 'DIGITODD',
             'matches': 'DIGITMATCH',
-            'differs': 'DIGITDIFF'
+            'differs': 'DIGITDIFF',
+            'call': 'CALL', // Add mapping for 'call'
+            'put': 'PUT',   // Add mapping for 'put'
+            'hold': 'HOLD'  // Add mapping for 'hold'
         };
         return mapping[strategy] || 'DIGITOVER';
     };
@@ -1638,7 +1641,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="recommendation-content">
                                 <div className="strategy-badge">
                                     <span className={`strategy-label strategy-label--${rec.strategy}`}>
-                                        {rec.strategy.toUpperCase()} {rec.barrier}
+                                        {rec.strategy === 'call' ? 'BUY NOW' :
+                                         rec.strategy === 'put' ? 'SELL NOW' :
+                                         rec.strategy === 'hold' ? 'PLEASE WAIT' :
+                                         rec.strategy.toUpperCase()} {rec.barrier}
                                     </span>
                                     <span className={`confidence-badge confidence-${getConfidenceLevel(rec.confidence)}`}>
                                         {rec.confidence.toFixed(1)}%
@@ -1798,7 +1804,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     <div className="highlight-trade">
                                         <span className="highlight-symbol">{symbolMap[bestRecommendation.symbol]}</span>
                                         <span className={`highlight-strategy strategy-label--${bestRecommendation.strategy}`}>
-                                            {bestRecommendation.strategy.toUpperCase()} {bestRecommendation.barrier}
+                                            {bestRecommendation.strategy === 'call' ? 'BUY NOW' :
+                                             bestRecommendation.strategy === 'put' ? 'SELL NOW' :
+                                             bestRecommendation.strategy === 'hold' ? 'PLEASE WAIT' :
+                                             bestRecommendation.strategy.toUpperCase()} {bestRecommendation.barrier}
                                         </span>
                                         <span className="highlight-confidence">
                                             {bestRecommendation.confidence.toFixed(1)}%
@@ -1921,7 +1930,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                                                 </Text>
                                             </div>
                                             <Text size="xs" color="general">
-                                                Trading: {symbolMap[currentAiTrade.symbol]} - {currentAiTrade.strategy.toUpperCase()} {currentAiTrade.barrier}
+                                                Trading: {symbolMap[currentAiTrade.symbol]} - {currentAiTrade.strategy === 'call' ? 'BUY NOW' :
+                                                 currentAiTrade.strategy === 'put' ? 'SELL NOW' :
+                                                 currentAiTrade.strategy === 'hold' ? 'PLEASE WAIT' :
+                                                 currentAiTrade.strategy.toUpperCase()} {currentAiTrade.barrier}
                                             </Text>
                                             <Text size="xs" color="general">
                                                 Confidence: {currentAiTrade.confidence.toFixed(1)}% | Martingale: {aiMartingaleMultiplier}x
