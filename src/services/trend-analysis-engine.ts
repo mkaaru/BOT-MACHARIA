@@ -125,7 +125,14 @@ export class TrendAnalysisEngine {
         console.log(`🎯 Added tick-candle data for ${symbol}: ${close.toFixed(5)} (${candle.tickCount} ticks)`);
     }
 
-    private processWithEhlers(symbol: string, price: number, timestamp: number): void {e);
+    private processWithEhlers(symbol: string, price: number, timestamp: number): void {
+        // Store price history
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+        }
+
+        const prices = this.priceHistory.get(symbol)!;
+        prices.push(price);
 
         // Maintain history size
         if (prices.length > this.MAX_HISTORY) {
@@ -134,7 +141,7 @@ export class TrendAnalysisEngine {
 
         // Process with Ehlers preprocessing and update analysis
         if (prices.length >= this.SLOW_ROC_PERIOD + 10) { // Need enough data for slow ROC + preprocessing
-            this.updateTrendAnalysis(symbol, close);
+            this.updateTrendAnalysis(symbol, price);
         }
     }
 
