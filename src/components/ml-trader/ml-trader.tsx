@@ -1025,30 +1025,71 @@ const MLTrader = observer(() => {
 
         await authorizeIfNeeded();
 
-        if (!current_price && modal_trade_mode === 'higher_lower') {
-            throw new Error('Current price not available');
-        }
+        // For Rise/Fall contracts, we use proposal + buy flow
+        console.log(`📊 ML Trader: Purchasing ${modal_contract_type} (${modal_contract_type === 'CALL' ? 'Rise' : 'Fall'}) contract`);
 
-        const trade_option: any = {
+        // Get proposal first for Rise/Fall contract
+        const proposalRequest = {
+            proposal: 1,
             amount: Number(modal_stake),
             basis: 'stake',
+            contract_type: modal_contract_type,
             currency: account_currency,
             duration: Number(modal_duration),
             duration_unit: modal_duration_unit,
             symbol: modal_symbol,
         };
 
-        // Add barrier for Higher/Lower trades
+        // Add barrier only for Higher/Lower trades, not Rise/Fall
         if (modal_trade_mode === 'higher_lower' && current_price) {
             const barrier_value = modal_contract_type === 'CALL'
                 ? current_price + modal_barrier_offset
                 : current_price - modal_barrier_offset;
-            trade_option.barrier = barrier_value.toFixed(5);
+            proposalRequest.barrier = barrier_value.toFixed(5);
         }
 
-        const buy_req = tradeOptionToBuy(modal_contract_type, trade_option);
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) throw error;
+        console.log('📝 Getting proposal for contract:', proposalRequest);
+
+        const proposalResponse = await apiRef.current.send(proposalRequest);
+        if (proposalResponse.error) {
+            throw new Error(`Proposal failed: ${proposalResponse.error.message || proposalResponse.error.code}`);
+        }
+
+        const proposal = proposalResponse.proposal;
+        if (!proposal || !proposal.id) {
+            throw new Error('No proposal ID received');
+        }
+
+        console.log('✅ Proposal received:', proposal);
+
+        // Buy the contract using the proposal ID
+        const buyRequest = {
+            buy: proposal.id,
+            price: proposal.ask_price,
+        };
+
+        console.log('💰 Buying contract:', buyRequest);
+
+        const buyResponse = await apiRef.current.send(buyRequest);
+        
+        if (buyResponse.error) {
+            throw new Error(`Purchase failed: ${buyResponse.error.message || buyResponse.error.code}`);
+        }
+
+        const buy = buyResponse.buy;
+        if (!buy || !buy.contract_id) {
+            throw new Error('No contract returned from purchase');
+        }
+
+        console.log(`✅ Contract purchased successfully:`, {
+            contractId: buy.contract_id,
+            contractType: modal_contract_type,
+            direction: modal_contract_type === 'CALL' ? 'Rise' : 'Fall',
+            longcode: buy.longcode,
+            amount: modal_stake,
+            payout: buy.payout,
+            purchasePrice: buy.buy_price
+        });
 
         contractInProgressRef.current = true;
         return buy;
@@ -1178,7 +1219,7 @@ const MLTrader = observer(() => {
     const [smartTraderBalance, setSmartTraderBalance] = useState(0);
     const [currentSmartTrade, setCurrentSmartTrade] = useState<TradingRecommendation | null>(null);
 
-    // Smart Trader Trading Logic
+    // Smart Trader Trading Logic with Rise/Fall contracts
     const startSmartTrader = useCallback(async () => {
         if (!recommendations.length) {
             setStatus('No recommendations available. Please wait for market analysis.');
@@ -1218,55 +1259,87 @@ const MLTrader = observer(() => {
         try {
             await authorizeIfNeeded();
 
-            // Map recommendation direction to contract type
-            const contractType = recommendation.direction === 'BUY' ? 'CALL' : 'PUT';
+            // Map recommendation direction to Rise/Fall contract types
+            // For Rise/Fall: CALL = Rise, PUT = Fall
+            // For Rise/Fall with equals: CALLE = Rise with equals, PUTE = Fall with equals
+            let contractType = 'CALL'; // Default to Rise
+            
+            if (recommendation.direction === 'BUY' || recommendation.direction === 'CALL') {
+                contractType = 'CALL'; // Rise
+            } else if (recommendation.direction === 'SELL' || recommendation.direction === 'PUT') {
+                contractType = 'PUT'; // Fall
+            }
 
-            // Create trade option
-            const trade_option: any = {
+            console.log(`📊 ML Smart Trader: Executing ${contractType} (${contractType === 'CALL' ? 'Rise' : 'Fall'}) contract`);
+
+            // Get proposal first for Rise/Fall contract
+            const proposalRequest = {
+                proposal: 1,
                 amount: Number(smartTraderSettings.stake),
                 basis: 'stake',
+                contract_type: contractType,
                 currency: account_currency,
                 duration: recommendation.suggestedDuration || 20,
-                duration_unit: recommendation.suggestedDurationUnit || 's',
+                duration_unit: (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's',
                 symbol: recommendation.symbol,
             };
 
-            // Add barrier for Higher/Lower trades if needed
-            if (recommendation.barrier) {
-                const currentPrice = recommendation.currentPrice || 0;
-                if (currentPrice > 0) {
-                    const barrierValue = contractType === 'CALL' 
-                        ? currentPrice + 0.001 
-                        : currentPrice - 0.001;
-                    trade_option.barrier = barrierValue.toFixed(5);
-                }
-            }
+            console.log('📝 Getting proposal for Rise/Fall contract:', proposalRequest);
 
-            const buy_req = tradeOptionToBuy(contractType, trade_option);
-            const { buy, error } = await apiRef.current.buy(buy_req);
-            
-            if (error) {
-                console.error('❌ Smart Trade Purchase failed:', error);
-                setStatus(`Trade error: ${error.message || error.code || 'Unknown error'}`);
+            const proposalResponse = await apiRef.current.send(proposalRequest);
+            if (proposalResponse.error) {
+                console.error('❌ Proposal failed:', proposalResponse.error);
+                setStatus(`Proposal error: ${proposalResponse.error.message || proposalResponse.error.code}`);
                 setIsSmartTraderActive(false);
                 return;
             }
 
+            const proposal = proposalResponse.proposal;
+            if (!proposal || !proposal.id) {
+                console.error('❌ No proposal ID received');
+                setStatus('Error: No proposal ID received');
+                setIsSmartTraderActive(false);
+                return;
+            }
+
+            console.log('✅ Proposal received:', proposal);
+
+            // Buy the contract using the proposal ID
+            const buyRequest = {
+                buy: proposal.id,
+                price: proposal.ask_price,
+            };
+
+            console.log('💰 Buying Rise/Fall contract:', buyRequest);
+
+            const buyResponse = await apiRef.current.send(buyRequest);
+            
+            if (buyResponse.error) {
+                console.error('❌ Purchase failed:', buyResponse.error);
+                setStatus(`Purchase error: ${buyResponse.error.message || buyResponse.error.code}`);
+                setIsSmartTraderActive(false);
+                return;
+            }
+
+            const buy = buyResponse.buy;
             if (!buy || !buy.contract_id) {
-                console.error('❌ Smart Trade: No contract returned from purchase');
+                console.error('❌ No contract returned from purchase');
                 setStatus('Error: No contract returned from purchase');
                 setIsSmartTraderActive(false);
                 return;
             }
 
-            console.log(`✅ Smart Trade executed successfully:`, {
+            console.log(`✅ Rise/Fall contract purchased successfully:`, {
                 contractId: buy.contract_id,
+                contractType: contractType,
+                direction: contractType === 'CALL' ? 'Rise' : 'Fall',
                 longcode: buy.longcode,
                 amount: smartTraderSettings.stake,
-                direction: recommendation.direction
+                payout: buy.payout,
+                purchasePrice: buy.buy_price
             });
 
-            setStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
+            setStatus(`✅ ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract placed: ${buy.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
             // Monitor contract
             monitorSmartTradeContract(buy.contract_id);
@@ -1280,17 +1353,21 @@ const MLTrader = observer(() => {
 
     const monitorSmartTradeContract = async (contractId: string) => {
         try {
-            const { subscription, error: subError } = await apiRef.current.send({
+            console.log(`📡 Subscribing to Rise/Fall contract updates: ${contractId}`);
+            
+            const subscriptionResponse = await apiRef.current.send({
                 proposal_open_contract: 1,
                 contract_id: contractId,
                 subscribe: 1,
             });
 
-            if (subError) {
-                console.error('Error subscribing to Smart Trade contract:', subError);
+            if (subscriptionResponse.error) {
+                console.error('Error subscribing to Rise/Fall contract:', subscriptionResponse.error);
                 setIsSmartTraderActive(false);
                 return;
             }
+
+            console.log('✅ Subscribed to contract updates:', subscriptionResponse);
 
             const onContractUpdate = (evt: MessageEvent) => {
                 try {
@@ -1304,21 +1381,42 @@ const MLTrader = observer(() => {
                         const poc = data.proposal_open_contract;
                         
                         if (String(poc?.contract_id || '') === String(contractId)) {
+                            console.log('📊 Rise/Fall contract update:', poc);
+                            
                             // Update status while contract is running
                             if (!poc?.is_sold && poc?.status !== 'sold') {
                                 const profit = Number(poc?.profit || 0);
+                                const entrySpot = Number(poc?.entry_spot || 0);
+                                const currentSpot = Number(poc?.current_spot || 0);
+                                const contractType = poc?.contract_type || '';
+                                
                                 setSmartTraderProfit(profit);
-                                setStatus(`📊 Smart Trade running: Profit: ${profit.toFixed(2)} ${account_currency}`);
+                                
+                                const direction = contractType === 'CALL' ? 'Rise' : 'Fall';
+                                const spotDiff = currentSpot - entrySpot;
+                                const spotDirection = spotDiff > 0 ? '📈' : spotDiff < 0 ? '📉' : '➡️';
+                                
+                                setStatus(`${direction} contract running ${spotDirection}: Entry: ${entrySpot.toFixed(5)}, Current: ${currentSpot.toFixed(5)}, P&L: ${profit.toFixed(2)} ${account_currency}`);
                             }
 
                             // Handle contract completion
                             if (poc?.is_sold || poc?.status === 'sold') {
                                 const profit = Number(poc?.profit || 0);
+                                const entrySpot = Number(poc?.entry_spot || 0);
+                                const exitSpot = Number(poc?.exit_spot || 0);
+                                const contractType = poc?.contract_type || '';
+                                
                                 setSmartTraderProfit(profit);
 
+                                const direction = contractType === 'CALL' ? 'Rise' : 'Fall';
+                                const spotDiff = exitSpot - entrySpot;
+                                const predictionCorrect = 
+                                    (contractType === 'CALL' && exitSpot > entrySpot) || 
+                                    (contractType === 'PUT' && exitSpot < entrySpot);
+
                                 if (profit > 0) {
-                                    console.log(`✅ Smart Trade WIN: +${profit.toFixed(2)} ${account_currency}`);
-                                    setStatus(`✅ WIN: +${profit.toFixed(2)} ${account_currency}`);
+                                    console.log(`✅ ${direction} contract WIN: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)}, Diff: ${spotDiff.toFixed(5)}, Profit: +${profit.toFixed(2)} ${account_currency}`);
+                                    setStatus(`✅ ${direction} WIN: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)} (+${profit.toFixed(2)} ${account_currency})`);
                                     
                                     // Check take profit
                                     if (smartTraderSettings.takeProfit > 0 && profit >= smartTraderSettings.takeProfit) {
@@ -1327,8 +1425,8 @@ const MLTrader = observer(() => {
                                         return;
                                     }
                                 } else {
-                                    console.log(`❌ Smart Trade LOSS: ${profit.toFixed(2)} ${account_currency}`);
-                                    setStatus(`❌ LOSS: ${profit.toFixed(2)} ${account_currency}`);
+                                    console.log(`❌ ${direction} contract LOSS: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)}, Diff: ${spotDiff.toFixed(5)}, Loss: ${profit.toFixed(2)} ${account_currency}`);
+                                    setStatus(`❌ ${direction} LOSS: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)} (${profit.toFixed(2)} ${account_currency})`);
                                     
                                     // Check stop loss
                                     if (smartTraderSettings.stopLoss > 0 && Math.abs(profit) >= smartTraderSettings.stopLoss) {
@@ -1360,14 +1458,14 @@ const MLTrader = observer(() => {
                         }
                     }
                 } catch (e) {
-                    console.error('Error processing Smart Trade contract update:', e);
+                    console.error('Error processing Rise/Fall contract update:', e);
                 }
             };
 
             apiRef.current?.connection?.addEventListener('message', onContractUpdate);
 
         } catch (subError) {
-            console.error('Smart Trade contract subscription error:', subError);
+            console.error('Rise/Fall contract subscription error:', subError);
             setIsSmartTraderActive(false);
         }
     };
