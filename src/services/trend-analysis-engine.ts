@@ -164,8 +164,12 @@ export class TrendAnalysisEngine {
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
         const recentCandles = candleReconstructionEngine.getCandles(symbol, 30);
 
-        if (!recentCandles || recentCandles.length < 10) {
-            console.log(`${symbol}: Insufficient candle data for analysis (need 10, have ${recentCandles?.length || 0})`);
+        // Reduce requirement for 1-second volatility symbols
+        const is1sVolatility = symbol.match(/\d+\s*1s/i);
+        const minCandles = is1sVolatility ? 8 : 10; // Lower requirement for 1s volatilities
+        
+        if (!recentCandles || recentCandles.length < minCandles) {
+            console.log(`${symbol}: Insufficient candle data for analysis (need ${minCandles}, have ${recentCandles?.length || 0})`);
             return;
         }
 
@@ -181,8 +185,9 @@ export class TrendAnalysisEngine {
         // Detect momentum breakout patterns for 1-minute candles
         const momentumBreakout = this.detectMomentumBreakout(recentCandles, symbol);
 
-        // Use default ROC periods (can be made configurable later)
-        const rocPeriods = this.getROCPeriods(false); // Default to non-sensitive
+        // Use sensitive ROC periods for 1-second volatility symbols
+        const is1sVolatility = symbol.match(/\d+\s*1s/i);
+        const rocPeriods = this.getROCPeriods(is1sVolatility); // Use sensitive for 1s volatilities
         const longTermROC = this.calculateROC(prices, rocPeriods.longTerm);
         const shortTermROC = this.calculateROC(prices, rocPeriods.shortTerm);
 
@@ -192,7 +197,7 @@ export class TrendAnalysisEngine {
         }
 
         // Determine ROC alignment and trend direction
-        const rocAlignment = this.determineROCAlignment(longTermROC, shortTermROC);
+        const rocAlignment = this.determineROCAlignment(longTermROC, shortTermROC, symbol);
         const direction = this.determineTrendDirectionByROC(rocAlignment);
 
         // Calculate trend strength based on ROC magnitude
@@ -543,9 +548,12 @@ export class TrendAnalysisEngine {
     /**
      * Determine ROC alignment status
      */
-    private determineROCAlignment(longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
-        const longTermThreshold = 0.05; // 0.05%
-        const shortTermThreshold = 0.1;  // 0.1%
+    private determineROCAlignment(longTermROC: number, shortTermROC: number, symbol?: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
+        // Adjust thresholds for 1-second volatility symbols (more sensitive)
+        const is1sVolatility = symbol && symbol.match(/\d+\s*1s/i);
+        
+        const longTermThreshold = is1sVolatility ? 0.02 : 0.05; // Lower for 1s volatilities
+        const shortTermThreshold = is1sVolatility ? 0.05 : 0.1;  // Lower for 1s volatilities
 
         // Both ROC positive and short-term accelerating upward
         if (longTermROC > longTermThreshold && shortTermROC > shortTermThreshold && shortTermROC > longTermROC) {
@@ -639,19 +647,24 @@ export class TrendAnalysisEngine {
         const isLastCandleGreen = lastCandle.close > lastCandle.open;
         const isLastCandleRed = lastCandle.close < lastCandle.open;
 
+        // Adjust thresholds for 1-second volatility symbols
+        const is1sVolatility = symbol.match(/\d+\s*1s/i);
+        const longTermThreshold = is1sVolatility ? 0.02 : 0.05; // More sensitive for 1s
+        const shortTermThreshold = is1sVolatility ? 0.05 : 0.1;  // More sensitive for 1s
+
         // BULLISHSIGNAL CONDITIONS:
         // 1. Long-term ROC positive (upward trend)
         // 2. Short-term ROC stronger positive (acceleration)
         // 3. Last candle is green and closes above previous high
-        if (longTermROC > 0.05 && // Long-term positive momentum (> 0.05%)
-            shortTermROC > 0.1 && // Short-term positive momentum (> 0.1%)
+        if (longTermROC > longTermThreshold && 
+            shortTermROC > shortTermThreshold && 
             shortTermROC > longTermROC && // Short-term stronger than long-term (acceleration)
             isLastCandleGreen &&
             lastCandle.close > previousCandle.high) {
 
-            console.log(`${symbol}: ✅ ROCBULLISH signal confirmed:
-                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (positive trend)
-                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating upward)
+            console.log(`${symbol}: ✅ ROCBULLISH signal confirmed (${is1sVolatility ? '1s adjusted' : 'standard'}):
+                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (positive trend, threshold: ${longTermThreshold}%)
+                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating upward, threshold: ${shortTermThreshold}%)
                 - ROC alignment: SHORT > LONG (${shortTermROC.toFixed(3)}% > ${longTermROC.toFixed(3)}%)
                 - Last candle GREEN: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes above prev high: ${lastCandle.close.toFixed(5)} > ${previousCandle.high.toFixed(5)}`);
@@ -662,15 +675,15 @@ export class TrendAnalysisEngine {
         // 1. Long-term ROC negative (downward trend)
         // 2. Short-term ROC stronger negative (acceleration)
         // 3. Last candle is red and closes below previous low
-        if (longTermROC < -0.05 && // Long-term negative momentum (< -0.05%)
-            shortTermROC < -0.1 && // Short-term negative momentum (< -0.1%)
+        if (longTermROC < -longTermThreshold && 
+            shortTermROC < -shortTermThreshold && 
             shortTermROC < longTermROC && // Short-term more negative than long-term (acceleration)
             isLastCandleRed &&
             lastCandle.close < previousCandle.low) {
 
-            console.log(`${symbol}: ✅ ROC BEARISH signal confirmed:
-                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (negative trend)
-                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating downward)
+            console.log(`${symbol}: ✅ ROC BEARISH signal confirmed (${is1sVolatility ? '1s adjusted' : 'standard'}):
+                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (negative trend, threshold: ${-longTermThreshold}%)
+                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating downward, threshold: ${-shortTermThreshold}%)
                 - ROC alignment: SHORT < LONG (${shortTermROC.toFixed(3)}% < ${longTermROC.toFixed(3)}%)
                 - Last candle RED: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes below prev low: ${lastCandle.close.toFixed(5)} < ${previousCandle.low.toFixed(5)}`);
