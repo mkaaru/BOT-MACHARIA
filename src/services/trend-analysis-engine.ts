@@ -243,7 +243,6 @@ export class TrendAnalysisEngine {
         };
 
         // Enhanced ROC analysis with mismatch detection
-        const rocAlignment = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
         const rocMismatch = this.detectROCMismatch(longTermROC, shortTermROC, recommendation);
 
         // Adjust recommendation based on ROC mismatch analysis
