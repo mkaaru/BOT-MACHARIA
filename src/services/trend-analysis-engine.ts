@@ -69,7 +69,7 @@ export class TrendAnalysisEngine {
 
     // ROC periods (tick-based)
     private readonly FAST_ROC_PERIOD = 5;
-    private readonly SLOW_ROC_PERIOD = 50;
+    private readonly SLOW_ROC_PERIOD = 500;
 
     // Tick tracking constants
     private readonly REQUIRED_TICKS = 30; // Reduced from 60 to 30 ticks
