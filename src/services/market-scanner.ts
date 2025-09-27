@@ -33,16 +33,15 @@ export interface ScannerStatus {
     errors: string[];
 }
 
-// Updated TradingRecommendation interface with recommendation types
+// Updated TradingRecommendation interface with momentumAnalysis
 export interface TradingRecommendation {
     symbol: string;
-    displayName: string;
+    displayName: string; // Added display name for better readability
     direction: 'CALL' | 'PUT';
     confidence: number;
     score: number;
     currentPrice: number;
     reason: string;
-    recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION';
     hma5: number;
     hma40: number;
     suggestedStake: number;
@@ -64,13 +63,6 @@ export interface TradingRecommendation {
         factors: string[];
         barrierDistance?: number;
         expectedDuration?: number;
-    };
-    // Alternative recommendation for the other strategy type
-    alternativeRecommendation?: {
-        direction: 'CALL' | 'PUT' | 'HOLD';
-        confidence: number;
-        reason: string;
-        recommendationType: 'TREND_FOLLOWING' | 'MEAN_REVERSION';
     };
 }
 
@@ -271,22 +263,6 @@ export class MarketScanner {
         const suggestedStake = this.calculateOptimalStake(trend.confidence, trend.strength);
         const { duration, durationUnit } = this.calculateOptimalDuration(trend.strength, scanResult.symbol);
 
-        // Get alternative recommendation from the other strategy type
-        let alternativeRecommendation = undefined;
-        if (trend.alternativeRecommendations) {
-            const altType = trend.recommendationType === 'TREND_FOLLOWING' ? 'meanReversion' : 'trendFollowing';
-            const altRec = trend.alternativeRecommendations[altType];
-            
-            if (altRec.recommendation !== 'HOLD') {
-                alternativeRecommendation = {
-                    direction: altRec.recommendation === 'BUY' ? 'CALL' as const : 'PUT' as const,
-                    confidence: altRec.score,
-                    reason: altRec.reason,
-                    recommendationType: altType === 'meanReversion' ? 'MEAN_REVERSION' as const : 'TREND_FOLLOWING' as const
-                };
-            }
-        }
-
         return {
             symbol: scanResult.symbol,
             displayName: scanResult.displayName,
@@ -294,19 +270,16 @@ export class MarketScanner {
             confidence: trend.confidence,
             score: trend.score,
             reason,
-            recommendationType: trend.recommendationType,
             hma5: trend.hma5 || 0,
             hma40: trend.hma40 || 0,
             currentPrice: trend.price || 0,
             suggestedStake,
             suggestedDuration: duration,
             suggestedDurationUnit: durationUnit,
-            timestamp: trend.timestamp,
             // Long-term trend alignment fields
             longTermTrend: trend.longTermTrend,
             longTermStrength: trend.longTermTrendStrength,
-            trendAlignment: trend.colorAlignment === true,
-            alternativeRecommendation
+            trendAlignment: trend.colorAlignment === true // Assuming colorAlignment implies trend alignment for this context
         };
     }
 
@@ -316,25 +289,31 @@ export class MarketScanner {
     private generateMeanReversionReason(trend: TrendAnalysis): string {
         const reasons: string[] = [];
 
-        // Add trend following specific reasons
-        if (trend.recommendation === 'BUY' && trend.rocAlignment === 'BULLISH') {
-            reasons.push('BULLISH TREND - Strong Upward Momentum');
-            if (trend.confidence >= 85) {
-                reasons.push('High Confidence Bullish Signal');
+        // Add mean reversion specific reasons
+        if (trend.recommendation === 'BUY') {
+            reasons.push('OVERSOLD - Mean Reversion Buy Signal');
+            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+                reasons.push('Strong Oversold Condition');
             }
-        } else if (trend.recommendation === 'SELL' && trend.rocAlignment === 'BEARISH') {
-            reasons.push('BEARISH TREND - Strong Downward Momentum');
-            if (trend.confidence >= 85) {
-                reasons.push('High Confidence Bearish Signal');
+            if (trend.pullbackAnalysis?.pullbackType === 'bullish_pullback') {
+                reasons.push('Price Below Mean - Bounce Expected');
+            }
+        } else if (trend.recommendation === 'SELL') {
+            reasons.push('OVERBOUGHT - Mean Reversion Sell Signal');
+            if (trend.pullbackAnalysis?.pullbackStrength === 'strong') {
+                reasons.push('Strong Overbought Condition');
+            }
+            if (trend.pullbackAnalysis?.pullbackType === 'bearish_pullback') {
+                reasons.push('Price Above Mean - Pullback Expected');
             }
         }
 
-        // Add Ehlers signal context for trend following
-        if (trend.ehlersRecommendation && !trend.ehlersRecommendation.anticipatory) {
-            if (trend.recommendation === 'BUY' && trend.ehlers?.netValue && trend.ehlers.netValue > 0) {
-                reasons.push('Ehlers Trend Confirmation (Bullish)');
-            } else if (trend.recommendation === 'SELL' && trend.ehlers?.netValue && trend.ehlers.netValue < 0) {
-                reasons.push('Ehlers Trend Confirmation (Bearish)');
+        // Add Ehlers signal context for mean reversion
+        if (trend.ehlersRecommendation?.anticipatory) {
+            if (trend.recommendation === 'BUY' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal < -1) {
+                reasons.push('Strong Contrarian Signal (Oversold)');
+            } else if (trend.recommendation === 'SELL' && trend.ehlers?.anticipatorySignal && trend.ehlers.anticipatorySignal > 1) {
+                reasons.push('Strong Contrarian Signal (Overbought)');
             }
         }
 

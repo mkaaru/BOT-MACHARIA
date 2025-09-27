@@ -5,7 +5,17 @@ import { ehlersProcessor, EhlersSignals, DerivMarketConfig } from './ehlers-sign
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
 
-
+export interface PullbackAnalysis {
+    isPullback: boolean;
+    pullbackType: 'bullish_pullback' | 'bearish_pullback' | 'none';
+    pullbackStrength: 'weak' | 'medium' | 'strong';
+    longerTermTrend: 'bullish' | 'bearish' | 'neutral';
+    confidence: number;
+    entrySignal: boolean;
+    decyclerValue?: number;
+    priceVsDecycler?: number;
+    recommendation: 'BUY' | 'SELL' | 'HOLD';
+}
 
 export interface TrendAnalysis {
     symbol: string;
@@ -41,7 +51,11 @@ export interface TrendAnalysis {
         reason: string;
         anticipatory: boolean;
         signalStrength: 'weak' | 'medium' | 'strong';
+        isPullbackSignal?: boolean;
     };
+
+    // Enhanced pullback analysis
+    pullbackAnalysis?: PullbackAnalysis;
 
     // Sustained momentum analysis for Higher/Lower trades
     sustainedMomentum?: {
@@ -146,8 +160,8 @@ export class TrendAnalysisEngine {
         const highs = recentCandles.map((candle: any) => candle.high);
         const lows = recentCandles.map((candle: any) => candle.low);
 
-        // Simple pullback detection for trend continuation
-        const pullbackInfo = this.analyzePullbackWithDecycler(recentCandles, ehlersSignals);
+        // Enhanced pullback detection using at least 5 candles
+        const pullbackAnalysis = this.analyzePullbackWithDecycler(recentCandles, ehlersSignals);
 
         // Detect sustained momentum for Higher/Lower trades
         const sustainedMomentum = this.detectSustainedMomentum(symbol, recentCandles, ehlersSignals);
@@ -239,52 +253,47 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // SIMPLIFIED TREND FOLLOWING SYSTEM ONLY
+        // Integrate pullback analysis with recommendations - ROC GETS HIGHER PRIORITY
+        let finalRecommendation = recommendation;
+        let enhancedScore = score;
 
-        // VALIDATE ROC ALIGNMENT WITH RECOMMENDATION DIRECTION
-        const validateROCAlignment = (rec: string, rocAlign: 'BULLISH' | 'BEARISH' | 'NEUTRAL'): boolean => {
-            // For trend following, ROC alignment must match recommendation direction
-            if (rec === 'BUY' && rocAlign !== 'BULLISH') {
-                console.log(`❌ ${symbol}: BUY recommendation rejected - ROC alignment is ${rocAlign}, expected BULLISH`);
-                return false;
-            }
-            if (rec === 'SELL' && rocAlign !== 'BEARISH') {
-                console.log(`❌ ${symbol}: SELL recommendation rejected - ROC alignment is ${rocAlign}, expected BEARISH`);
-                return false;
-            }
-            return true;
-        };
-
-        // TREND FOLLOWING SIGNAL GENERATION
-        let recommendationType: RecommendationType = 'TREND_FOLLOWING';
-        let finalRecommendation = 'HOLD';
-        let enhancedScore = 0;
-        let finalReason = 'No trend following signal';
-
-        // Priority 1: Strong ROC signals (TREND FOLLOWING)
+        // Priority 1: Strong ROC signals (MOVED UP IN PRIORITY)
         if (persistentROCSignal && confidence >= 75) {
-            const rocRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
-            if (validateROCAlignment(rocRecommendation, rocAlignment)) {
-                finalRecommendation = rocRecommendation;
-                enhancedScore = Math.min(98, confidence + 25);
-                finalReason = `Strong ${persistentROCSignal} ROC trend signal (${confidence.toFixed(1)}%)`;
-                console.log(`🎯 TREND FOLLOWING: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
+            finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
+            enhancedScore = Math.min(98, confidence + 25); // High bonus for strong ROC
+            console.log(`🎯 ROC PRIORITY: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
+        }
+        // Priority 2: Pullback analysis with Ehlers Decycler (MOVED DOWN)
+        else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
+            finalRecommendation = pullbackAnalysis.recommendation;
+            enhancedScore = Math.min(98, pullbackAnalysis.confidence);
+
+            // Add bonus for strong pullbacks
+            if (pullbackAnalysis.pullbackStrength === 'strong') {
+                enhancedScore = Math.min(98, enhancedScore + 10);
+                console.log(`🚀 PULLBACK PRIORITY: ${pullbackAnalysis.pullbackType.toUpperCase()} - ${pullbackAnalysis.pullbackStrength.toUpperCase()} (${enhancedScore.toFixed(1)}%)`);
             }
         }
-        // Priority 2: Strong non-anticipatory Ehlers trend signals
-        else if (ehlersSignals && !ehlersRecommendation.anticipatory && ehlersRecommendation.confidence >= 70) {
-            if (validateROCAlignment(ehlersRecommendation.action, rocAlignment)) {
-                finalRecommendation = ehlersRecommendation.action;
-                enhancedScore = Math.min(95, ehlersRecommendation.confidence + 15);
-                finalReason = `Ehlers trend signal: ${ehlersRecommendation.reason}`;
-                console.log(`📊 TREND FOLLOWING: Ehlers signal (${enhancedScore.toFixed(1)}%)`);
-            }
+        // Priority 2: Strong Ehlers anticipatory signals
+        else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.min(95, score + 25); // High bonus for strong anticipatory signals
+            console.log(`⚡ EHLERS PRIORITY: Strong anticipatory signal (${enhancedScore.toFixed(1)}%)`);
         }
-        // Priority 3: Basic ROC recommendation with validation
-        else if (validateROCAlignment(recommendation, rocAlignment)) {
-            finalRecommendation = recommendation;
-            enhancedScore = score;
-            finalReason = 'ROC Trend Following Signal';
+        // Priority 3: Medium Ehlers anticipatory signals
+        else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'medium') {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.min(90, score + 18); // Good bonus for medium anticipatory signals
+        }
+        // Priority 4: Weak anticipatory signals only in good cycle conditions
+        else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'weak' && cycleTrading.suitable) {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.min(80, score + 10); // Small bonus for weak anticipatory signals
+        }
+        // Priority 5: Standard Ehlers signals as backup
+        else if (ehlersSignals && cycleTrading.suitable && ehlersRecommendation.confidence > confidence) {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.max(score, ehlersRecommendation.confidence);
         }
 
         const analysis: TrendAnalysis = {
@@ -295,9 +304,7 @@ export class TrendAnalysisEngine {
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
-            reason: finalReason,
             score: enhancedScore,
-            timestamp: Date.now(),
             longTermROC,
             shortTermROC,
             rocAlignment,
@@ -305,8 +312,8 @@ export class TrendAnalysisEngine {
             ehlersRecommendation,
             cycleTrading,
             derivSignals,
-            sustainedMomentum,
-            
+            pullbackAnalysis, // Add pullback analysis results
+            sustainedMomentum, // Add sustained momentum analysis
         };
 
         this.trendData.set(symbol, analysis);
@@ -769,9 +776,9 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Simplified pullback analysis for trend continuation (not mean reversion)
+     * Analyze mean reversion opportunities using Ehlers Decycler and at least 5 candles
      */
-    private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): any {
+    private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): PullbackAnalysis {
         if (candles.length < 5) {
             return {
                 isPullback: false,
@@ -836,29 +843,99 @@ export class TrendAnalysisEngine {
             }
         }
 
-        // Simple trend continuation detection (not mean reversion)
-        let isPullback = false;
+        // Mean reversion signal detection
+        let pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback' = 'none';
+        let pullbackStrength: 'weak' | 'medium' | 'strong' = 'weak';
         let confidence = 0;
 
-        // Only detect healthy pullbacks in strong trends for continuation
-        if (marketRegime === 'trending') {
-            const priceMovement = (currentPrice - longerMidpoint) / longerMidpoint;
-            
-            // Small pullback in strong uptrend - potential continuation
-            if (priceMovement > 0.005 && (recentHigh - currentPrice) / recentHigh < 0.01) {
-                isPullback = true;
-                confidence = 40; // Low confidence, just informational
+        // MEAN REVERSION BUY SIGNAL: Price oversold, expecting bounce
+        const distanceFromHigh = (recentHigh - currentPrice) / recentHigh;
+        const distanceFromMidpoint = (currentPrice - recentMidpoint) / recentMidpoint;
+        const isOversold = currentPrice <= recentLow * 1.005; // Within 0.5% of recent low
+        const hasBottomTail = last5Candles.some(c => (c.close - c.low) / (c.high - c.low) > 0.7); // Candle with long bottom wick
+
+        if (distanceFromHigh > 0.005 && // At least 0.5% down from high
+            distanceFromMidpoint < -0.002 && // Below midpoint
+            isOversold &&
+            hasBottomTail) {
+
+            pullbackType = 'bullish_pullback'; // INVERTED: Buy when oversold
+            confidence = 60;
+
+            // Strength based on how oversold
+            if (distanceFromHigh > 0.015 && marketRegime === 'ranging') { // >1.5% down in ranging market
+                pullbackStrength = 'strong';
+                confidence = 85;
+                console.log(`🔄 STRONG MEAN REVERSION BUY: Oversold ${(distanceFromHigh*100).toFixed(2)}% from high in ranging market`);
+            } else if (distanceFromHigh > 0.008) { // >0.8% down
+                pullbackStrength = 'medium';
+                confidence = 72;
+                console.log(`🔄 MEDIUM MEAN REVERSION BUY: Oversold ${(distanceFromHigh*100).toFixed(2)}% from high`);
+            } else {
+                pullbackStrength = 'weak';
+                confidence = 65;
             }
-            // Small pullback in strong downtrend - potential continuation  
-            else if (priceMovement < -0.005 && (currentPrice - recentLow) / recentLow < 0.01) {
-                isPullback = true;
-                confidence = 40; // Low confidence, just informational
+        }
+
+        // MEAN REVERSION SELL SIGNAL: Price overbought, expecting pullback  
+        const distanceFromLow = (currentPrice - recentLow) / recentLow;
+        const isOverbought = currentPrice >= recentHigh * 0.995; // Within 0.5% of recent high
+        const hasTopTail = last5Candles.some(c => (c.high - c.close) / (c.high - c.low) > 0.7); // Candle with long top wick
+
+        if (distanceFromLow > 0.005 && // At least 0.5% up from low
+            distanceFromMidpoint > 0.002 && // Above midpoint
+            isOverbought &&
+            hasTopTail) {
+
+            pullbackType = 'bearish_pullback'; // INVERTED: Sell when overbought
+            confidence = 60;
+
+            // Strength based on how overbought
+            if (distanceFromLow > 0.015 && marketRegime === 'ranging') { // >1.5% up in ranging market
+                pullbackStrength = 'strong';
+                confidence = 85;
+                console.log(`🔄 STRONG MEAN REVERSION SELL: Overbought ${(distanceFromLow*100).toFixed(2)}% from low in ranging market`);
+            } else if (distanceFromLow > 0.008) { // >0.8% up
+                pullbackStrength = 'medium';
+                confidence = 72;
+                console.log(`🔄 MEDIUM MEAN REVERSION SELL: Overbought ${(distanceFromLow*100).toFixed(2)}% from low`);
+            } else {
+                pullbackStrength = 'weak';
+                confidence = 65;
+            }
+        }
+
+        // Generate INVERTED recommendation for mean reversion
+        let recommendation: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
+
+        if (pullbackType === 'bullish_pullback' && confidence >= 70) {
+            recommendation = 'BUY'; // Buy oversold conditions
+        } else if (pullbackType === 'bearish_pullback' && confidence >= 70) {
+            recommendation = 'SELL'; // Sell overbought conditions
+        }
+
+        // Enhance confidence with Ehlers signals for mean reversion
+        if (ehlersSignals && pullbackType !== 'none') {
+            // In mean reversion, we want contrarian signals
+            if (ehlersSignals.anticipatorySignal < -1.0 && pullbackType === 'bullish_pullback') {
+                confidence = Math.min(95, confidence + 15); // Negative signal + oversold = strong buy
+            } else if (ehlersSignals.anticipatorySignal > 1.0 && pullbackType === 'bearish_pullback') {
+                confidence = Math.min(95, confidence + 15); // Positive signal + overbought = strong sell
+            }
+
+            // Bonus for ranging markets (better for mean reversion)
+            if (marketRegime === 'ranging') {
+                confidence = Math.min(95, confidence + 10);
             }
         }
         
         return {
-            isPullback,
-            confidence
+            isPullback: pullbackType !== 'none',
+            pullbackStrength,
+            longerTermTrend: marketRegime === 'ranging' ? 'neutral' : marketRegime === 'trending' ? 'bullish' : 'neutral', // Simplified for mean reversion
+            pullbackType,
+            confidence,
+            recommendation
         };
     }
 
