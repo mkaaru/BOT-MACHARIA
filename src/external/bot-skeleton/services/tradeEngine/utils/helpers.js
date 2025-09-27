@@ -24,9 +24,9 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
         if (trade_option.prediction !== undefined) {
             proposal.selected_tick = trade_option.prediction;
         }
-        if (!['TICKLOW', 'TICKHIGH'].includes(type) && trade_option.prediction !== undefined) {
+        if (!['TICKLOW', 'TICKHIGH', 'ASIANU', 'ASIAND'].includes(type) && trade_option.prediction !== undefined) {
             proposal.barrier = trade_option.prediction;
-        } else if (trade_option.barrierOffset !== undefined) {
+        } else if (trade_option.barrierOffset !== undefined && !['ASIANU', 'ASIAND'].includes(type)) {
             proposal.barrier = trade_option.barrierOffset;
         }
         if (trade_option.secondBarrierOffset !== undefined) {
@@ -131,6 +131,12 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
         if (trade_option.prediction !== undefined) {
             buy.parameters.barrier = trade_option.prediction;
         }
+    }
+    
+    // Handle Asian contracts - no special parameters needed as they settle based on tick average
+    if (['ASIANU', 'ASIAND'].includes(contract_type)) {
+        // Asian contracts settle automatically based on tick average comparison
+        // No additional parameters required
     }
     // Add optional parameters if they exist
     if (trade_option.multiplier) buy.parameters.multiplier = trade_option.multiplier;

@@ -50,11 +50,11 @@ export const getSupportedContracts = (is_high_low: boolean): TSupportedContracts
         position: 'top',
     },
     ASIANU: {
-        name: localize('Asian Up'),
+        name: localize('Up'),
         position: 'top',
     },
     ASIAND: {
-        name: localize('Asian Down'),
+        name: localize('Down'),
         position: 'bottom',
     },
     CALL: {

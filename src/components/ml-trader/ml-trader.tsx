@@ -71,8 +71,13 @@ const ENHANCED_VOLATILITY_SYMBOLS = [
 
 // Trade types for Rise/Fall and Higher/Lower
 const TRADE_TYPES = [
-    { value: 'CALL', label: 'Rise', description: 'Win if exit spot is higher than entry spot' },
-    { value: 'PUT', label: 'Fall', description: 'Win if exit spot is lower than entry spot' },
+    { value: 'ASIANU', label: 'Asian Up' },
+    { value: 'ASIAND', label: 'Asian Down' },
+];
+
+const RISE_FALL_TYPES = [
+    { value: 'CALL', label: 'Rise' },
+    { value: 'PUT', label: 'Fall' },
 ];
 
 const HIGHER_LOWER_TYPES = [
@@ -121,8 +126,8 @@ const MLTrader = observer(() => {
 
     // Form state for the trading interface
     const [modal_symbol, setModalSymbol] = useState<string>('');
-    const [modal_trade_mode, setModalTradeMode] = useState<'rise_fall' | 'higher_lower'>('rise_fall');
-    const [modal_contract_type, setModalContractType] = useState<string>('CALL');
+    const [modal_trade_mode, setModalTradeMode] = useState<'rise_fall' | 'higher_lower' | 'asian_up_down'>('asian_up_down');
+    const [modal_contract_type, setModalContractType] = useState<string>('ASIANU');
     const [modal_duration, setModalDuration] = useState<number>(20);
     const [modal_duration_unit, setModalDurationUnit] = useState<'t' | 's' | 'm'>('s');
     const [modal_stake, setModalStake] = useState<number>(1.0);
@@ -1680,10 +1685,21 @@ const MLTrader = observer(() => {
                                         <div className="form-field">
                                             <Text as="label">Trade Mode</Text>
                                             <select
-                                                value={modal_trade_mode} // Use modal state here
-                                                onChange={(e) => setModalTradeMode(e.target.value as any)}
+                                                value={modal_trade_mode}
+                                                onChange={(e) => {
+                                                    setModalTradeMode(e.target.value as any);
+                                                    // Reset contract type when changing trade mode
+                                                    if (e.target.value === 'asian_up_down') {
+                                                        setModalContractType('ASIANU');
+                                                    } else if (e.target.value === 'rise_fall') {
+                                                        setModalContractType('CALL');
+                                                    } else {
+                                                        setModalContractType('CALL');
+                                                    }
+                                                }}
                                                 disabled={is_running}
                                             >
+                                                <option value="asian_up_down">Asian Up/Down</option>
                                                 <option value="rise_fall">Rise/Fall</option>
                                                 <option value="higher_lower">Higher/Lower</option>
                                             </select>
@@ -1698,7 +1714,7 @@ const MLTrader = observer(() => {
                                                 onChange={(e) => setModalContractType(e.target.value)}
                                                 disabled={is_running}
                                             >
-                                                {(modal_trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
+                                                {(modal_trade_mode === 'rise_fall' ? RISE_FALL_TYPES : modal_trade_mode === 'asian_up_down' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
                                                     <option key={type.value} value={type.value}>
                                                         {type.label}
                                                     </option>

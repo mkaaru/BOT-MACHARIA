@@ -748,7 +748,17 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                         value={contract_type}
                                         onChange={(e) => setContractType(e.target.value)}
                                     >
-                                        {(trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
+                                        {(() => {
+                                            if (trade_mode === 'asian_up_down') return [
+                                                { value: 'ASIANU', label: 'Asian Up' },
+                                                { value: 'ASIAND', label: 'Asian Down' }
+                                            ];
+                                            if (trade_mode === 'rise_fall') return [
+                                                { value: 'CALL', label: 'Rise' },
+                                                { value: 'PUT', label: 'Fall' }
+                                            ];
+                                            return HIGHER_LOWER_TYPES;
+                                        })().map(type => (
                                             <option key={type.value} value={type.value}>
                                                 {type.label}
                                             </option>

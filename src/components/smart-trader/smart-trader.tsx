@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
@@ -8,14 +7,21 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './smart-trader.scss';
 
+// Asian Up/Down trade types
+const ASIAN_TYPES = [
+    { value: 'ASIANU', label: 'Asian Up' },
+    { value: 'ASIAND', label: 'Asian Down' },
+];
+
 // Minimal trade types we will support initially
 const TRADE_TYPES = [
-    { value: 'DIGITOVER', label: 'Digits Over' },
-    { value: 'DIGITUNDER', label: 'Digits Under' },
-    { value: 'DIGITEVEN', label: 'Even' },
-    { value: 'DIGITODD', label: 'Odd' },
-    { value: 'DIGITMATCH', label: 'Matches' },
-    { value: 'DIGITDIFF', label: 'Differs' },
+    { value: 'CALL', label: 'Rise' },
+    { value: 'PUT', label: 'Fall' },
+];
+
+const HIGHER_LOWER_TYPES = [
+    { value: 'CALL', label: 'Higher' },
+    { value: 'PUT', label: 'Lower' },
 ];
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
@@ -60,7 +66,8 @@ const SmartTrader = observer(() => {
 
     // Form state
     const [symbol, setSymbol] = useState<string>('');
-    const [tradeType, setTradeType] = useState<string>('DIGITOVER');
+    // Default to Asian Up
+    const [tradeType, setTradeType] = useState<string>('ASIANU');
     const [ticks, setTicks] = useState<number>(1);
     const [stake, setStake] = useState<number>(1);
     const [baseStake, setBaseStake] = useState<number>(1);
@@ -77,6 +84,11 @@ const SmartTrader = observer(() => {
     const [digits, setDigits] = useState<number[]>([]);
     const [lastDigit, setLastDigit] = useState<number | null>(null);
     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
+
+    // Default trade mode to Asian Up/Down
+    const [trade_mode, setTradeMode] = useState('asian_up_down');
+    // Default contract type to Asian Up
+    const [contract_type, setContractType] = useState('ASIANU');
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
@@ -106,6 +118,9 @@ const SmartTrader = observer(() => {
         if (tradeType === 'DIGITDIFF') {
             return d !== mdPrediction ? 'is-green' : 'is-red';
         }
+        // This part handles Asian Up/Down and other contract types not covered above
+        // For Asian Up/Down, the logic is determined by the API response, not a direct digit comparison here.
+        // This function is primarily for digit-based predictions.
         return '';
     };
 
@@ -229,19 +244,20 @@ const SmartTrader = observer(() => {
         const trade_option: any = {
             amount: Number(stakeAmount),
             basis: 'stake',
-            contractTypes: [tradeType],
+            // Use tradeType for contract_type here, as it's already set based on the selected mode
+            contract_type: tradeType,
             currency: account_currency,
             duration: Number(ticks),
             duration_unit: 't',
             symbol,
         };
 
-        // Choose prediction based on trade type and last outcome
+        // Handle prediction logic based on trade type
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             const isAfterLoss = lastOutcomeWasLossRef.current;
             const selectedPrediction = isAfterLoss ? ouPredPostLoss : ouPredPreLoss;
             trade_option.prediction = Number(selectedPrediction);
-            
+
             console.log(`🎯 Prediction Logic:`, {
                 isAfterLoss,
                 selectedPrediction,
@@ -249,20 +265,34 @@ const SmartTrader = observer(() => {
                 postLossPred: ouPredPostLoss,
                 tradeType
             });
-            
+
             setStatus(`${tradeType}: ${trade_option.prediction} ${isAfterLoss ? '(after loss)' : '(pre-loss)'} - Stake: ${stakeAmount}`);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
             setStatus(`${tradeType}: ${mdPrediction} - Stake: ${stakeAmount}`);
-        } else {
-            // Even/Odd doesn't need prediction
+        } else if (['ASIANU', 'ASIAND'].includes(tradeType)) {
+            // Asian Up/Down doesn't use a direct prediction number in the same way.
+            // The 'barrier' or 'selected_tick' might be relevant depending on API specifics,
+            // but for now, we pass the tradeType directly and let the API handle it.
             setStatus(`${tradeType} - Stake: ${stakeAmount}`);
+        } else {
+            // Other contract types like Rise/Fall, Higher/Lower might use prediction for barriers
+            // For simplicity, we'll use the 'barrier' concept for these if applicable,
+            // but the primary focus here is on the new Asian types.
+            // If 'CALL' or 'PUT' are used directly, they might imply barrier logic.
+            // For now, assuming they might use barrier if set.
+            if (trade_option.prediction !== undefined) {
+                 trade_option.barrier = trade_option.prediction;
+            }
+             setStatus(`${tradeType} - Stake: ${stakeAmount}`);
         }
+
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
         console.log('📦 Buy request payload:', {
             contract_type: tradeType,
             prediction: trade_option.prediction,
+            barrier: trade_option.barrier, // include barrier if set
             amount: stakeAmount,
             after_loss: lastOutcomeWasLossRef.current
         });
@@ -311,6 +341,7 @@ const SmartTrader = observer(() => {
                         transaction_ids: { buy: buy?.transaction_id },
                         buy_price: buy?.buy_price,
                         currency: account_currency,
+                        // Use the actual contract type being traded for the transaction record
                         contract_type: tradeType as any,
                         underlying: symbol,
                         display_name: symbol_display,
@@ -396,7 +427,7 @@ const SmartTrader = observer(() => {
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
             const msg = e?.message || e?.error?.message || 'Something went wrong';
-            setStatus(`Error: ${msg}`);
+            setStatus(`Error: ${e?.error?.code ? `${e.error.code}: ${msg}` : msg}`);
         } finally {
             setIsRunning(false);
             contractInProgressRef.current = false;
@@ -458,13 +489,42 @@ const SmartTrader = observer(() => {
                                 <select
                                     id='st-tradeType'
                                     value={tradeType}
-                                    onChange={e => setTradeType(e.target.value)}
+                                    onChange={e => {
+                                        setTradeType(e.target.value);
+                                        // Reset prediction state when trade type changes
+                                        if (['DIGITOVER', 'DIGITUNDER'].includes(e.target.value)) {
+                                            setOuPredPreLoss(5);
+                                            setOuPredPostLoss(5);
+                                        } else if (['DIGITMATCH', 'DIGITDIFF'].includes(e.target.value)) {
+                                            setMdPrediction(5);
+                                        }
+                                    }}
                                 >
-                                    {TRADE_TYPES.map(t => (
+                                    {/* Render Asian types if trade_mode is asian_up_down */}
+                                    {trade_mode === 'asian_up_down' && ASIAN_TYPES.map(t => (
                                         <option key={t.value} value={t.value}>
                                             {t.label}
                                         </option>
                                     ))}
+                                    {/* Render Rise/Fall types if trade_mode is rise_fall */}
+                                    {trade_mode === 'rise_fall' && TRADE_TYPES.map(t => (
+                                        <option key={t.value} value={t.value}>
+                                            {t.label}
+                                        </option>
+                                    ))}
+                                    {/* Render Higher/Lower types if trade_mode is higher_lower */}
+                                    {trade_mode === 'higher_lower' && HIGHER_LOWER_TYPES.map(t => (
+                                        <option key={t.value} value={t.value}>
+                                            {t.label}
+                                        </option>
+                                    ))}
+                                    {/* Render Digit types */}
+                                    <option value="DIGITOVER">Digits Over</option>
+                                    <option value="DIGITUNDER">Digits Under</option>
+                                    <option value="DIGITEVEN">Even</option>
+                                    <option value="DIGITODD">Odd</option>
+                                    <option value="DIGITMATCH">Matches</option>
+                                    <option value="DIGITDIFF">Differs</option>
                                 </select>
                             </div>
                         </div>

@@ -150,6 +150,7 @@ export interface TradeParameters {
 export type ContractType = 
     | 'CALL' | 'PUT'           // Rise/Fall
     | 'CALLE' | 'PUTE'         // Rise/Fall Equal
+    | 'ASIANU' | 'ASIAND'      // Asian Up/Down
     | 'DIGITODD' | 'DIGITEVEN' // Even/Odd
     | 'DIGITOVER' | 'DIGITUNDER' // Over/Under
     | 'RANGE' | 'UPORDOWN';    // In/Out

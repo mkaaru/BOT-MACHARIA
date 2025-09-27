@@ -73,6 +73,7 @@ export const CONTRACT_TYPES = {
 export const TRADE_TYPES = {
     ACCUMULATOR: 'accumulator',
     ASIAN: 'asian',
+    ASIAN_UP_DOWN: 'asian_up_down',
     CALL_PUT_SPREAD: 'callputspread',
     END: 'end',
     EVEN_ODD: 'even_odd',
