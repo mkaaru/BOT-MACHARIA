@@ -1922,6 +1922,8 @@ const MLTrader = observer(() => {
                         <div className="volatility-trends-grid">
                             {ENHANCED_VOLATILITY_SYMBOLS.map(symbolInfo => {
                                 const trend = volatility_trends.get(symbolInfo.symbol);
+                                const trendEngine = marketScanner.trendAnalysisEngine;
+                                const dataStats = trendEngine?.getStats?.() || { totalSymbols: 0, symbolsWithTickData: 0, avgTickCount: 0 };
 
                                 return (
                                     <div key={symbolInfo.symbol} className={`volatility-trend-card ${trend ? 'has-data' : 'loading'}`}>
@@ -2057,13 +2059,16 @@ const MLTrader = observer(() => {
                                             <div className="loading-state">
                                                 <div className="loading-spinner"></div>
                                                 <Text size="xs" color="general">
-                                                    {is_scanner_initialized ?
-                                                        // Adjusted message for ROC analysis
-                                                        `Calculating ROC indicators... Need more data points.` :
-                                                        'Connecting to market feeds...'
-                                                    }
+                                                    {is_scanner_initialized ? (
+                                                        <>
+                                                            {`Calculating ROC indicators... (${dataStats.avgTickCount.toFixed(0)} avg ticks)`}
+                                                            <br />
+                                                            <Text size="xs" color="less-prominent">
+                                                                Need {roc_slow_period + 5} data points for analysis
+                                                            </Text>
+                                                        </>
+                                                    ) : 'Connecting to market feeds...'}
                                                 </Text>
-                                                {/* Removed HMA specific message */}
                                             </div>
                                         )}
                                     </div>

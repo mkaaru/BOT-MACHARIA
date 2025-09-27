@@ -145,9 +145,12 @@ export class TrendAnalysisEngine {
         // Also store for price history (candle-based analysis)
         this.storePriceHistory(symbol, quote);
 
-        // Update trend analysis if we have enough data
-        if (this.hasSufficientTickData(symbol)) {
-            this.updateTrendAnalysis(symbol, quote);
+        // Update trend analysis more frequently - check every 10 ticks after minimum data
+        const prices = this.priceHistory.get(symbol);
+        if (prices && prices.length >= this.SLOW_ROC_PERIOD + 5) {
+            if (prices.length % 10 === 0 || this.hasSufficientTickData(symbol)) {
+                this.updateTrendAnalysis(symbol, quote);
+            }
         }
     }
 
@@ -208,7 +211,7 @@ export class TrendAnalysisEngine {
         }
 
         // Process with Ehlers preprocessing and update analysis
-        if (prices.length >= this.SLOW_ROC_PERIOD + 10) { // Need enough data for slow ROC + preprocessing
+        if (prices.length >= this.SLOW_ROC_PERIOD + 5) { // Need enough data for slow ROC + preprocessing
             this.updateTrendAnalysis(symbol, price);
         }
     }
@@ -291,8 +294,8 @@ export class TrendAnalysisEngine {
      */
     private updateTrendAnalysis(symbol: string, currentPrice: number): void {
         const prices = this.priceHistory.get(symbol);
-        if (!prices || prices.length < this.SLOW_ROC_PERIOD + 10) {
-            console.log(`${symbol}: Insufficient price data for ROC analysis`);
+        if (!prices || prices.length < this.SLOW_ROC_PERIOD + 5) {
+            console.log(`${symbol}: Insufficient price data for ROC analysis (${prices?.length || 0}/${this.SLOW_ROC_PERIOD + 5})`);
             return;
         }
 
@@ -442,12 +445,19 @@ export class TrendAnalysisEngine {
      * Calculate Rate of Change (ROC) indicator
      */
     private calculateROC(prices: number[], period: number): number | null {
-        if (prices.length < period + 1) return null;
+        if (prices.length < period + 1) {
+            console.log(`ROC calculation failed: need ${period + 1} prices, have ${prices.length}`);
+            return null;
+        }
 
         const currentPrice = prices[prices.length - 1];
         const pastPrice = prices[prices.length - 1 - period];
 
-        return ((currentPrice - pastPrice) / pastPrice) * 100;
+        if (pastPrice === 0) return null;
+
+        const roc = ((currentPrice - pastPrice) / pastPrice) * 100;
+        console.log(`ROC(${period}): ${roc.toFixed(3)}% (${currentPrice.toFixed(5)} vs ${pastPrice.toFixed(5)})`);
+        return roc;
     }
 
     /**
