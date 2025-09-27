@@ -6,9 +6,52 @@ import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from 
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
-import { TrendAnalysis } from '@/services/trend-analysis-engine';
-
+// TrendAnalysis type is updated to reflect ROC-only indicators
+// import { TrendAnalysis } from '@/services/trend-analysis-engine';
 import './ml-trader.scss';
+
+// Define the TrendAnalysis type with ROC-specific properties
+interface TrendAnalysis {
+    symbol: string;
+    price: number | null;
+    // Updated trend indicators
+    fastROC: number; // Short-term ROC (e.g., ROC(9))
+    slowROC: number; // Long-term ROC (e.g., ROC(50))
+    rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; // Alignment of fast ROC with slow ROC or zero line
+    rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE'; // Indicates if fast ROC crossed slow ROC or zero
+    confidence: number; // Confidence score for the overall trend analysis
+    score: number; // General score for the trend
+    recommendation: TradingRecommendation['direction']; // BUY, SELL, HOLD
+    suggestedDuration?: number;
+    suggestedDurationUnit?: string;
+    suggestedStake?: number;
+    // Ehlers specific indicators
+    ehlers?: {
+        snr: number; // Signal-to-noise ratio
+        netValue: number; // Net value from Ehlers filters
+        anticipatorySignal: number; // Anticipatory signal strength
+    };
+    // Ehlers recommendation based on anticipatory signals
+    ehlersRecommendation?: {
+        anticipatory: boolean;
+        signalStrength: 'weak' | 'medium' | 'strong';
+    };
+    // Enhanced Pullback Analysis
+    pullbackAnalysis?: {
+        isPullback: boolean;
+        pullbackType: 'bullish_pullback' | 'bearish_pullback' | 'unknown';
+        pullbackStrength: 'weak' | 'moderate' | 'strong';
+        longerTermTrend: 'bullish' | 'bearish' | 'neutral';
+        confidence: number;
+        priceVsDecycler?: number; // Price relative to the Ehlers Decycler
+        entrySignal: boolean; // Signal to enter a trade
+    };
+    // Removed HMA and other non-ROC indicators
+    // shortTermHMA?: number;
+    // longTermHMA?: number;
+    // longTermTrend?: TrendDirection;
+    // longTermTrendStrength?: number;
+}
 
 // Direct Bot Builder loading - bypassing modal completely
 
@@ -124,7 +167,7 @@ const MLTrader = observer(() => {
         if (profit > 0) {
             // WIN: Reset to pre-loss state with intelligent adjustments
             lastOutcomeWasLossRef.current = false;
-            
+
             // Gradual loss streak reset based on profit magnitude
             if (profit > baseStake * 2) { // Big win
                 lossStreakRef.current = 0;
@@ -136,16 +179,16 @@ const MLTrader = observer(() => {
                 const newStake = Math.max(baseStake, parseFloat(modal_stake) * 0.8);
                 setStake(newStake.toFixed(2));
             }
-            
+
             console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Streak: ${lossStreakRef.current}, Step: ${stepRef.current}`);
         } else {
             // LOSS: Intelligent progression with safety limits
             lastOutcomeWasLossRef.current = true;
             lossStreakRef.current++;
-            
+
             // Dynamic martingale based on loss streak and account balance
             let martingaleMultiplier = 1.5;
-            
+
             // Reduce aggression after multiple losses
             if (lossStreakRef.current >= 3) {
                 martingaleMultiplier = 1.3; // Slower progression
@@ -153,15 +196,15 @@ const MLTrader = observer(() => {
             if (lossStreakRef.current >= 5) {
                 martingaleMultiplier = 1.2; // Very conservative
             }
-            
+
             // Safety cap: don't exceed 5% of balance per trade
             const currentStake = parseFloat(modal_stake);
             const newStake = currentStake * martingaleMultiplier;
             const safeStake = Math.min(newStake, baseStake * 20); // Max 20x base stake
-            
+
             stepRef.current = Math.min(stepRef.current + 1, 8); // Reduced cap
             setStake(safeStake.toFixed(2));
-            
+
             // Auto-pause after excessive losses
             if (lossStreakRef.current >= 7) {
                 setIsRunning(false);
@@ -169,7 +212,7 @@ const MLTrader = observer(() => {
                 console.log('🛑 AUTO-PAUSE: Excessive losses detected');
                 return;
             }
-            
+
             console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Streak: ${lossStreakRef.current}, New stake: ${safeStake.toFixed(2)}`);
         }
     }, [account_currency, baseStake, modal_stake]); // Add dependencies
@@ -282,17 +325,17 @@ const MLTrader = observer(() => {
                 // Apply trend filter if enabled
                 if (enable_trend_filter) {
                     let strengthMatch = false;
-                    if (trend.longTermTrendStrength !== undefined) {
-                        const requiredStrength = min_trend_strength / 100;
+                    // Simplified filter based on ROC alignment and confidence
+                    if (trend.rocAlignment && trend.confidence) {
                         switch (trend_filter_mode) {
                             case 'relaxed':
-                                strengthMatch = trend.longTermTrendStrength >= (min_trend_strength * 0.8);
+                                strengthMatch = trend.confidence >= (min_trend_strength * 0.8) && trend.rocAlignment !== 'NEUTRAL';
                                 break;
                             case 'moderate':
-                                strengthMatch = trend.longTermTrendStrength >= min_trend_strength && trend.longTermTrend === 'bullish';
+                                strengthMatch = trend.confidence >= min_trend_strength && trend.rocAlignment !== 'NEUTRAL';
                                 break;
                             case 'strict':
-                                strengthMatch = trend.longTermTrendStrength === 100 && trend.longTermTrend === 'bullish';
+                                strengthMatch = trend.confidence === 100 && trend.rocAlignment !== 'NEUTRAL';
                                 break;
                         }
                     }
@@ -455,8 +498,10 @@ const MLTrader = observer(() => {
 
             // ROC sensitivity settings - use toggle state
             const rocSensitive = roc_sensitive_settings;
-            const longTermROCPeriod = rocSensitive ? 15 : 30; // Half for sensitive: 30/2 = 15
-            const shortTermROCPeriod = rocSensitive ? 7 : 14; // Half for sensitive: 14/2 = 7
+            // These periods are derived from the user's request: ROC(9) and ROC(50)
+            // and the sensitivity toggle halving them.
+            const longTermROCPeriod = rocSensitive ? 25 : 50; // Half of 50 is 25
+            const shortTermROCPeriod = rocSensitive ? 5 : 9;  // Half of 9 is ~4.5, let's use 5 for simplicity or stick to user's 9/50 base
             const actualShortTermROC = shortTermROCPeriod; // Use the calculated value directly
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -1100,17 +1145,17 @@ const MLTrader = observer(() => {
         setStatus('Stopped');
     };
 
-    // Get trend color class
+    // Get trend color class based on ROC alignment
     const getTrendColorClass = (trend: TrendAnalysis) => {
-        if (trend.direction === 'bullish') return 'trend-bullish';
-        if (trend.direction === 'bearish') return 'trend-bearish';
+        if (trend.rocAlignment === 'BULLISH') return 'trend-bullish';
+        if (trend.rocAlignment === 'BEARISH') return 'trend-bearish';
         return 'trend-neutral';
     };
 
-    // Get trend icon
+    // Get trend icon based on ROC alignment
     const getTrendIcon = (trend: TrendAnalysis) => {
-        if (trend.direction === 'bullish') return '📈';
-        if (trend.direction === 'bearish') return '📉';
+        if (trend.rocAlignment === 'BULLISH') return '📈';
+        if (trend.rocAlignment === 'BEARISH') return '📉';
         return '➡️';
     };
 
@@ -1178,21 +1223,21 @@ const MLTrader = observer(() => {
                                                 <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
                                                     <span className="trend-icon">{getTrendIcon(trend)}</span>
                                                     <div className="trend-details">
-                                                        <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
-                                                        <Text size="xs">{trend.strength} trend</Text>
+                                                        <Text size="xs" weight="bold">{trend.recommendation.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.confidence.toFixed(0)}% Confidence</Text>
                                                     </div>
                                                     <div className="indicator-data">
                                                         <div className="indicator-row">
                                                             <Text size="xs">Price: {trend.price?.toFixed(5) || 'N/A'}</Text>
-                                                            <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
-                                                                Trend: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                            {/* Updated to show ROC alignment */}
+                                                            <Text size="xs" className={`roc-alignment ${trend.rocAlignment || 'NEUTRAL'}`}>
+                                                                ROC Align: {trend.rocAlignment || 'NEUTRAL'}
                                                             </Text>
                                                         </div>
                                                         <div className="indicator-row">
-                                                            <Text size="xs">ROC Align: {trend.rocAlignment || 'NEUTRAL'}</Text>
-                                                            <Text size="xs" className={`roc-status ${(trend.rocAlignment || '').toLowerCase()}`}>
-                                                                {trend.rocAlignment === 'BULLISH' ? '📈' : trend.rocAlignment === 'BEARISH' ? '📉' : '➡️'}
-                                                            </Text>
+                                                            {/* Displaying Fast and Slow ROC */}
+                                                            <Text size="xs">Fast ROC: {trend.fastROC.toFixed(3)}</Text>
+                                                            <Text size="xs">Slow ROC: {trend.slowROC.toFixed(3)}</Text>
                                                         </div>
                                                     </div>
 
@@ -1258,7 +1303,7 @@ const MLTrader = observer(() => {
                                                         </div>
                                                     )}
 
-                                                    
+
                                                 </div>
                                             )}
 
@@ -1403,14 +1448,15 @@ const MLTrader = observer(() => {
 
                                         {trend ? (
                                             <>
-                                                <div className={`trend-direction ${trend.direction}`}>
+                                                {/* Display ROC alignment and crossover for trend direction */}
+                                                <div className={`trend-direction ${trend.rocAlignment.toLowerCase()}`}>
                                                     <span className="trend-icon">
-                                                        {trend.direction === 'bullish' ? '📈' :
-                                                         trend.direction === 'bearish' ? '📉' : '➡️'}
+                                                        {trend.rocAlignment === 'BULLISH' ? '📈' :
+                                                         trend.rocAlignment === 'BEARISH' ? '📉' : '➡️'}
                                                     </span>
                                                     <div className="trend-info">
-                                                        <Text size="sm" weight="bold">{trend.direction.toUpperCase()}</Text>
-                                                        <Text size="xs">{trend.strength} trend</Text>
+                                                        <Text size="sm" weight="bold">{trend.rocAlignment.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.confidence.toFixed(0)}% Confidence</Text>
                                                     </div>
                                                 </div>
 
@@ -1434,17 +1480,25 @@ const MLTrader = observer(() => {
                                                 <div className="indicator-data">
                                                     <div className="indicator-row">
                                                         <Text size="xs">Price: {trend.price?.toFixed(5) || 'N/A'}</Text>
-                                                        <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
-                                                            Trend: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                        <Text size="xs" className={`roc-alignment ${trend.rocAlignment || 'NEUTRAL'}`}>
+                                                            ROC Align: {trend.rocAlignment || 'NEUTRAL'}
                                                         </Text>
                                                     </div>
                                                     <div className="indicator-row">
-                                                        <Text size="xs">ROC Align: {trend.rocAlignment || 'NEUTRAL'}</Text>
-                                                        <Text size="xs" className={`roc-status ${(trend.rocAlignment || '').toLowerCase()}`}>
-                                                            {trend.rocAlignment === 'BULLISH' ? '📈' : trend.rocAlignment === 'BEARISH' ? '📉' : '➡️'}
-                                                        </Text>
+                                                        {/* Displaying Fast and Slow ROC */}
+                                                        <Text size="xs">Fast ROC: {trend.fastROC.toFixed(3)}</Text>
+                                                        <Text size="xs">Slow ROC: {trend.slowROC.toFixed(3)}</Text>
                                                     </div>
                                                 </div>
+
+                                                {/* ROC Crossover Signal */}
+                                                {trend.rocCrossover !== 'NONE' && (
+                                                    <div className={`roc-crossover-signal ${trend.rocCrossover.toLowerCase()}`}>
+                                                        <Text size="xs" weight="bold">
+                                                            {trend.rocCrossover === 'BULLISH_CROSS' ? '🟢 BULLISH CROSS' : '🔴 BEARISH CROSS'}
+                                                        </Text>
+                                                    </div>
+                                                )}
 
                                                 <div className={`recommendation-badge ${trend.recommendation.toLowerCase()}`}>
                                                     <Text size="xs" weight="bold">{trend.recommendation}</Text>
@@ -1517,13 +1571,12 @@ const MLTrader = observer(() => {
                                                 <div className="loading-spinner"></div>
                                                 <Text size="xs" color="general">
                                                     {is_scanner_initialized ?
-                                                        `Building trends... Need ${Math.max(0, 40 - Math.floor(Math.random() * 20))} more candles` :
+                                                        // Adjusted message for ROC analysis
+                                                        `Calculating ROC indicators... Need more data points.` :
                                                         'Connecting to market feeds...'
                                                     }
                                                 </Text>
-                                                <Text size="xs" color="loss-danger">
-                                                    HMA requires 40+ data points
-                                                </Text>
+                                                {/* Removed HMA specific message */}
                                             </div>
                                         )}
                                     </div>
@@ -1546,8 +1599,8 @@ const MLTrader = observer(() => {
                                     <Text className="card-title">ROC Sensitivity</Text>
                                     <Text className="card-description" size="xs" color="general">
                                         {roc_sensitive_settings
-                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
-                                            : `Default: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
+                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
+                                            : `Default: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
                                         }
                                     </Text>
                                 </div>
@@ -1571,10 +1624,10 @@ const MLTrader = observer(() => {
                                     <Text className="card-title">Current ROC Settings</Text>
                                     <div className="roc-settings-display">
                                         <Text size="xs">
-                                            Long-term: {roc_sensitive_settings ? 15 : 30} periods
+                                            Long-term: {roc_sensitive_settings ? 25 : 50} periods
                                         </Text>
                                         <Text size="xs">
-                                            Short-term: {roc_sensitive_settings ? 7 : 14} periods
+                                            Short-term: {roc_sensitive_settings ? 5 : 9} periods
                                         </Text>
                                         <Text size="xs" color={roc_sensitive_settings ? "profit-success" : "general"}>
                                             Mode: {roc_sensitive_settings ? "Sensitive" : "Default"}
