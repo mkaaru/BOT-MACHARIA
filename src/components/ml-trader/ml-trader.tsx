@@ -1162,6 +1162,9 @@ const MLTrader = observer(() => {
     // Flag to check if the modal is open for recommendation loading
     const is_modal_open = !!modal_recommendation; 
 
+    // State for the tick-based candle engine (assuming it's accessible globally or passed in)
+    const tickBasedCandleEngine5 = (window as any).tickBasedCandleEngine5; // Example: accessing a global instance
+
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
@@ -1395,20 +1398,31 @@ const MLTrader = observer(() => {
                     {scanner_status && (
                         <div className="ml-trader__scanner-status">
                             <div className="scanner-status-header">
-                                <Text as="h3">Market Scanner</Text>
+                                <Text size="sm" weight="bold" color="prominent">
+                                    {localize('ROC Analysis Status')}
+                                </Text>
                                 <div className="scanner-progress">
                                     <div className="progress-bar">
-                                        <div
-                                            className="progress-fill"
+                                        <div 
+                                            className="progress-fill" 
                                             style={{ width: `${scanning_progress}%` }}
                                         />
                                     </div>
-                                    <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
+                                    <Text size="xs">{scanning_progress.toFixed(1)}%</Text>
                                 </div>
                             </div>
-                            <Text size="xs">
-                                Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
-                            </Text>
+
+                            {/* Tick Flow Status */}
+                            <div className="tick-flow-status">
+                                <Text size="xs" color="general">
+                                    Raw Ticks → 5-Tick Candles → ROC Analysis → Recommendations
+                                </Text>
+                                {tickBasedCandleEngine5 && (
+                                    <Text size="xs" color="general">
+                                        System: {tickBasedCandleEngine5.getSystemStats().symbolsWithData} symbols processing
+                                    </Text>
+                                )}
+                            </div>
                         </div>
                     )}
 
