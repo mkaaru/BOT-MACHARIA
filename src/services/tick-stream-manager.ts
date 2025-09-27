@@ -171,13 +171,12 @@ export class TickStreamManager {
             
             console.log(`📊 Subscribing to ${symbol} (${is1sVolatility ? '1-second' : 'regular'} volatility)...`);
 
-            // First, get historical ticks (last 5000 ticks) for immediate trend analysis
+            // First, get historical ticks without subscription to ensure we get the data
             const historyRequest = {
                 ticks_history: symbol,
                 count: 5000,
                 end: 'latest',
-                style: 'ticks',
-                subscribe: 1
+                style: 'ticks'
             };
 
             console.log(`Requesting historical data for ${symbol}:`, historyRequest);
@@ -206,16 +205,29 @@ export class TickStreamManager {
                     this.notifyTickCallbacks(tickData);
                 }
 
-                // Initialize trend analysis with sufficient historical data
                 console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for 500-period ROC analysis`);
             } else {
                 console.warn(`⚠️ No historical data received for ${symbol}`);
             }
 
+            // Now subscribe for real-time updates
+            const subscribeRequest = {
+                ticks: symbol,
+                subscribe: 1
+            };
+
+            console.log(`Subscribing to real-time ticks for ${symbol}:`, subscribeRequest);
+            const subscribeResponse = await this.api.send(subscribeRequest);
+
+            if (subscribeResponse.error) {
+                console.error(`❌ Subscription API Error for ${symbol}:`, subscribeResponse.error);
+                throw new Error(`Failed to subscribe to ${symbol}: ${subscribeResponse.error.message} (Code: ${subscribeResponse.error.code})`);
+            }
+
             // Store subscription ID for real-time updates
-            if (historyResponse.subscription?.id) {
-                this.subscriptions.set(symbol, historyResponse.subscription.id);
-                console.log(`🔄 Successfully subscribed to ${symbol} with ID: ${historyResponse.subscription.id}`);
+            if (subscribeResponse.subscription?.id) {
+                this.subscriptions.set(symbol, subscribeResponse.subscription.id);
+                console.log(`🔄 Successfully subscribed to ${symbol} with ID: ${subscribeResponse.subscription.id}`);
             } else {
                 console.warn(`⚠️ No subscription ID received for ${symbol}`);
             }
