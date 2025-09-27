@@ -179,8 +179,8 @@ export class TrendAnalysisEngine {
         const strength = this.calculateTrendStrength(fastROC, slowROC);
         const confidence = this.calculateConfidence(fastROC, slowROC, rocAlignment, rocCrossover);
 
-        // Step 5: Generate recommendation based on ROC strategy
-        const recommendation = this.generateROCRecommendation(fastROC, slowROC, rocAlignment, rocCrossover, confidence);
+        // Step 5: Generate recommendation based on ROC strategy with 60-tick validation
+        const recommendation = this.generateROCRecommendation(fastROC, slowROC, rocAlignment, rocCrossover, confidence, symbol);
 
         // Step 6: Calculate trading score
         const score = this.calculateTradingScore(direction, strength, confidence, rocAlignment, rocCrossover);
@@ -194,7 +194,7 @@ export class TrendAnalysisEngine {
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation,
-            reason: this.generateReasonForRecommendation(recommendation, fastROC, slowROC, rocAlignment, rocCrossover),
+            reason: this.generateReasonForRecommendation(recommendation, fastROC, slowROC, rocAlignment, rocCrossover, symbol),
             score,
             fastROC,
             slowROC,
@@ -398,30 +398,79 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate ROC-based recommendation
+     * Validate 60-tick candle trend consistency
+     */
+    private validate60TickCandleTrend(symbol: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
+        const prices = this.priceHistory.get(symbol);
+        if (!prices || prices.length < 60) {
+            return 'NEUTRAL'; // Not enough data
+        }
+
+        // Get last 60 tick prices
+        const last60Prices = prices.slice(-60);
+        
+        // Count bullish vs bearish movements
+        let bullishCount = 0;
+        let bearishCount = 0;
+        
+        for (let i = 1; i < last60Prices.length; i++) {
+            if (last60Prices[i] > last60Prices[i - 1]) {
+                bullishCount++;
+            } else if (last60Prices[i] < last60Prices[i - 1]) {
+                bearishCount++;
+            }
+        }
+        
+        const totalMoves = bullishCount + bearishCount;
+        if (totalMoves === 0) return 'NEUTRAL';
+        
+        const bullishPercentage = (bullishCount / totalMoves) * 100;
+        const bearishPercentage = (bearishCount / totalMoves) * 100;
+        
+        // Require at least 65% consistency for a clear trend
+        if (bullishPercentage >= 65) {
+            return 'BULLISH';
+        } else if (bearishPercentage >= 65) {
+            return 'BEARISH';
+        }
+        
+        return 'NEUTRAL';
+    }
+
+    /**
+     * Generate ROC-based recommendation with 60-tick validation
      */
     private generateROCRecommendation(
         fastROC: number, 
         slowROC: number, 
         rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
         rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE',
-        confidence: number
+        confidence: number,
+        symbol: string
     ): 'BUY' | 'SELL' | 'HOLD' {
-        // High confidence crossover signals
-        if (confidence > 70 && rocCrossover === 'BULLISH_CROSS') {
+        // First validate 60-tick candle trend
+        const tickTrend = this.validate60TickCandleTrend(symbol);
+        
+        // Only proceed with BUY/SELL if 60-tick trend is consistent
+        if (tickTrend === 'NEUTRAL') {
+            return 'HOLD'; // No clear 60-tick trend
+        }
+
+        // High confidence crossover signals (must align with 60-tick trend)
+        if (confidence > 70 && rocCrossover === 'BULLISH_CROSS' && tickTrend === 'BULLISH') {
             return 'BUY';
         }
 
-        if (confidence > 70 && rocCrossover === 'BEARISH_CROSS') {
+        if (confidence > 70 && rocCrossover === 'BEARISH_CROSS' && tickTrend === 'BEARISH') {
             return 'SELL';
         }
 
-        // Strong alignment signals
-        if (confidence > 75 && rocAlignment === 'BULLISH') {
+        // Strong alignment signals (must align with 60-tick trend)
+        if (confidence > 75 && rocAlignment === 'BULLISH' && tickTrend === 'BULLISH') {
             return 'BUY';
         }
 
-        if (confidence > 75 && rocAlignment === 'BEARISH') {
+        if (confidence > 75 && rocAlignment === 'BEARISH' && tickTrend === 'BEARISH') {
             return 'SELL';
         }
 
@@ -472,30 +521,37 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate reason for recommendation
+     * Generate reason for recommendation with 60-tick validation
      */
     private generateReasonForRecommendation(
         recommendation: 'BUY' | 'SELL' | 'HOLD',
         fastROC: number,
         slowROC: number,
         rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
-        rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE'
+        rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE',
+        symbol: string
     ): string {
+        const tickTrend = this.validate60TickCandleTrend(symbol);
+        
         if (recommendation === 'BUY') {
             if (rocCrossover === 'BULLISH_CROSS') {
-                return `BUY: Fast ROC(${this.FAST_ROC_PERIOD}) crossed above zero while Slow ROC(${this.SLOW_ROC_PERIOD}) is positive - Strong bullish momentum`;
+                return `BUY: Fast ROC(${this.FAST_ROC_PERIOD}) crossed above zero, Slow ROC(${this.SLOW_ROC_PERIOD}) positive + 60-tick bullish trend confirmed`;
             }
-            return `BUY: Both ROCs aligned bullish - Fast ROC: ${fastROC.toFixed(2)}%, Slow ROC: ${slowROC.toFixed(2)}%`;
+            return `BUY: ROCs aligned bullish + 60-tick bullish trend - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
         }
 
         if (recommendation === 'SELL') {
             if (rocCrossover === 'BEARISH_CROSS') {
-                return `SELL: Fast ROC(${this.FAST_ROC_PERIOD}) crossed below zero while Slow ROC(${this.SLOW_ROC_PERIOD}) is negative - Strong bearish momentum`;
+                return `SELL: Fast ROC(${this.FAST_ROC_PERIOD}) crossed below zero, Slow ROC(${this.SLOW_ROC_PERIOD}) negative + 60-tick bearish trend confirmed`;
             }
-            return `SELL: Both ROCs aligned bearish - Fast ROC: ${fastROC.toFixed(2)}%, Slow ROC: ${slowROC.toFixed(2)}%`;
+            return `SELL: ROCs aligned bearish + 60-tick bearish trend - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
         }
 
-        return `HOLD: ROCs not aligned or insufficient momentum - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
+        if (tickTrend === 'NEUTRAL') {
+            return `HOLD: 60-tick trend not consistent enough (${tickTrend}) - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
+        }
+
+        return `HOLD: ROC signals not strong enough despite ${tickTrend.toLowerCase()} 60-tick trend - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
     }
 
     /**
