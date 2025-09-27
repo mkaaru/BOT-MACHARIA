@@ -1,0 +1,472 @@
+import { CandleData } from './candle-reconstruction-engine';
+import { TickBasedCandleEngine, TickCandleData } from './tick-based-candle-engine';
+import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
+import { DerivMarketConfig } from './ehlers-signal-processing';
+
+export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
+export type TrendStrength = 'strong' | 'moderate' | 'weak';
+export type SignalStability = 'stable' | 'transitioning' | 'volatile';
+
+export interface TrendAnalysis {
+    symbol: string;
+    timestamp: number;
+    direction: TrendDirection;
+    strength: TrendStrength;
+    confidence: number;
+    stability: SignalStability;
+    score: number;
+    price: number;
+    recommendation: 'RISE' | 'FALL' | 'NO_TRADE';
+    reason: string;
+    lastUpdate: Date;
+    timeToNextUpdate: number; // seconds until next signal change allowed
+
+    // Medium-term ROC indicators (optimized for 3-5 min trades)
+    fastROC: number;        // 15-tick ROC
+    mediumROC: number;      // 50-tick ROC  
+    slowROC: number;        // 100-tick ROC
+    rocTrend: 'STRENGTHENING' | 'WEAKENING' | 'STABLE';
+    
+    // Multi-timeframe trend validation
+    immediateValidation: {
+        direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+        consistency: number;
+        priceMovement: number; // % change over validation period
+        validationPeriod: number; // ticks used for validation
+    };
+
+    // Signal persistence and stability
+    signalAge: number; // how long current signal has been active (minutes)
+    signalChanges: number; // number of changes in last hour
+    stabilityScore: number; // 0-100, higher = more stable
+    
+    // Ehlers preprocessed data
+    ehlersSmoothed?: number[];
+    roofingFiltered?: number[];
+}
+
+export interface DerivSignalResult {
+    symbol: string;
+    displayName: string;
+    trend: TrendAnalysis;
+    isTradeReady: boolean;
+    entryConfidence: number;
+    suggestedDuration: '3m' | '5m';
+    nextSignalCheck: Date;
+}
+
+export class DerivTrendAnalysisEngine {
+    private trendData: Map<string, TrendAnalysis> = new Map();
+    private updateTimer: NodeJS.Timeout;
+    
+    // Price tracking for different timeframes
+    private tickPrices: Map<string, number[]> = new Map();
+    private priceHistory: Map<string, number[]> = new Map();
+    private ehlersHistory: Map<string, number[]> = new Map();
+    
+    // Signal persistence and stability tracking
+    private signalHistory: Map<string, {
+        signal: 'RISE' | 'FALL' | 'NO_TRADE';
+        timestamp: number;
+        duration: number;
+        changeCount: number;
+        lastChangeTime: number;
+        stabilityBuffer: number[];
+    }> = new Map();
+
+    // Enhanced parameters for Deriv Rise/Fall trading
+    private readonly SIGNAL_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes minimum between signal changes
+    private readonly SIGNAL_PERSISTENCE_MS = 5 * 60 * 1000; // 5 minutes signal validity
+    private readonly MIN_STABILITY_SCORE = 70; // Minimum stability before trading
+    private readonly MAX_HISTORY = 300; // Increased history for better trend analysis
+
+    // Optimized ROC periods for 3-5 minute trades
+    private readonly FAST_ROC_PERIOD = 15;   // ~1-2 minutes of ticks
+    private readonly MEDIUM_ROC_PERIOD = 50; // ~4-5 minutes of ticks  
+    private readonly SLOW_ROC_PERIOD = 100;  // ~8-10 minutes of ticks
+    
+    // Immediate trend validation (next 3-5 minutes)
+    private readonly IMMEDIATE_VALIDATION_PERIOD = 60; // 60 ticks for immediate trend
+    private readonly TREND_CONSISTENCY_THRESHOLD = 65; // 65% consistency required
+    private readonly MIN_PRICE_MOVEMENT = 0.02; // Minimum 0.02% movement for valid trend
+
+    constructor() {
+        // Less frequent updates for stability
+        this.updateTimer = setInterval(() => this.updateAllTrends(), 60 * 1000); // Every 1 minute
+
+        console.log('🚀 Deriv Rise/Fall TrendAnalysisEngine initialized');
+        console.log('📊 Optimized for 3-5 minute trading durations with enhanced stability');
+    }
+
+    /**
+     * Add candle data with enhanced stability tracking
+     */
+    addCandleData(candle: CandleData): void {
+        const { symbol, close, timestamp } = candle;
+        this.processPrice(symbol, close, timestamp.getTime());
+    }
+
+    /**
+     * Add tick-based candle data
+     */
+    addTickCandleData(candle: TickCandleData): void {
+        const { symbol, close, endTimestamp } = candle;
+        this.processPrice(symbol, close, endTimestamp.getTime());
+    }
+
+    /**
+     * Process individual tick data with stability considerations
+     */
+    processTick(tick: { symbol: string; quote: number; epoch: number }): void {
+        this.processPrice(tick.symbol, tick.quote, tick.epoch);
+    }
+
+    /**
+     * Main price processing with enhanced stability
+     */
+    private processPrice(symbol: string, price: number, timestamp: number): void {
+        // Store tick price
+        this.storeTickPrice(symbol, price);
+        
+        // Store price history
+        this.storePriceHistory(symbol, price);
+        
+        // Only update if we have sufficient data and enough time has passed
+        if (this.shouldUpdateSignal(symbol) && this.hasSufficientData(symbol)) {
+            this.updateStableTrendAnalysis(symbol, price, timestamp);
+        }
+    }
+
+    /**
+     * Check if we should update the signal (respects cooldown periods)
+     */
+    private shouldUpdateSignal(symbol: string): boolean {
+        const signalData = this.signalHistory.get(symbol);
+        if (!signalData) return true;
+
+        const timeSinceLastChange = Date.now() - signalData.lastChangeTime;
+        return timeSinceLastChange >= this.SIGNAL_COOLDOWN_MS;
+    }
+
+    /**
+     * Store tick prices with enhanced management
+     */
+    private storeTickPrice(symbol: string, price: number): void {
+        if (!this.tickPrices.has(symbol)) {
+            this.tickPrices.set(symbol, []);
+        }
+
+        const ticks = this.tickPrices.get(symbol)!;
+        ticks.push(price);
+
+        // Maintain larger tick history for better analysis
+        if (ticks.length > this.IMMEDIATE_VALIDATION_PERIOD * 2) {
+            ticks.shift();
+        }
+    }
+
+    /**
+     * Store price history for ROC calculations
+     */
+    private storePriceHistory(symbol: string, price: number): void {
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+        }
+
+        const prices = this.priceHistory.get(symbol)!;
+        prices.push(price);
+
+        if (prices.length > this.MAX_HISTORY) {
+            prices.shift();
+        }
+    }
+
+    /**
+     * Check if we have sufficient data for analysis
+     */
+    private hasSufficientData(symbol: string): boolean {
+        const prices = this.priceHistory.get(symbol);
+        const ticks = this.tickPrices.get(symbol);
+        
+        return prices && ticks && 
+               prices.length >= this.SLOW_ROC_PERIOD + 20 &&
+               ticks.length >= this.IMMEDIATE_VALIDATION_PERIOD;
+    }
+
+    /**
+     * Enhanced trend analysis with stability focus
+     */
+    private updateStableTrendAnalysis(symbol: string, currentPrice: number, timestamp: number): void {
+        const prices = this.priceHistory.get(symbol)!;
+        
+        // Apply Ehlers preprocessing
+        const preprocessedPrices = this.applyEhlersPreprocessing(prices);
+        this.ehlersHistory.set(symbol, preprocessedPrices);
+
+        // Calculate multi-timeframe ROC
+        const fastROC = this.calculateROC(preprocessedPrices, this.FAST_ROC_PERIOD);
+        const mediumROC = this.calculateROC(preprocessedPrices, this.MEDIUM_ROC_PERIOD);
+        const slowROC = this.calculateROC(preprocessedPrices, this.SLOW_ROC_PERIOD);
+
+        if (fastROC === null || mediumROC === null || slowROC === null) {
+            return;
+        }
+
+        // Analyze immediate trend for next 3-5 minutes
+        const immediateValidation = this.analyzeImmediateTrend(symbol);
+        
+        // Determine ROC trend direction and strength
+        const rocTrend = this.analyzeROCTrend(fastROC, mediumROC, slowROC);
+        
+        // Calculate signal stability
+        const stabilityMetrics = this.calculateSignalStability(symbol, fastROC, mediumROC, slowROC);
+        
+        // Generate stable trend direction
+        const direction = this.determineStableTrendDirection(
+            fastROC, mediumROC, slowROC, immediateValidation, stabilityMetrics
+        );
+        
+        const strength = this.calculateEnhancedTrendStrength(fastROC, mediumROC, slowROC);
+        const confidence = this.calculateStabilityAwareConfidence(
+            direction, strength, stabilityMetrics, immediateValidation
+        );
+
+        // Generate Deriv-specific recommendation
+        const recommendation = this.generateDerivRecommendation(
+            direction, confidence, stabilityMetrics, immediateValidation
+        );
+
+        // Calculate comprehensive score
+        const score = this.calculateDerivScore(
+            direction, strength, confidence, stabilityMetrics, rocTrend
+        );
+
+        const currentSignal = this.signalHistory.get(symbol);
+        const signalAge = currentSignal ? 
+            (Date.now() - currentSignal.timestamp) / (1000 * 60) : 0; // minutes
+
+        const analysis: TrendAnalysis = {
+            symbol,
+            timestamp,
+            direction,
+            strength,
+            confidence,
+            stability: stabilityMetrics.stability,
+            price: currentPrice,
+            lastUpdate: new Date(),
+            timeToNextUpdate: this.calculateTimeToNextUpdate(symbol),
+            recommendation,
+            reason: this.generateEnhancedReason(
+                recommendation, fastROC, mediumROC, slowROC, 
+                rocTrend, immediateValidation, stabilityMetrics
+            ),
+            score,
+            fastROC,
+            mediumROC,
+            slowROC,
+            rocTrend,
+            immediateValidation,
+            signalAge,
+            signalChanges: stabilityMetrics.changeCount,
+            stabilityScore: stabilityMetrics.stabilityScore,
+            ehlersSmoothed: preprocessedPrices.slice(-20),
+            roofingFiltered: this.applyRoofingFilter(prices).slice(-20)
+        };
+
+        // Update signal history
+        this.updateSignalHistory(symbol, recommendation, timestamp);
+
+        this.trendData.set(symbol, analysis);
+
+        console.log(`🎯 ${symbol}: ${recommendation} | Confidence: ${confidence.toFixed(1)}% | Stability: ${stabilityMetrics.stabilityScore.toFixed(1)} | Age: ${signalAge.toFixed(1)}m | Next: ${immediateValidation.direction}`);
+    }
+
+    /**
+     * Analyze immediate trend for next 3-5 minutes
+     */
+    private analyzeImmediateTrend(symbol: string): TrendAnalysis['immediateValidation'] {
+        const ticks = this.tickPrices.get(symbol)!;
+        const recentTicks = ticks.slice(-this.IMMEDIATE_VALIDATION_PERIOD);
+        
+        if (recentTicks.length < this.IMMEDIATE_VALIDATION_PERIOD) {
+            return {
+                direction: 'NEUTRAL',
+                consistency: 0,
+                priceMovement: 0,
+                validationPeriod: recentTicks.length
+            };
+        }
+
+        // Calculate price movement over validation period
+        const startPrice = recentTicks[0];
+        const endPrice = recentTicks[recentTicks.length - 1];
+        const priceMovement = ((endPrice - startPrice) / startPrice) * 100;
+
+        // Analyze tick-by-tick consistency
+        let bullishMoves = 0;
+        let bearishMoves = 0;
+        let totalMoves = 0;
+
+        for (let i = 1; i < recentTicks.length; i++) {
+            const change = recentTicks[i] - recentTicks[i - 1];
+            if (change > 0) {
+                bullishMoves++;
+                totalMoves++;
+            } else if (change < 0) {
+                bearishMoves++;
+                totalMoves++;
+            }
+        }
+
+        if (totalMoves === 0) {
+            return {
+                direction: 'NEUTRAL',
+                consistency: 0,
+                priceMovement,
+                validationPeriod: recentTicks.length
+            };
+        }
+
+        const bullishConsistency = (bullishMoves / totalMoves) * 100;
+        const bearishConsistency = (bearishMoves / totalMoves) * 100;
+
+        let direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+        let consistency = 0;
+
+        // Require both consistency and minimum price movement
+        if (bullishConsistency >= this.TREND_CONSISTENCY_THRESHOLD && 
+            priceMovement >= this.MIN_PRICE_MOVEMENT) {
+            direction = 'BULLISH';
+            consistency = bullishConsistency;
+        } else if (bearishConsistency >= this.TREND_CONSISTENCY_THRESHOLD && 
+                   priceMovement <= -this.MIN_PRICE_MOVEMENT) {
+            direction = 'BEARISH';
+            consistency = bearishConsistency;
+        }
+
+        return {
+            direction,
+            consistency,
+            priceMovement,
+            validationPeriod: recentTicks.length
+        };
+    }
+
+    /**
+     * Calculate signal stability metrics
+     */
+    private calculateSignalStability(
+        symbol: string, 
+        fastROC: number, 
+        mediumROC: number, 
+        slowROC: number
+    ): {
+        stability: SignalStability;
+        stabilityScore: number;
+        changeCount: number;
+        volatilityIndex: number;
+    } {
+        const signalData = this.signalHistory.get(symbol);
+        const changeCount = signalData?.changeCount || 0;
+        
+        // Calculate ROC volatility
+        const rocValues = [fastROC, mediumROC, slowROC];
+        const rocAvg = rocValues.reduce((a, b) => a + b, 0) / rocValues.length;
+        const rocVariance = rocValues.reduce((sum, val) => sum + Math.pow(val - rocAvg, 2), 0) / rocValues.length;
+        const volatilityIndex = Math.sqrt(rocVariance);
+
+        // Calculate stability score
+        let stabilityScore = 100;
+        
+        // Penalize frequent changes
+        stabilityScore -= changeCount * 10;
+        
+        // Penalize high volatility
+        stabilityScore -= Math.min(volatilityIndex * 5, 30);
+        
+        // Reward signal age
+        if (signalData) {
+            const signalAge = (Date.now() - signalData.timestamp) / (1000 * 60); // minutes
+            stabilityScore += Math.min(signalAge * 2, 20);
+        }
+        
+        stabilityScore = Math.max(0, Math.min(100, stabilityScore));
+
+        let stability: SignalStability = 'stable';
+        if (stabilityScore < 40) stability = 'volatile';
+        else if (stabilityScore < 70) stability = 'transitioning';
+
+        return {
+            stability,
+            stabilityScore,
+            changeCount,
+            volatilityIndex
+        };
+    }
+
+    /**
+     * Generate Deriv-specific Rise/Fall recommendation
+     */
+    private generateDerivRecommendation(
+        direction: TrendDirection,
+        confidence: number,
+        stability: any,
+        immediate: any
+    ): 'RISE' | 'FALL' | 'NO_TRADE' {
+        // Require high confidence and stability for trading
+        if (confidence < 70 || stability.stabilityScore < this.MIN_STABILITY_SCORE) {
+            return 'NO_TRADE';
+        }
+
+        // Must have alignment between medium-term trend and immediate validation
+        if (direction === 'bullish' && immediate.direction === 'BULLISH') {
+            return 'RISE';
+        } else if (direction === 'bearish' && immediate.direction === 'BEARISH') {
+            return 'FALL';
+        }
+
+        return 'NO_TRADE';
+    }
+
+    // ... [Additional helper methods would continue here]
+    // Including: analyzeROCTrend, determineStableTrendDirection, calculateEnhancedTrendStrength,
+    // calculateStabilityAwareConfidence, updateSignalHistory, etc.
+
+    /**
+     * Get trading signals for Deriv bot
+     */
+    getDerivSignals(): DerivSignalResult[] {
+        const results: DerivSignalResult[] = [];
+        
+        for (const [symbol, trend] of this.trendData) {
+            if (trend.recommendation !== 'NO_TRADE' && trend.stability !== 'volatile') {
+                results.push({
+                    symbol,
+                    displayName: symbol,
+                    trend,
+                    isTradeReady: trend.stabilityScore >= this.MIN_STABILITY_SCORE,
+                    entryConfidence: trend.confidence,
+                    suggestedDuration: trend.confidence >= 80 ? '5m' : '3m',
+                    nextSignalCheck: new Date(Date.now() + trend.timeToNextUpdate * 1000)
+                });
+            }
+        }
+
+        // Sort by stability and confidence
+        return results.sort((a, b) => 
+            (b.trend.stabilityScore + b.entryConfidence) - 
+            (a.trend.stabilityScore + a.entryConfidence)
+        );
+    }
+
+    /**
+     * Clean up resources
+     */
+    destroy(): void {
+        if (this.updateTimer) {
+            clearInterval(this.updateTimer);
+        }
+    }
+
+    // ... [Additional utility methods for ROC calculation, Ehlers preprocessing, etc.]
+}
