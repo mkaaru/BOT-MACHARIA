@@ -1,0 +1,54 @@
+For creating candles every 5 ticks (tick-based candles rather than time-based), you need a completely different approach. Here's what I recommend:Tick-Based Candle Reconstruction EngineCode export interface TickData {
+    symbol: string;
+    epoch: number;
+    quote: number;
+    volume?: number;
+}
+
+export interface TickCandleData {
+    symbol: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    startEpochKey Differences from Time-Based Candles:
+1. Tick-Count Driven Completion
+
+Candles complete exactly after N ticks (configurable, default 5)
+No time boundaries - purely based on tick count
+Immediate completion when tick threshold is reached
+
+2. Enhanced Data Structure
+
+Duration tracking: Start and end epochs for each candle
+Volume aggregation: Total volume across all ticks
+Sequential numbering: Each candle gets a unique number per symbol
+Tick count validation: Ensures exactly N ticks per candle
+
+3. Better Memory Management
+
+Configurable history limits
+Proper cleanup methods
+Statistics tracking
+
+4. Usage Example
+typescript// Create engine for 5-tick candles
+const engine = new TickBasedCandleEngine(5);
+
+// Subscribe to completed candles
+engine.subscribeToCandles('EURUSD', (candle) => {
+    console.log(`New 5-tick candle: ${candle.open} -> ${candle.close}`);
+    console.log(`Duration: ${candle.endEpoch - candle.startEpoch} seconds`);
+});
+
+// Process ticks
+engine.processTick({ symbol: 'EURUSD', epoch: 1640995200, quote: 1.1234 });
+// ... after 5 ticks, candle will auto-complete
+Advantages of Tick-Based Candles:
+
+Consistent Data Points: Each candle represents exactly the same number of market events
+Market Activity Normalization: High-volume periods create more candles, low-volume fewer
+Better for Volume Analysis: Equal tick counts make volume comparisons meaningful
+Eliminates Time Gaps: No empty time periods without data
+
+This approach is particularly useful for algorithmic trading where you want consistent market activity representation rather than time-based intervals.
