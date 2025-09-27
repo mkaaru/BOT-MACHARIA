@@ -857,16 +857,66 @@
                     color: #d97706;
                 }
 
-                .trend-icon {
-                    font-size: 1.5rem;
-                    display: inline-block;
-                    margin-right: 0.5rem;
+                .trend-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.8rem;
+                    
+                    .trend-icon {
+                        font-size: 1.5rem;
+                    }
+
+                    .trend-details {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.3rem;
+
+                        .condition-badge {
+                            font-size: 0.7rem;
+                            padding: 0.2rem 0.5rem;
+                            border-radius: 10px;
+                            font-weight: 600;
+                            letter-spacing: 0.5px;
+
+                            &.favorable {
+                                background: rgba(34, 197, 94, 0.2);
+                                color: #15803d;
+                                border: 1px solid #22c55e;
+                            }
+
+                            &.unfavorable {
+                                background: rgba(239, 68, 68, 0.2);
+                                color: #dc2626;
+                                border: 1px solid #ef4444;
+                            }
+
+                            &.wait {
+                                background: rgba(245, 158, 11, 0.2);
+                                color: #d97706;
+                                border: 1px solid #f59e0b;
+                            }
+                        }
+                    }
                 }
 
-                .trend-details {
+                .strategy-info {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
+                    font-size: 0.8rem;
+                    padding: 0.5rem;
+                    background: rgba(255, 255, 255, 0.2);
+                    border-radius: 6px;
+
+                    .strategy-label {
+                        font-weight: 600;
+                        opacity: 0.8;
+                    }
+
+                    .strategy-value {
+                        font-weight: 700;
+                        font-family: 'Monaco', monospace;
+                    }
                 }
 
                 .indicator-data {
@@ -874,7 +924,6 @@
                     grid-template-columns: 1fr 1fr;
                     gap: 0.4rem;
                     font-size: 0.8rem;
-                    margin-top: 0.6rem;
 
                     .indicator-row {
                         display: flex;
@@ -886,17 +935,10 @@
                         font-family: 'Monaco', monospace;
                     }
 
-                    .long-term-trend {
+                    .long-term-trend, .roc-status, .tick-trend {
                         font-weight: 600;
                         font-size: 0.75rem;
 
-                        &.bullish { color: #22c55e; }
-                        &.bearish { color: #ef4444; }
-                        &.neutral { color: #f59e0b; }
-                    }
-
-                    .roc-status {
-                        font-size: 0.75rem;
                         &.bullish { color: #22c55e; }
                         &.bearish { color: #ef4444; }
                         &.neutral { color: #f59e0b; }

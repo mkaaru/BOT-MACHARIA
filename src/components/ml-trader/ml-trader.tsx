@@ -56,6 +56,32 @@ interface TrendAnalysis {
         bearishCount: number;
         totalTicks: number;
     };
+
+    // Ehlers' indicators (example)
+    ehlers?: {
+        snr: number;
+        netValue: number;
+        anticipatorySignal: number;
+    };
+    ehlersRecommendation?: {
+        anticipatory: boolean;
+        signalStrength: 'weak' | 'medium' | 'strong';
+    };
+
+    // Pullback analysis (example)
+    pullbackAnalysis?: {
+        isPullback: boolean;
+        pullbackType: 'bullish_pullback' | 'bearish_pullback' | 'neutral_pullback';
+        pullbackStrength: 'weak' | 'moderate' | 'strong';
+        longerTermTrend: 'bullish' | 'bearish' | 'neutral';
+        confidence: number;
+        priceVsDecycler?: number;
+        entrySignal?: boolean;
+    };
+
+    // Phase-based strategy
+    phaseBasedStrategy?: string;
+    tradingCondition?: string;
 }
 
 // Direct Bot Builder loading - bypassing modal completely
@@ -1153,8 +1179,20 @@ const MLTrader = observer(() => {
         return '➡️';
     };
 
+    // Get class for the trend indicator div based on market phase
+    const getTrendClass = (trend: TrendAnalysis) => {
+        if (!trend) return '';
+        switch (trend.marketPhase) {
+            case 'rising': return 'trend-rising';
+            case 'falling': return 'trend-falling';
+            case 'ranging': return 'trend-ranging';
+            case 'transition': return 'trend-transition';
+            default: return 'trend-neutral';
+        }
+    };
+
     // Flag to check if the modal is open for recommendation loading
-    const is_modal_open = !!modal_recommendation; 
+    const is_modal_open = !!modal_recommendation;
 
     // State for the tick-based candle engine (assuming it's accessible globally or passed in)
     const tickBasedCandleEngine20 = (window as any).tickBasedCandleEngine20; // Example: accessing a global instance
@@ -1217,90 +1255,52 @@ const MLTrader = observer(() => {
                                             </div>
 
                                             {trend && (
-                                                <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
-                                                    <span className="trend-icon">{getTrendIcon(trend)}</span>
-                                                    <div className="trend-details">
-                                                        <Text size="xs" weight="bold">{trend.recommendation.toUpperCase()}</Text>
-                                                        <Text size="xs">{trend.confidence.toFixed(0)}% Confidence</Text>
-                                                    </div>
-                                                    <div className="indicator-data">
-                                                        <div className="indicator-row">
-                                                            <Text size="xs">Price: {trend.price?.toFixed(5) || 'N/A'}</Text>
-                                                            {/* Updated to show ROC alignment */}
-                                                            <Text size="xs" className={`roc-alignment ${trend.rocAlignment || 'NEUTRAL'}`}>
-                                                                ROC Align: {trend.rocAlignment || 'NEUTRAL'}
-                                                            </Text>
-                                                        </div>
-                                                        <div className="indicator-row">
-                                                            {/* Displaying Fast and Slow ROC */}
-                                                            <Text size="xs">Fast ROC: {trend.fastROC.toFixed(3)}</Text>
-                                                            <Text size="xs">Slow ROC: {trend.slowROC.toFixed(3)}</Text>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Ehlers Signal Quality Indicators */}
-                                                    {trend.ehlers && (
-                                                        <div className="ehlers-signals">
-                                                            <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
-                                                            <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
-                                                            <Text size="xs">ANTIC: {trend.ehlers.anticipatorySignal.toFixed(2)}</Text>
-                                                            {trend.ehlersRecommendation?.anticipatory && (
-                                                                <div className={`anticipatory-signal ${trend.ehlersRecommendation.signalStrength}`}>
-                                                                    {trend.ehlersRecommendation.signalStrength === 'strong' && (
-                                                                        <Text size="xs" color="profit-success">🎯 STRONG PULLBACK</Text>
-                                                                    )}
-                                                                    {trend.ehlersRecommendation.signalStrength === 'medium' && (
-                                                                        <Text size="xs" color="prominent">⚡ EARLY SIGNAL</Text>
-                                                                    )}
-                                                                    {trend.ehlersRecommendation.signalStrength === 'weak' && (
-                                                                        <Text size="xs" color="general">📊 POTENTIAL</Text>
-                                                                    )}
-                                                                </div>
+                                                <div className={`trend-indicator ${getTrendClass(trend)}`}>
+                                                    <div className="trend-header">
+                                                        <span className="trend-icon">{getTrendIcon(trend)}</span>
+                                                        <div className="trend-details">
+                                                            <strong>{trend.marketPhase.toUpperCase()} Market</strong>
+                                                            {trend.tradingCondition && (
+                                                                <span className={`condition-badge ${trend.tradingCondition}`}>
+                                                                    {trend.tradingCondition.toUpperCase()}
+                                                                </span>
                                                             )}
                                                         </div>
-                                                    )}
+                                                    </div>
 
-                                                    {/* Enhanced Pullback Analysis Display */}
-                                                    {trend.pullbackAnalysis && trend.pullbackAnalysis.isPullback && (
-                                                        <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
-                                                            <div className="pullback-header">
-                                                                <Text size="xs" weight="bold" color={
-                                                                    trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
-                                                                    trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
-                                                                }>
-                                                                    🎯 PULLBACK DETECTED
-                                                                </Text>
-                                                                {trend.pullbackAnalysis.entrySignal && (
-                                                                    <div className="entry-signal-badge">
-                                                                        <Text size="xs" weight="bold" color="profit-success">
-                                                                            🚀 ENTRY SIGNAL
-                                                                        </Text>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="pullback-details">
-                                                                <Text size="xs">
-                                                                    Type: {trend.pullbackAnalysis.pullbackType.replace('_', ' ').toUpperCase()}
-                                                                </Text>
-                                                                <Text size="xs">
-                                                                    Strength: {trend.pullbackAnalysis.pullbackStrength.toUpperCase()}
-                                                                </Text>
-                                                                <Text size="xs">
-                                                                    Trend: {trend.pullbackAnalysis.longerTermTrend.toUpperCase()}
-                                                                </Text>
-                                                                <Text size="xs">
-                                                                    Confidence: {trend.pullbackAnalysis.confidence}%
-                                                                </Text>
-                                                                {trend.pullbackAnalysis.priceVsDecycler !== undefined && (
-                                                                    <Text size="xs">
-                                                                        Price vs Decycler: {trend.pullbackAnalysis.priceVsDecycler.toFixed(2)}%
-                                                                    </Text>
-                                                                )}
-                                                            </div>
+                                                    {trend.phaseBasedStrategy && (
+                                                        <div className="strategy-info">
+                                                            <span className="strategy-label">Strategy:</span>
+                                                            <span className="strategy-value">
+                                                                {trend.phaseBasedStrategy.replace('_', ' ').toUpperCase()}
+                                                            </span>
                                                         </div>
                                                     )}
 
-
+                                                    <div className="indicator-data">
+                                                        <div className="indicator-row">
+                                                            <span>Long-term:</span>
+                                                            <span className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
+                                                                {(trend.longTermTrend || 'neutral').toUpperCase()}
+                                                            </span>
+                                                        </div>
+                                                        <div className="indicator-row">
+                                                            <span>ROC Status:</span>
+                                                            <span className={`roc-status ${trend.rocAlignment?.toLowerCase() || 'neutral'}`}>
+                                                                {trend.rocAlignment || 'NEUTRAL'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="indicator-row">
+                                                            <span>Phase Strength:</span>
+                                                            <span>{(trend.phaseStrength * 1000).toFixed(2)}</span>
+                                                        </div>
+                                                        <div className="indicator-row">
+                                                            <span>30-Tick Trend:</span>
+                                                            <span className={`tick-trend ${trend.tickTrend?.direction?.toLowerCase() || 'neutral'}`}>
+                                                                {trend.tickTrend?.direction || 'NEUTRAL'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -1321,7 +1321,7 @@ const MLTrader = observer(() => {
                             </div>
                             <div className="no-recommendations-content">
                                 <Text size="xs" color="general">
-                                    {scanner_status?.isScanning ? 
+                                    {scanner_status?.isScanning ?
                                         localize('Scanning {{connectedSymbols}}/{{totalSymbols}} markets for opportunities...', {
                                             connectedSymbols: scanner_status.connectedSymbols,
                                             totalSymbols: scanner_status.totalSymbols
@@ -1337,8 +1337,8 @@ const MLTrader = observer(() => {
                                     <div className="status-item">
                                         <span className="status-label">{localize('Last Update:')}</span>
                                         <span className="status-value">
-                                            {scanner_status?.lastUpdate ? 
-                                                new Date(scanner_status.lastUpdate).toLocaleTimeString() : 
+                                            {scanner_status?.lastUpdate ?
+                                                new Date(scanner_status.lastUpdate).toLocaleTimeString() :
                                                 localize('Initializing...')
                                             }
                                         </span>
@@ -1361,8 +1361,8 @@ const MLTrader = observer(() => {
                                                     <div className="symbol-header">
                                                         <Text size="xs" weight="bold">{symbolInfo.display_name}</Text>
                                                         <div className={`signal-indicator ${trend?.recommendation.toLowerCase() || 'hold'}`}>
-                                                            {trend?.recommendation === 'BUY' ? '📈' : 
-                                                             trend?.recommendation === 'SELL' ? '📉' : 
+                                                            {trend?.recommendation === 'BUY' ? '📈' :
+                                                             trend?.recommendation === 'SELL' ? '📉' :
                                                              '⏸️'}
                                                         </div>
                                                     </div>
@@ -1397,8 +1397,8 @@ const MLTrader = observer(() => {
                                 </Text>
                                 <div className="scanner-progress">
                                     <div className="progress-bar">
-                                        <div 
-                                            className="progress-fill" 
+                                        <div
+                                            className="progress-fill"
                                             style={{ width: `${scanning_progress}%` }}
                                         />
                                     </div>
@@ -1452,7 +1452,7 @@ const MLTrader = observer(() => {
                                             </Text>
                                             <div className="recommendation-badge">
                                                 <Text size="xs" weight="bold" color={
-                                                    trend?.recommendation === 'BUY' ? 'profit' : 
+                                                    trend?.recommendation === 'BUY' ? 'profit' :
                                                     trend?.recommendation === 'SELL' ? 'loss' : 'general'
                                                 }>
                                                     {trend?.recommendation || 'HOLD'}
@@ -1502,7 +1502,7 @@ const MLTrader = observer(() => {
                                                         <div className="roc-alignment">
                                                             <Text size="xs" color="general">Alignment:</Text>
                                                             <Text size="xs" color={
-                                                                trend.rocAlignment === 'BULLISH' ? 'profit' : 
+                                                                trend.rocAlignment === 'BULLISH' ? 'profit' :
                                                                 trend.rocAlignment === 'BEARISH' ? 'loss' : 'general'
                                                             }>
                                                                 {trend.rocAlignment}
@@ -1556,7 +1556,7 @@ const MLTrader = observer(() => {
                                                             <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
                                                                 <div className="pullback-header">
                                                                     <Text size="xs" weight="bold" color={
-                                                                        trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
+                                                                        trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' :
                                                                         trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
                                                                     }>
                                                                         🎯 PULLBACK DETECTED

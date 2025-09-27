@@ -6,6 +6,7 @@ import { DerivMarketConfig } from './ehlers-signal-processing';
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
 export type MarketPhase = 'rising' | 'falling' | 'ranging' | 'transition';
+export type TradingCondition = 'favorable' | 'unfavorable' | 'wait';
 
 export interface TrendAnalysis {
     symbol: string;
@@ -23,6 +24,8 @@ export interface TrendAnalysis {
     marketPhase: MarketPhase;
     phaseStrength: number;
     isTrending: boolean;
+    tradingCondition: TradingCondition;
+    phaseBasedStrategy: 'buy_dips' | 'sell_rallies' | 'mean_reversion' | 'wait_for_clarity';
 
     // Multi-timeframe analysis
     shortTermTrend: TrendDirection;
@@ -576,6 +579,10 @@ export class TrendAnalysisEngine {
             rocCrossover, longTermAnalysis
         );
 
+        // Assess trading conditions
+        const tradingCondition = this.assessTradingCondition(longTermAnalysis.marketPhase, confidence, longTermAnalysis);
+        const phaseBasedStrategy = this.getPhaseBasedStrategy(longTermAnalysis.marketPhase);
+
         const analysis: TrendAnalysis = {
             symbol,
             timestamp: Date.now(),
@@ -587,7 +594,7 @@ export class TrendAnalysisEngine {
             recommendation,
             reason: this.generateEnhancedReason(
                 recommendation, fastROC, slowROC, rocAlignment, 
-                rocCrossover, tickTrend, longTermAnalysis
+                rocCrossover, tickTrend, longTermAnalysis, tradingCondition, phaseBasedStrategy
             ),
             score,
             fastROC,
@@ -598,6 +605,8 @@ export class TrendAnalysisEngine {
             marketPhase: longTermAnalysis.marketPhase,
             phaseStrength: longTermAnalysis.phaseStrength,
             isTrending: longTermAnalysis.marketPhase === 'rising' || longTermAnalysis.marketPhase === 'falling',
+            tradingCondition,
+            phaseBasedStrategy,
             shortTermTrend: longTermAnalysis.shortTermTrend,
             mediumTermTrend: longTermAnalysis.mediumTermTrend,
             longTermTrend: longTermAnalysis.longTermTrend,
@@ -611,7 +620,8 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
 
-        console.log(`🎯 ${symbol}: ${recommendation} | Phase: ${longTermAnalysis.marketPhase.toUpperCase()} | ` +
+        console.log(`🎯 ${symbol}: ${recommendation} | Phase: ${longTermAnalysis.marketPhase.toUpperCase()} (${tradingCondition}) | ` +
+                   `Strategy: ${phaseBasedStrategy.replace('_', ' ').toUpperCase()} | ` +
                    `Fast ROC: ${fastROC.toFixed(3)}% | Slow ROC: ${slowROC.toFixed(3)}% | ` +
                    `30-Tick: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}%)`);
     }
@@ -830,7 +840,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate recommendations based on market phase
+     * Generate recommendations based on market phase with enhanced binary options logic
      */
     private generateMarketPhaseRecommendation(
         fastROC: number, 
@@ -843,50 +853,65 @@ export class TrendAnalysisEngine {
     ): 'BUY' | 'SELL' | 'HOLD' {
         const { marketPhase, longTermTrend } = longTermAnalysis;
 
-        // High confidence threshold for recommendations
-        if (confidence < 60) return 'HOLD';
+        // Determine trading condition and strategy
+        const tradingCondition = this.assessTradingCondition(marketPhase, confidence, longTermAnalysis);
+        const phaseBasedStrategy = this.getPhaseBasedStrategy(marketPhase);
 
-        // Different strategies for different market phases
+        // Conservative approach - only trade in favorable conditions
+        if (tradingCondition === 'unfavorable' || tradingCondition === 'wait') {
+            return 'HOLD';
+        }
+
+        // Enhanced confidence threshold for binary options
+        const minConfidence = this.getMinConfidenceForPhase(marketPhase);
+        if (confidence < minConfidence) return 'HOLD';
+
+        // Phase-specific trading logic
         switch (marketPhase) {
             case 'rising':
-                // Buy dips in rising markets
-                if (rocCrossover === 'BULLISH_CROSS' && longTermTrend === 'bullish') {
-                    return 'BUY';
-                }
-                if (rocAlignment === 'BEARISH' && confidence < 70) {
-                    return 'SELL'; // Take profits or short-term reversal
-                }
-                if (longTermTrend === 'bullish' && tickTrend.direction === 'BULLISH') {
-                    return 'BUY';
+                // Buy dips strategy - wait for temporary weakness in strong uptrend
+                if (phaseBasedStrategy === 'buy_dips') {
+                    // Look for temporary pullbacks in rising market
+                    if (rocAlignment === 'BEARISH' && longTermTrend === 'bullish' && confidence >= 75) {
+                        return 'BUY'; // Buy the dip
+                    }
+                    // Strong momentum continuation
+                    if (rocCrossover === 'BULLISH_CROSS' && tickTrend.direction === 'BULLISH' && confidence >= 80) {
+                        return 'BUY';
+                    }
                 }
                 break;
 
             case 'falling':
-                // Sell rallies in falling markets
-                if (rocCrossover === 'BEARISH_CROSS' && longTermTrend === 'bearish') {
-                    return 'SELL';
-                }
-                if (rocAlignment === 'BULLISH' && confidence < 70) {
-                    return 'BUY'; // Bounce play
-                }
-                if (longTermTrend === 'bearish' && tickTrend.direction === 'BEARISH') {
-                    return 'SELL';
+                // Sell rallies strategy - wait for temporary strength in strong downtrend
+                if (phaseBasedStrategy === 'sell_rallies') {
+                    // Look for temporary bounces in falling market
+                    if (rocAlignment === 'BULLISH' && longTermTrend === 'bearish' && confidence >= 75) {
+                        return 'SELL'; // Sell the rally
+                    }
+                    // Strong momentum continuation
+                    if (rocCrossover === 'BEARISH_CROSS' && tickTrend.direction === 'BEARISH' && confidence >= 80) {
+                        return 'SELL';
+                    }
                 }
                 break;
 
             case 'ranging':
-                // Range-bound strategy - mean reversion
-                if (rocCrossover === 'BULLISH_CROSS' && tickTrend.direction === 'BULLISH') {
-                    return 'BUY';
-                }
-                if (rocCrossover === 'BEARISH_CROSS' && tickTrend.direction === 'BEARISH') {
-                    return 'SELL';
+                // Mean reversion strategy - trade bounces off support/resistance
+                if (phaseBasedStrategy === 'mean_reversion') {
+                    // Conservative mean reversion signals
+                    if (rocCrossover === 'BULLISH_CROSS' && tickTrend.direction === 'BULLISH' && confidence >= 85) {
+                        return 'BUY';
+                    }
+                    if (rocCrossover === 'BEARISH_CROSS' && tickTrend.direction === 'BEARISH' && confidence >= 85) {
+                        return 'SELL';
+                    }
                 }
                 break;
 
             case 'transition':
-                // Wait for high-confidence signals only
-                if (confidence > 80) {
+                // Wait for clarity - only highest confidence signals
+                if (confidence >= 90 && tickTrend.consistency >= 80) {
                     if (rocAlignment === 'BULLISH' && tickTrend.direction === 'BULLISH') {
                         return 'BUY';
                     }
@@ -898,6 +923,63 @@ export class TrendAnalysisEngine {
         }
 
         return 'HOLD';
+    }
+
+    /**
+     * Assess overall trading condition based on market phase
+     */
+    private assessTradingCondition(marketPhase: MarketPhase, confidence: number, longTermAnalysis: any): TradingCondition {
+        // Check for favorable market conditions
+        const trendAlignment = this.checkTrendAlignment(longTermAnalysis);
+        const phaseStrength = longTermAnalysis.phaseStrength;
+
+        // Favorable conditions
+        if ((marketPhase === 'rising' || marketPhase === 'falling') && 
+            trendAlignment >= 0.67 && 
+            phaseStrength > this.TREND_STRENGTH_THRESHOLD) {
+            return 'favorable';
+        }
+
+        // Ranging market with clear boundaries
+        if (marketPhase === 'ranging' && confidence >= 80) {
+            return 'favorable';
+        }
+
+        // Unfavorable conditions - avoid trading
+        if (marketPhase === 'transition' || 
+            trendAlignment < 0.33 || 
+            phaseStrength < this.RANGING_THRESHOLD) {
+            return 'unfavorable';
+        }
+
+        // Wait for better conditions
+        return 'wait';
+    }
+
+    /**
+     * Get phase-based trading strategy
+     */
+    private getPhaseBasedStrategy(marketPhase: MarketPhase): 'buy_dips' | 'sell_rallies' | 'mean_reversion' | 'wait_for_clarity' {
+        switch (marketPhase) {
+            case 'rising': return 'buy_dips';
+            case 'falling': return 'sell_rallies';
+            case 'ranging': return 'mean_reversion';
+            case 'transition': return 'wait_for_clarity';
+            default: return 'wait_for_clarity';
+        }
+    }
+
+    /**
+     * Get minimum confidence threshold based on market phase
+     */
+    private getMinConfidenceForPhase(marketPhase: MarketPhase): number {
+        switch (marketPhase) {
+            case 'rising': return 70;  // Lower threshold for trending markets
+            case 'falling': return 70;
+            case 'ranging': return 80; // Higher threshold for ranging markets
+            case 'transition': return 90; // Very high threshold for uncertain markets
+            default: return 85;
+        }
     }
 
     /**
@@ -939,7 +1021,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate enhanced reasoning
+     * Generate enhanced reasoning with market phase context
      */
     private generateEnhancedReason(
         recommendation: string,
@@ -948,24 +1030,46 @@ export class TrendAnalysisEngine {
         rocAlignment: string,
         rocCrossover: string,
         tickTrend: any,
-        longTermAnalysis: any
+        longTermAnalysis: any,
+        tradingCondition: TradingCondition,
+        phaseBasedStrategy: string
     ): string {
         const { marketPhase, longTermTrend, shortTermTrend, trendDuration } = longTermAnalysis;
         
-        let reason = `${recommendation} signal in ${marketPhase.toUpperCase()} market. `;
+        let reason = `${recommendation} signal in ${marketPhase.toUpperCase()} market (${tradingCondition}). `;
         
-        reason += `Long-term trend: ${longTermTrend.toUpperCase()}, `;
-        reason += `Short-term: ${shortTermTrend.toUpperCase()}. `;
+        // Add strategy context
+        switch (phaseBasedStrategy) {
+            case 'buy_dips':
+                reason += `Strategy: Buy dips in rising market. `;
+                break;
+            case 'sell_rallies':
+                reason += `Strategy: Sell rallies in falling market. `;
+                break;
+            case 'mean_reversion':
+                reason += `Strategy: Mean reversion in ranging market. `;
+                break;
+            case 'wait_for_clarity':
+                reason += `Strategy: Wait for market clarity. `;
+                break;
+        }
+        
+        reason += `Trends - Long: ${longTermTrend.toUpperCase()}, Short: ${shortTermTrend.toUpperCase()}. `;
         
         if (rocCrossover !== 'NONE') {
             reason += `ROC ${rocCrossover.replace('_', ' ')}. `;
         }
         
         if (trendDuration > 0) {
-            reason += `Trend duration: ${Math.floor(trendDuration / 60)}min. `;
+            reason += `Trend age: ${Math.floor(trendDuration / 60)}min. `;
         }
         
         reason += `30-tick consistency: ${tickTrend.consistency.toFixed(0)}%.`;
+        
+        // Add trading condition warning
+        if (tradingCondition === 'wait' || tradingCondition === 'unfavorable') {
+            reason += ` CONDITIONS NOT OPTIMAL FOR TRADING.`;
+        }
         
         return reason;
     }
