@@ -150,10 +150,6 @@ const MLTrader = observer(() => {
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
     const [roc_sensitive_settings, setRocSensitiveSettings] = useState(false); // ROC sensitivity toggle
 
-    // Tick flow states
-    const [tick_flow_active, setTickFlowActive] = useState(false);
-    const [connected_symbols, setConnectedSymbols] = useState<Set<string>>(new Set());
-    const [tick_flow_stats, setTickFlowStats] = useState({ totalTicksProcessed: 0, totalCandlesGenerated: 0 });
 
 
     // Remove modal state - we bypass the modal completely
@@ -283,17 +279,6 @@ const MLTrader = observer(() => {
                 updateTrendsFromScanner();
             });
 
-            // Subscribe to tick flow updates
-            const tickFlowUnsubscribe = marketScanner.onTickFlowChange((data) => {
-                setTickFlowActive(data.isActive);
-                setConnectedSymbols(new Set(data.connectedSymbols));
-                setTickFlowStats({
-                    totalTicksProcessed: data.totalTicksProcessed,
-                    totalCandlesGenerated: data.totalCandlesGenerated,
-                });
-            });
-
-
             setIsScannerInitialized(true);
             setStatus('Market scanner initialized successfully');
 
@@ -319,7 +304,6 @@ const MLTrader = observer(() => {
             return () => {
                 statusUnsubscribe();
                 recommendationUnsubscribe();
-                tickFlowUnsubscribe();
                 clearInterval(trendUpdateInterval);
             };
 
@@ -1176,7 +1160,7 @@ const MLTrader = observer(() => {
     };
 
     // Flag to check if the modal is open for recommendation loading
-    const is_modal_open = !!modal_recommendation;
+    const is_modal_open = !!modal_recommendation; 
 
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
@@ -1284,7 +1268,7 @@ const MLTrader = observer(() => {
                                                         <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
                                                             <div className="pullback-header">
                                                                 <Text size="xs" weight="bold" color={
-                                                                    trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' :
+                                                                    trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
                                                                     trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
                                                                 }>
                                                                     🎯 PULLBACK DETECTED
@@ -1340,38 +1324,69 @@ const MLTrader = observer(() => {
                             </div>
                             <div className="no-recommendations-content">
                                 <Text size="xs" color="general">
-                                    {tick_flow_active ?
-                                        `Tick Flow Active: ${connected_symbols.size}/${ENHANCED_VOLATILITY_SYMBOLS.length} symbols` :
-                                        scanner_status?.isScanning ?
-                                            `Scanning ${scanner_status.connectedSymbols}/${scanner_status.totalSymbols} symbols...` :
-                                            'Waiting for market data...'
+                                    {scanner_status?.isScanning ? 
+                                        localize('Scanning {{connectedSymbols}}/{{totalSymbols}} markets for opportunities...', {
+                                            connectedSymbols: scanner_status.connectedSymbols,
+                                            totalSymbols: scanner_status.totalSymbols
+                                        }) :
+                                        localize('Monitoring market conditions for high-confidence signals')
                                     }
                                 </Text>
-                                <div className="scanning-progress">
-                                    <div
-                                        className="progress-bar"
-                                        style={{ width: `${scanning_progress}%` }}
-                                    />
-                                </div>
-                                {tick_flow_active && (
-                                    <div className="tick-flow-stats">
-                                        <Text size="xs" color="profit-success">
-                                            🎯 Real-time: {tick_flow_stats.totalTicksProcessed || 0} ticks, {tick_flow_stats.totalCandlesGenerated || 0} candles
-                                        </Text>
+                                <div className="market-analysis-status">
+                                    <div className="status-item">
+                                        <span className="status-label">{localize('Trends Analyzed:')}</span>
+                                        <span className="status-value">{scanner_status?.trendsAnalyzed || 0}</span>
                                     </div>
-                                )}
-                                {initial_scan_complete ? (
-                                    <Text size="xs" color="prominent">
-                                        No strong signals detected. Try adjusting trend filters.
+                                    <div className="status-item">
+                                        <span className="status-label">{localize('Last Update:')}</span>
+                                        <span className="status-value">
+                                            {scanner_status?.lastUpdate ? 
+                                                new Date(scanner_status.lastUpdate).toLocaleTimeString() : 
+                                                localize('Initializing...')
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                                <Text size="xs" color="general" className="waiting-message">
+                                    {localize('💡 Recommendations appear when ROC alignment and Ehlers signals meet strict quality thresholds')}
+                                </Text>
+
+                                {/* Market Health Overview */}
+                                <div className="market-health-overview">
+                                    <Text size="xs" weight="bold" color="prominent">
+                                        {localize('Current Market Analysis')}
                                     </Text>
-                                ) : (
-                                    <Text size="xs" color="general">
-                                        {tick_flow_active ?
-                                            'Processing real-time tick data for trend analysis...' :
-                                            'Building trend analysis database... This may take a few moments.'
-                                        }
-                                    </Text>
-                                )}
+                                    <div className="market-symbols-grid">
+                                        {ENHANCED_VOLATILITY_SYMBOLS.slice(0, 5).map(symbolInfo => {
+                                            const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
+                                            return (
+                                                <div key={symbolInfo.symbol} className="symbol-status-card">
+                                                    <div className="symbol-header">
+                                                        <Text size="xs" weight="bold">{symbolInfo.display_name}</Text>
+                                                        <div className={`signal-indicator ${trend?.recommendation.toLowerCase() || 'hold'}`}>
+                                                            {trend?.recommendation === 'BUY' ? '📈' : 
+                                                             trend?.recommendation === 'SELL' ? '📉' : 
+                                                             '⏸️'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="symbol-metrics">
+                                                        <span className="metric">
+                                                            {localize('Score: {{score}}', { score: trend?.score?.toFixed(0) || '0' })}
+                                                        </span>
+                                                        <span className="metric">
+                                                            {localize('Confidence: {{confidence}}%', { confidence: trend?.confidence?.toFixed(0) || '0' })}
+                                                        </span>
+                                                    </div>
+                                                    {trend?.ehlers?.snr && (
+                                                        <Text size="xs" color="general">
+                                                            {localize('SNR: {{snr}}dB', { snr: trend.ehlers.snr.toFixed(1) })}
+                                                        </Text>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1516,7 +1531,7 @@ const MLTrader = observer(() => {
                                                     <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
                                                         <div className="pullback-header">
                                                             <Text size="xs" weight="bold" color={
-                                                                trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' :
+                                                                trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
                                                                 trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
                                                             }>
                                                                 🎯 PULLBACK DETECTED
