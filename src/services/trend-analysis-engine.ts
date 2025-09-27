@@ -708,7 +708,15 @@ export class TrendAnalysisEngine {
             severity: 'low',
             recommendation: 'ROC alignment consistent with trend analysis'
         };
-    }bol, 3);
+    }
+
+    /**
+     * Validate dual ROC signal with candle pattern confirmation (increased sensitivity)
+     */
+    private validateDualROCSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
+        // Import candle reconstruction engine
+        const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 3);
 
         if (recentCandles.length < 2) {
             console.log(`${symbol}: Insufficient candle data for pattern validation`);
