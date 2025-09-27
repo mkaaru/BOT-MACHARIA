@@ -498,10 +498,10 @@ const MLTrader = observer(() => {
 
             // ROC sensitivity settings - use toggle state
             const rocSensitive = roc_sensitive_settings;
-            // These periods are derived from the user's request: ROC(9) and ROC(50)
+            // These periods are derived from the user's request: ROC(1) and ROC(5)
             // and the sensitivity toggle halving them.
-            const longTermROCPeriod = rocSensitive ? 25 : 50; // Half of 50 is 25
-            const shortTermROCPeriod = rocSensitive ? 5 : 9;  // Half of 9 is ~4.5, let's use 5 for simplicity or stick to user's 9/50 base
+            const longTermROCPeriod = rocSensitive ? 3 : 5; // Half of 5 is ~2.5, round to 3
+            const shortTermROCPeriod = rocSensitive ? 1 : 1;  // ROC(1) stays at 1
             const actualShortTermROC = shortTermROCPeriod; // Use the calculated value directly
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -1599,8 +1599,8 @@ const MLTrader = observer(() => {
                                     <Text className="card-title">ROC Sensitivity</Text>
                                     <Text className="card-description" size="xs" color="general">
                                         {roc_sensitive_settings
-                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
-                                            : `Default: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
+                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 3 : 5}, Short-term ${roc_sensitive_settings ? 1 : 1} periods`
+                                            : `Default: Long-term ${roc_sensitive_settings ? 3 : 5}, Short-term ${roc_sensitive_settings ? 1 : 1} periods`
                                         }
                                     </Text>
                                 </div>
@@ -1624,10 +1624,10 @@ const MLTrader = observer(() => {
                                     <Text className="card-title">Current ROC Settings</Text>
                                     <div className="roc-settings-display">
                                         <Text size="xs">
-                                            Long-term: {roc_sensitive_settings ? 25 : 50} periods
+                                            Long-term: {roc_sensitive_settings ? 3 : 5} periods
                                         </Text>
                                         <Text size="xs">
-                                            Short-term: {roc_sensitive_settings ? 5 : 9} periods
+                                            Short-term: {roc_sensitive_settings ? 1 : 1} periods
                                         </Text>
                                         <Text size="xs" color={roc_sensitive_settings ? "profit-success" : "general"}>
                                             Mode: {roc_sensitive_settings ? "Sensitive" : "Default"}
