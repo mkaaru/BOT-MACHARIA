@@ -69,27 +69,43 @@ export class TickStreamManager {
                 
                 // Handle tick history response
                 if (rawData.msg_type === 'history' && rawData.history) {
-                    const symbol = rawData.echo_req.ticks_history;
+                    const symbol = rawData.echo_req?.ticks_history;
+                    if (!symbol) {
+                        console.warn('⚠️ History response missing symbol in echo_req');
+                        return;
+                    }
+
                     const times = rawData.history.times;
                     const prices = rawData.history.prices;
                     
+                    if (!times || !prices) {
+                        console.warn(`⚠️ Invalid history data structure for ${symbol}:`, rawData.history);
+                        return;
+                    }
+
                     const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
                     const is1sVolatility = symbolInfo?.is_1s_volatility || false;
                     
-                    console.log(`📈 Received history for ${symbol} (${is1sVolatility ? '1s' : 'regular'}): ${prices.length} ticks`);
+                    console.log(`📈 Processing history for ${symbol} (${is1sVolatility ? '1s' : 'regular'}): ${prices.length} ticks`);
                     
-                    // Process historical ticks
-                    for (let i = 0; i < prices.length; i++) {
+                    // Process historical ticks one by one
+                    let processedCount = 0;
+                    for (let i = 0; i < Math.min(times.length, prices.length); i++) {
                         const tickData: TickData = {
                             symbol,
                             epoch: times[i],
                             quote: parseFloat(prices[i]),
                             timestamp: new Date(times[i] * 1000),
                         };
-                        this.notifyTickCallbacks(tickData);
+                        
+                        // Only process valid tick data
+                        if (!isNaN(tickData.quote) && tickData.epoch > 0) {
+                            this.notifyTickCallbacks(tickData);
+                            processedCount++;
+                        }
                     }
                     
-                    console.log(`✅ Processed ${prices.length} historical ticks for ${symbol}`);
+                    console.log(`✅ Successfully processed ${processedCount}/${prices.length} historical ticks for ${symbol}`);
                     return;
                 }
                 
@@ -171,43 +187,57 @@ export class TickStreamManager {
             
             console.log(`📊 Subscribing to ${symbol} (${is1sVolatility ? '1-second' : 'regular'} volatility)...`);
 
-            // First, get historical ticks without subscription to ensure we get the data
+            // First, get historical ticks using the correct API format
             const historyRequest = {
                 ticks_history: symbol,
                 count: 5000,
                 end: 'latest',
-                style: 'ticks'
+                style: 'ticks',
+                subscribe: 1
             };
 
             console.log(`Requesting historical data for ${symbol}:`, historyRequest);
-            const historyResponse = await this.api.send(historyRequest);
+            
+            try {
+                const historyResponse = await this.api.send(historyRequest);
 
-            if (historyResponse.error) {
-                console.error(`❌ API Error for ${symbol}:`, historyResponse.error);
-                throw new Error(`Failed to get history for ${symbol}: ${historyResponse.error.message} (Code: ${historyResponse.error.code})`);
-            }
-
-            // Process historical ticks immediately
-            if (historyResponse.history && historyResponse.history.prices) {
-                const times = historyResponse.history.times;
-                const prices = historyResponse.history.prices;
-                
-                console.log(`✅ Processing ${prices.length} historical ticks for ${symbol} (${is1sVolatility ? '1s' : 'regular'})`);
-                
-                // Process each historical tick
-                for (let i = 0; i < prices.length; i++) {
-                    const tickData: TickData = {
-                        symbol,
-                        epoch: times[i],
-                        quote: parseFloat(prices[i]),
-                        timestamp: new Date(times[i] * 1000),
-                    };
-                    this.notifyTickCallbacks(tickData);
+                if (historyResponse.error) {
+                    console.error(`❌ API Error for ${symbol}:`, historyResponse.error);
+                    throw new Error(`Failed to get history for ${symbol}: ${historyResponse.error.message} (Code: ${historyResponse.error.code})`);
                 }
 
-                console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for 500-period ROC analysis`);
-            } else {
-                console.warn(`⚠️ No historical data received for ${symbol}`);
+                // Process historical ticks immediately
+                if (historyResponse.history && historyResponse.history.prices) {
+                    const times = historyResponse.history.times;
+                    const prices = historyResponse.history.prices;
+                    
+                    console.log(`✅ Processing ${prices.length} historical ticks for ${symbol} (${is1sVolatility ? '1s' : 'regular'})`);
+                    
+                    // Process each historical tick
+                    for (let i = 0; i < prices.length; i++) {
+                        const tickData: TickData = {
+                            symbol,
+                            epoch: times[i],
+                            quote: parseFloat(prices[i]),
+                            timestamp: new Date(times[i] * 1000),
+                        };
+                        this.notifyTickCallbacks(tickData);
+                    }
+
+                    console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for 500-period ROC analysis`);
+                    
+                    // Store subscription ID for this historical request
+                    if (historyResponse.subscription?.id) {
+                        this.subscriptions.set(symbol, historyResponse.subscription.id);
+                        console.log(`📈 Historical subscription active for ${symbol} with ID: ${historyResponse.subscription.id}`);
+                        return; // We're already subscribed through the history request
+                    }
+                } else {
+                    console.warn(`⚠️ No historical data received for ${symbol}`);
+                }
+            } catch (error) {
+                console.error(`❌ Error getting historical data for ${symbol}:`, error);
+                // Continue to try regular subscription if history fails
             }
 
             // Now subscribe for real-time updates
@@ -362,20 +392,26 @@ export class TickStreamManager {
      */
     async get500HistoricalTicks(symbol: string): Promise<TickData[]> {
         try {
+            console.log(`🔍 Fetching 500 historical ticks for ${symbol}...`);
+            
             const historyResponse = await this.api.send({
                 ticks_history: symbol,
                 count: 500,
                 end: 'latest',
-                style: 'ticks'
+                style: 'ticks',
+                subscribe: 0  // Don't subscribe, just get data
             });
 
             if (historyResponse.error) {
-                throw new Error(`Failed to get 500 ticks for ${symbol}: ${historyResponse.error.message}`);
+                console.error(`❌ Error getting 500 ticks for ${symbol}:`, historyResponse.error);
+                throw new Error(`Failed to get 500 ticks for ${symbol}: ${historyResponse.error.message} (Code: ${historyResponse.error.code})`);
             }
 
-            if (historyResponse.history && historyResponse.history.prices) {
+            if (historyResponse.history && historyResponse.history.prices && historyResponse.history.times) {
                 const times = historyResponse.history.times;
                 const prices = historyResponse.history.prices;
+                
+                console.log(`📊 Received ${prices.length} historical ticks for ${symbol}`);
                 
                 const ticks: TickData[] = [];
                 for (let i = 0; i < prices.length; i++) {
@@ -387,13 +423,15 @@ export class TickStreamManager {
                     });
                 }
                 
-                console.log(`Retrieved exactly ${ticks.length} historical ticks for ${symbol}`);
+                console.log(`✅ Successfully processed ${ticks.length} historical ticks for ${symbol}`);
                 return ticks;
+            } else {
+                console.warn(`⚠️ No historical data structure found for ${symbol}`, historyResponse);
+                return [];
             }
 
-            return [];
         } catch (error) {
-            console.error(`Error getting 500 ticks for ${symbol}:`, error);
+            console.error(`❌ Exception getting 500 ticks for ${symbol}:`, error);
             return [];
         }
     }

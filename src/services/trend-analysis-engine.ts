@@ -209,6 +209,8 @@ export class TrendAnalysisEngine {
         // Process with Ehlers preprocessing and update analysis
         if (prices.length >= this.SLOW_ROC_PERIOD + 10) { // Need enough data for slow ROC + preprocessing
             this.updateTrendAnalysis(symbol, price);
+        } else if (prices.length === 100 || prices.length === 200 || prices.length === 300 || prices.length === 400) {
+            console.log(`📊 ${symbol}: Building history... ${prices.length}/500 ticks collected for ROC analysis`);
         }
     }
 
