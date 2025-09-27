@@ -1,16 +1,8 @@
+
 import { CandleData } from './candle-reconstruction-engine';
 import { TickBasedCandleEngine, TickCandleData } from './tick-based-candle-engine';
 import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
 import { DerivMarketConfig } from './ehlers-signal-processing';
-import { 
-    EhlersPredictiveSystem, 
-    EhlersTradingBot, 
-    TenSecondCandleEngine,
-    EhlersAnalysis,
-    TrendSignal as EhlersTrendSignal,
-    tenSecondCandleEngine,
-    ehlersTradingBot
-} from './ehlers-predictive-system';
 
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
@@ -27,11 +19,20 @@ export interface TrendAnalysis {
     reason: string;
     lastUpdate: Date;
 
-    // ROC indicators only
+    // ROC indicators
     fastROC: number;
     slowROC: number;
     rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE';
+
+    // 60-tick trend validation
+    tickTrend: {
+        direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+        consistency: number;
+        bullishCount: number;
+        bearishCount: number;
+        totalTicks: number;
+    };
 
     // Ehlers preprocessed data
     ehlersSmoothed?: number[];
@@ -49,6 +50,9 @@ export interface MarketScanResult {
 export class TrendAnalysisEngine {
     private trendData: Map<string, TrendAnalysis> = new Map();
     private updateTimer: NodeJS.Timeout;
+    
+    // True tick price tracking (60 consecutive ticks)
+    private tickPrices: Map<string, number[]> = new Map();
     private priceHistory: Map<string, number[]> = new Map();
     private ehlersHistory: Map<string, number[]> = new Map();
     private signalCache: Map<string, {
@@ -67,12 +71,16 @@ export class TrendAnalysisEngine {
     // ROC periods (tick-based)
     private readonly FAST_ROC_PERIOD = 5;
     private readonly SLOW_ROC_PERIOD = 20;
+    
+    // Tick tracking constants
+    private readonly REQUIRED_TICKS = 60;
+    private readonly CONSISTENCY_THRESHOLD = 65; // 65% consistency required
 
     constructor() {
         // Update trend analysis periodically
         this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000); // Every 30 seconds
 
-        console.log('🚀 ROC-Only TrendAnalysisEngine initialized with Ehlers preprocessing');
+        console.log('🚀 ROC-Only TrendAnalysisEngine initialized with true 60-tick validation');
     }
 
     /**
@@ -125,6 +133,66 @@ export class TrendAnalysisEngine {
         console.log(`🎯 Added tick-candle data for ${symbol}: ${close.toFixed(5)} (${candle.tickCount} ticks)`);
     }
 
+    /**
+     * Process individual tick data for true 60-tick validation
+     */
+    processTick(tick: { symbol: string; quote: number; epoch: number }): void {
+        const { symbol, quote, epoch } = tick;
+        
+        // Store individual tick for 60-tick validation
+        this.storeTickPrice(symbol, quote);
+        
+        // Also store for price history (candle-based analysis)
+        this.storePriceHistory(symbol, quote);
+        
+        // Update trend analysis if we have enough data
+        if (this.hasSufficientTickData(symbol)) {
+            this.updateTrendAnalysis(symbol, quote);
+        }
+    }
+
+    /**
+     * Store individual tick prices for 60-tick trend validation
+     */
+    private storeTickPrice(symbol: string, price: number): void {
+        if (!this.tickPrices.has(symbol)) {
+            this.tickPrices.set(symbol, []);
+        }
+
+        const ticks = this.tickPrices.get(symbol)!;
+        ticks.push(price);
+
+        // Maintain exactly 60 ticks for validation
+        if (ticks.length > this.REQUIRED_TICKS) {
+            ticks.shift();
+        }
+    }
+
+    /**
+     * Store price history for ROC calculations (candle-based)
+     */
+    private storePriceHistory(symbol: string, price: number): void {
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+        }
+
+        const prices = this.priceHistory.get(symbol)!;
+        prices.push(price);
+
+        // Maintain reasonable history size
+        if (prices.length > this.MAX_HISTORY) {
+            prices.shift();
+        }
+    }
+
+    /**
+     * Check if we have sufficient tick data for validation
+     */
+    private hasSufficientTickData(symbol: string): boolean {
+        const ticks = this.tickPrices.get(symbol);
+        return ticks ? ticks.length >= this.REQUIRED_TICKS : false;
+    }
+
     private processWithEhlers(symbol: string, price: number, timestamp: number): void {
         // Store price history
         if (!this.priceHistory.has(symbol)) {
@@ -146,7 +214,80 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Update trend analysis for a specific symbol using ROC-only approach
+     * Validate 60-tick trend consistency with true tick-by-tick analysis
+     */
+    private validate60TickTrend(symbol: string): {
+        direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+        consistency: number;
+        bullishCount: number;
+        bearishCount: number;
+        totalTicks: number;
+    } {
+        const ticks = this.tickPrices.get(symbol);
+        
+        if (!ticks || ticks.length < this.REQUIRED_TICKS) {
+            return {
+                direction: 'NEUTRAL',
+                consistency: 0,
+                bullishCount: 0,
+                bearishCount: 0,
+                totalTicks: ticks?.length || 0
+            };
+        }
+
+        // Analyze consecutive tick movements
+        let bullishCount = 0;
+        let bearishCount = 0;
+        let totalMovements = 0;
+
+        for (let i = 1; i < ticks.length; i++) {
+            const priceChange = ticks[i] - ticks[i - 1];
+            
+            if (priceChange > 0) {
+                bullishCount++;
+                totalMovements++;
+            } else if (priceChange < 0) {
+                bearishCount++;
+                totalMovements++;
+            }
+            // Zero changes are ignored for consistency calculation
+        }
+
+        if (totalMovements === 0) {
+            return {
+                direction: 'NEUTRAL',
+                consistency: 0,
+                bullishCount: 0,
+                bearishCount: 0,
+                totalTicks: ticks.length
+            };
+        }
+
+        const bullishConsistency = (bullishCount / totalMovements) * 100;
+        const bearishConsistency = (bearishCount / totalMovements) * 100;
+
+        let direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+        let consistency = 0;
+
+        if (bullishConsistency >= this.CONSISTENCY_THRESHOLD) {
+            direction = 'BULLISH';
+            consistency = bullishConsistency;
+        } else if (bearishConsistency >= this.CONSISTENCY_THRESHOLD) {
+            direction = 'BEARISH';
+            consistency = bearishConsistency;
+        }
+
+        return {
+            direction,
+            consistency,
+            bullishCount,
+            bearishCount,
+            totalTicks: ticks.length
+        };
+    }
+
+    /**
+     * Update trend analysis with true 60-tick validation
      */
     private updateTrendAnalysis(symbol: string, currentPrice: number): void {
         const prices = this.priceHistory.get(symbol);
@@ -155,13 +296,16 @@ export class TrendAnalysisEngine {
             return;
         }
 
-        // Step 1: Apply Ehlers preprocessing to remove noise
+        // Step 1: Validate 60-tick trend
+        const tickTrend = this.validate60TickTrend(symbol);
+        
+        // Step 2: Apply Ehlers preprocessing to remove noise
         const preprocessedPrices = this.applyEhlersPreprocessing(prices);
 
         // Store Ehlers history
         this.ehlersHistory.set(symbol, preprocessedPrices);
 
-        // Step 2: Calculate ROC indicators on preprocessed data
+        // Step 3: Calculate ROC indicators on preprocessed data
         const fastROC = this.calculateROC(preprocessedPrices, this.FAST_ROC_PERIOD);
         const slowROC = this.calculateROC(preprocessedPrices, this.SLOW_ROC_PERIOD);
 
@@ -170,19 +314,21 @@ export class TrendAnalysisEngine {
             return;
         }
 
-        // Step 3: Determine ROC alignment and crossovers
+        // Step 4: Determine ROC alignment and crossovers
         const rocAlignment = this.determineROCAlignment(fastROC, slowROC);
         const rocCrossover = this.detectROCCrossover(symbol, fastROC, slowROC, preprocessedPrices);
 
-        // Step 4: Generate trading signals based on ROC logic
+        // Step 5: Generate trading signals based on ROC logic
         const direction = this.determineTrendDirection(fastROC, slowROC, rocAlignment);
         const strength = this.calculateTrendStrength(fastROC, slowROC);
         const confidence = this.calculateConfidence(fastROC, slowROC, rocAlignment, rocCrossover);
 
-        // Step 5: Generate recommendation based on ROC strategy with 60-tick validation
-        const recommendation = this.generateROCRecommendation(fastROC, slowROC, rocAlignment, rocCrossover, confidence, symbol);
+        // Step 6: Generate recommendation based on ROC strategy with 60-tick validation
+        const recommendation = this.generateROCRecommendation(
+            fastROC, slowROC, rocAlignment, rocCrossover, confidence, tickTrend
+        );
 
-        // Step 6: Calculate trading score
+        // Step 7: Calculate trading score
         const score = this.calculateTradingScore(direction, strength, confidence, rocAlignment, rocCrossover);
 
         const analysis: TrendAnalysis = {
@@ -194,19 +340,22 @@ export class TrendAnalysisEngine {
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation,
-            reason: this.generateReasonForRecommendation(recommendation, fastROC, slowROC, rocAlignment, rocCrossover, symbol),
+            reason: this.generateReasonForRecommendation(
+                recommendation, fastROC, slowROC, rocAlignment, rocCrossover, tickTrend
+            ),
             score,
             fastROC,
             slowROC,
             rocAlignment,
             rocCrossover,
+            tickTrend, // Include detailed tick trend analysis
             ehlersSmoothed: preprocessedPrices.slice(-20), // Keep last 20 for debugging
             roofingFiltered: this.applyRoofingFilter(prices).slice(-20)
         };
 
         this.trendData.set(symbol, analysis);
 
-        console.log(`ROC Analysis for ${symbol}: Fast ROC(${this.FAST_ROC_PERIOD}): ${fastROC.toFixed(4)}%, Slow ROC(${this.SLOW_ROC_PERIOD}): ${slowROC.toFixed(4)}% - Alignment: ${rocAlignment} - Crossover: ${rocCrossover} - Recommendation: ${recommendation} (${confidence.toFixed(1)}%)`);
+        console.log(`🎯 ${symbol}: ${recommendation} | Fast ROC: ${fastROC.toFixed(3)}% | Slow ROC: ${slowROC.toFixed(3)}% | 60-Tick: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}%) | Bulls: ${tickTrend.bullishCount}, Bears: ${tickTrend.bearishCount}`);
     }
 
     /**
@@ -398,47 +547,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate 60-tick candle trend consistency
-     */
-    private validate60TickCandleTrend(symbol: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
-        const prices = this.priceHistory.get(symbol);
-        if (!prices || prices.length < 60) {
-            return 'NEUTRAL'; // Not enough data
-        }
-
-        // Get last 60 tick prices
-        const last60Prices = prices.slice(-60);
-        
-        // Count bullish vs bearish movements
-        let bullishCount = 0;
-        let bearishCount = 0;
-        
-        for (let i = 1; i < last60Prices.length; i++) {
-            if (last60Prices[i] > last60Prices[i - 1]) {
-                bullishCount++;
-            } else if (last60Prices[i] < last60Prices[i - 1]) {
-                bearishCount++;
-            }
-        }
-        
-        const totalMoves = bullishCount + bearishCount;
-        if (totalMoves === 0) return 'NEUTRAL';
-        
-        const bullishPercentage = (bullishCount / totalMoves) * 100;
-        const bearishPercentage = (bearishCount / totalMoves) * 100;
-        
-        // Require at least 65% consistency for a clear trend
-        if (bullishPercentage >= 65) {
-            return 'BULLISH';
-        } else if (bearishPercentage >= 65) {
-            return 'BEARISH';
-        }
-        
-        return 'NEUTRAL';
-    }
-
-    /**
-     * Generate ROC-based recommendation with 60-tick validation
+     * Generate ROC-based recommendation with true 60-tick validation
      */
     private generateROCRecommendation(
         fastROC: number, 
@@ -446,32 +555,32 @@ export class TrendAnalysisEngine {
         rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
         rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE',
         confidence: number,
-        symbol: string
+        tickTrend: { direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; consistency: number }
     ): 'BUY' | 'SELL' | 'HOLD' {
-        // First validate 60-tick candle trend
-        const tickTrend = this.validate60TickCandleTrend(symbol);
         
-        // Only proceed with BUY/SELL if 60-tick trend is consistent
-        if (tickTrend === 'NEUTRAL') {
+        // STRICT VALIDATION: Only generate signals if 60-tick trend confirms
+        if (tickTrend.direction === 'NEUTRAL') {
             return 'HOLD'; // No clear 60-tick trend
         }
 
-        // High confidence crossover signals (must align with 60-tick trend)
-        if (confidence > 70 && rocCrossover === 'BULLISH_CROSS' && tickTrend === 'BULLISH') {
-            return 'BUY';
+        // BUY signals require bullish 60-tick trend confirmation
+        if (tickTrend.direction === 'BULLISH') {
+            if (confidence > 70 && rocCrossover === 'BULLISH_CROSS') {
+                return 'BUY';
+            }
+            if (confidence > 75 && rocAlignment === 'BULLISH') {
+                return 'BUY';
+            }
         }
 
-        if (confidence > 70 && rocCrossover === 'BEARISH_CROSS' && tickTrend === 'BEARISH') {
-            return 'SELL';
-        }
-
-        // Strong alignment signals (must align with 60-tick trend)
-        if (confidence > 75 && rocAlignment === 'BULLISH' && tickTrend === 'BULLISH') {
-            return 'BUY';
-        }
-
-        if (confidence > 75 && rocAlignment === 'BEARISH' && tickTrend === 'BEARISH') {
-            return 'SELL';
+        // SELL signals require bearish 60-tick trend confirmation
+        if (tickTrend.direction === 'BEARISH') {
+            if (confidence > 70 && rocCrossover === 'BEARISH_CROSS') {
+                return 'SELL';
+            }
+            if (confidence > 75 && rocAlignment === 'BEARISH') {
+                return 'SELL';
+            }
         }
 
         return 'HOLD';
@@ -521,7 +630,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate reason for recommendation with 60-tick validation
+     * Generate detailed reason including 60-tick analysis
      */
     private generateReasonForRecommendation(
         recommendation: 'BUY' | 'SELL' | 'HOLD',
@@ -529,29 +638,26 @@ export class TrendAnalysisEngine {
         slowROC: number,
         rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
         rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE',
-        symbol: string
+        tickTrend: { direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; consistency: number; bullishCount: number; bearishCount: number }
     ): string {
-        const tickTrend = this.validate60TickCandleTrend(symbol);
-        
-        if (recommendation === 'BUY') {
-            if (rocCrossover === 'BULLISH_CROSS') {
-                return `BUY: Fast ROC(${this.FAST_ROC_PERIOD}) crossed above zero, Slow ROC(${this.SLOW_ROC_PERIOD}) positive + 60-tick bullish trend confirmed`;
+        const reasons: string[] = [];
+
+        reasons.push(`Fast ROC: ${fastROC.toFixed(3)}%, Slow ROC: ${slowROC.toFixed(3)}%`);
+        reasons.push(`ROC Alignment: ${rocAlignment}, Crossover: ${rocCrossover}`);
+        reasons.push(`60-Tick Trend: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}% consistency)`);
+        reasons.push(`Tick Movements: ${tickTrend.bullishCount} bullish, ${tickTrend.bearishCount} bearish`);
+
+        if (recommendation === 'HOLD') {
+            if (tickTrend.direction === 'NEUTRAL') {
+                reasons.push('No clear 60-tick trend direction (requires ≥65% consistency)');
+            } else {
+                reasons.push('ROC signals not strong enough for confirmed trend direction');
             }
-            return `BUY: ROCs aligned bullish + 60-tick bullish trend - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
+        } else {
+            reasons.push(`Strong ${recommendation} signal confirmed by 60-tick trend validation`);
         }
 
-        if (recommendation === 'SELL') {
-            if (rocCrossover === 'BEARISH_CROSS') {
-                return `SELL: Fast ROC(${this.FAST_ROC_PERIOD}) crossed below zero, Slow ROC(${this.SLOW_ROC_PERIOD}) negative + 60-tick bearish trend confirmed`;
-            }
-            return `SELL: ROCs aligned bearish + 60-tick bearish trend - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
-        }
-
-        if (tickTrend === 'NEUTRAL') {
-            return `HOLD: 60-tick trend not consistent enough (${tickTrend}) - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
-        }
-
-        return `HOLD: ROC signals not strong enough despite ${tickTrend.toLowerCase()} 60-tick trend - Fast: ${fastROC.toFixed(2)}%, Slow: ${slowROC.toFixed(2)}%`;
+        return reasons.join(' | ');
     }
 
     /**
@@ -560,7 +666,7 @@ export class TrendAnalysisEngine {
     private updateAllTrends(): void {
         // This would normally iterate through all active symbols
         // For now, just a placeholder since individual candles trigger updates
-        console.log(`🔄 ROC Trend Engine: Monitoring ${this.trendData.size} symbols`);
+        console.log(`🔄 ROC Trend Engine: Monitoring ${this.trendData.size} symbols with 60-tick validation`);
     }
 
     /**
@@ -596,6 +702,38 @@ export class TrendAnalysisEngine {
     }
 
     /**
+     * Get tick data for debugging
+     */
+    getTickData(symbol: string): number[] {
+        return this.tickPrices.get(symbol) || [];
+    }
+
+    /**
+     * Get comprehensive stats
+     */
+    getStats(): {
+        totalSymbols: number;
+        symbolsWithTickData: number;
+        symbolsWithSufficientTicks: number;
+        avgTickCount: number;
+    } {
+        const symbolsWithTickData = this.tickPrices.size;
+        const symbolsWithSufficientTicks = Array.from(this.tickPrices.values())
+            .filter(ticks => ticks.length >= this.REQUIRED_TICKS).length;
+        
+        const totalTicks = Array.from(this.tickPrices.values())
+            .reduce((sum, ticks) => sum + ticks.length, 0);
+        const avgTickCount = symbolsWithTickData > 0 ? totalTicks / symbolsWithTickData : 0;
+
+        return {
+            totalSymbols: this.trendData.size,
+            symbolsWithTickData,
+            symbolsWithSufficientTicks,
+            avgTickCount
+        };
+    }
+
+    /**
      * Cleanup
      */
     destroy(): void {
@@ -603,13 +741,12 @@ export class TrendAnalysisEngine {
             clearInterval(this.updateTimer);
         }
         this.trendData.clear();
+        this.tickPrices.clear();
         this.priceHistory.clear();
         this.ehlersHistory.clear();
         this.signalCache.clear();
     }
 }
 
-// Remove the old singleton instance and create a new one without HMA dependency
-// No longer need HMA calculator, so it's removed from the constructor.
-//export const trendAnalysisEngine = new TrendAnalysisEngine(efficientHMACalculator);
+// Create singleton instance without HMA dependency
 export const trendAnalysisEngine = new TrendAnalysisEngine();

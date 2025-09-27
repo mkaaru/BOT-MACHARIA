@@ -204,6 +204,22 @@ export const TickFlowDemo: React.FC = () => {
                 <span className="trend-label">Slow ROC:</span>
                 <span className="trend-value">{stats.lastTrendAnalysis.slowROC?.toFixed(4)}%</span>
               </div>
+              {stats.lastTrendAnalysis.tickTrend && (
+                <>
+                  <div className="trend-item">
+                    <span className="trend-label">60-Tick Trend:</span>
+                    <span className={`trend-value ${stats.lastTrendAnalysis.tickTrend.direction.toLowerCase()}`}>
+                      {stats.lastTrendAnalysis.tickTrend.direction} ({stats.lastTrendAnalysis.tickTrend.consistency.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="trend-item">
+                    <span className="trend-label">Tick Movements:</span>
+                    <span className="trend-value">
+                      ↑{stats.lastTrendAnalysis.tickTrend.bullishCount} ↓{stats.lastTrendAnalysis.tickTrend.bearishCount}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

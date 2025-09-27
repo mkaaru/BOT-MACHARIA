@@ -182,6 +182,13 @@ export class MarketScanner {
             // Create tick callback for this symbol
             const tickCallback = (tick: TickData) => {
                 try {
+                    // Process individual tick for 60-tick validation
+                    this.trendAnalysisEngine.processTick({
+                        symbol: tick.symbol,
+                        quote: tick.quote,
+                        epoch: tick.epoch
+                    });
+
                     // Process tick through candle reconstruction
                     candleReconstructionEngine.processTick(tick);
                 } catch (error) {
