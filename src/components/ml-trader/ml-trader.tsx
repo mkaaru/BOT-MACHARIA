@@ -441,23 +441,24 @@ const MLTrader = observer(() => {
 
             console.log('🚀 Bypassing modal - Loading recommendation directly to Bot Builder:', recommendation);
 
+            // Map recommendation direction to Asian contract types
+            let asianContractType = 'ASIANU'; // Default to Asian Up
+            if (recommendation.direction === 'CALL' || recommendation.direction === 'BUY') {
+                asianContractType = 'ASIANU'; // Asian Up for bullish signals
+            } else if (recommendation.direction === 'PUT' || recommendation.direction === 'SELL') {
+                asianContractType = 'ASIAND'; // Asian Down for bearish signals
+            }
+
             // Set modal form data for generateBotBuilderXML function
             setModalRecommendation(recommendation);
             setModalSymbol(recommendation.symbol || '');
-            setModalContractType(recommendation.direction || 'CALL');
+            setModalContractType(asianContractType); // Use Asian contract type
             setModalDuration(recommendation.suggestedDuration || 20); // Default to 20 seconds
             setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's'); // Default to seconds
             setModalStake(recommendation.suggestedStake || 1.0); // Default to $1
 
-            // Set trade mode based on recommendation strategy or direction
-            const strategy = recommendation.strategy || recommendation.direction || 'call';
-            if (strategy === 'call' || strategy === 'put' ||
-                recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
-                setModalTradeMode('rise_fall');
-            } else {
-                // For barrier-based strategies, use higher/lower
-                setModalTradeMode('higher_lower');
-            }
+            // Always set trade mode to Asian Up/Down for recommendations
+            setModalTradeMode('asian_up_down');
 
             // Set barrier offset for higher/lower trades
             if (recommendation.barrier) {
@@ -474,27 +475,17 @@ const MLTrader = observer(() => {
 
             // Generate Bot Builder XML with the recommendation data
             const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol);
-            const trade_mode = strategy === 'call' || strategy === 'put' ||
-                recommendation.direction === 'CALL' || recommendation.direction === 'PUT' ? 'rise_fall' : 'higher_lower';
-            const contract_type = recommendation.direction || 'CALL';
+            const trade_mode = 'asian_up_down'; // Always use Asian Up/Down for recommendations
+            const contract_type = asianContractType; // Use the mapped Asian contract type
             const duration = recommendation.suggestedDuration || 20;
             const duration_unit = (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's';
             const stake = recommendation.suggestedStake || 1.0;
-            const barrier_offset = recommendation.barrier ?
-                Math.abs(parseFloat(recommendation.barrier) - (recommendation.currentPrice || 0)) : 0.001;
 
-            // Calculate barrier offset based on contract type
-            const calculateBarrierOffset = () => {
-                if (trade_mode === 'higher_lower') {
-                    return contract_type === 'CALL' ? `+${barrier_offset}` : `-${barrier_offset}`;
-                }
-                return '+0.35';
-            };
-
-            const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
-            const tradeTypeList = trade_mode === 'higher_lower' ? 'highlow' : 'risefall';
-            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
-            const barrierOffsetValue = calculateBarrierOffset();
+            // Asian Up/Down doesn't use barriers, so we don't need barrier calculations
+            const tradeTypeCategory = 'asian'; // Asian trade type category
+            const tradeTypeList = 'asian'; // Asian trade type list
+            const contractTypeField = contract_type; // ASIANU or ASIAND
+            const barrierOffsetValue = ''; // No barrier for Asian trades
 
             // Use default values: stakes = 0.5, duration = 5 ticks
             const defaultStake = 0.5;
@@ -662,7 +653,7 @@ const MLTrader = observer(() => {
     <!-- Trade options -->
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${trade_mode === 'higher_lower' ? 'true' : 'false'}" has_second_barrier="false" has_prediction="false"></mutation>
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
         <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
         <value name="DURATION">
           <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
@@ -680,13 +671,6 @@ const MLTrader = observer(() => {
             <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
           </block>
         </value>
-        ${trade_mode === 'higher_lower' ? `
-        <value name="BARRIEROFFSET">
-          <shadow type="math_number" id="barrierOffsetBlock">
-            <field name="NUM">${barrier_offset}</field>
-          </shadow>
-        </value>
-        <field name="BARRIEROFFSETTYPE_LIST">${contract_type === 'CALL' ? '+' : '-'}</field>` : ''}
       </block>
     </statement>
   </block>
