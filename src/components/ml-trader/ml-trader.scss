@@ -62,9 +62,167 @@
     }
 
     &__subtitle {
-        color: var(--text-general);
-        font-size: 1.4rem;
-        margin: 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+
+    &__smart-controls {
+        background: var(--general-section-1);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+        border: 1px solid var(--border-normal);
+
+        .smart-controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+
+            h3 {
+                margin: 0;
+                color: var(--text-prominent);
+                font-size: 16px;
+                font-weight: 600;
+            }
+
+            .toggle-btn {
+                background: var(--button-secondary-default);
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: var(--button-secondary-hover);
+                }
+
+                &.active {
+                    background: var(--brand-coral);
+                    color: white;
+                    border-color: var(--brand-coral);
+                }
+            }
+        }
+
+        .smart-controls-panel {
+            .controls-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+                margin-bottom: 16px;
+
+                .control-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+
+                    .control-input {
+                        padding: 8px 12px;
+                        border: 1px solid var(--border-normal);
+                        border-radius: 4px;
+                        background: var(--general-main-1);
+                        color: var(--text-prominent);
+                        font-size: 14px;
+
+                        &:focus {
+                            outline: none;
+                            border-color: var(--brand-coral);
+                            box-shadow: 0 0 0 1px var(--brand-coral);
+                        }
+
+                        &:disabled {
+                            background: var(--general-section-1);
+                            color: var(--text-disabled);
+                            cursor: not-allowed;
+                        }
+                    }
+                }
+            }
+
+            .smart-controls-actions {
+                display: flex;
+                justify-content: center;
+                margin-bottom: 16px;
+
+                .smart-trader-btn {
+                    padding: 12px 24px;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+
+                    &.start {
+                        background: var(--status-success);
+                        color: white;
+
+                        &:hover:not(:disabled) {
+                            background: var(--status-success-transparent);
+                        }
+
+                        &:disabled {
+                            background: var(--general-disabled);
+                            color: var(--text-disabled);
+                            cursor: not-allowed;
+                        }
+                    }
+
+                    &.stop {
+                        background: var(--status-danger);
+                        color: white;
+
+                        &:hover {
+                            background: var(--status-danger-transparent);
+                        }
+                    }
+                }
+            }
+
+            .smart-trader-status {
+                background: var(--general-main-1);
+                border: 1px solid var(--border-normal);
+                border-radius: 6px;
+                padding: 12px;
+                margin-bottom: 12px;
+
+                .status-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 4px;
+
+                    &:last-child {
+                        margin-bottom: 0;
+                    }
+
+                    .profit {
+                        color: var(--status-success);
+                        font-weight: 600;
+                    }
+
+                    .loss {
+                        color: var(--status-danger);
+                        font-weight: 600;
+                    }
+                }
+            }
+
+            .next-trade-info {
+                background: var(--general-section-1);
+                border: 1px solid var(--border-normal);
+                border-radius: 6px;
+                padding: 8px 12px;
+
+                p {
+                    margin: 2px 0;
+                }
+            }
+        }
     }
 
     &__content {

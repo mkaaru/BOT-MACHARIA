@@ -1165,6 +1165,222 @@ const MLTrader = observer(() => {
     // State for the tick-based candle engine (assuming it's accessible globally or passed in)
     const tickBasedCandleEngine5 = (window as any).tickBasedCandleEngine5; // Example: accessing a global instance
 
+    // Smart Trader Manual Controls
+    const [showSmartTrader, setShowSmartTrader] = useState(false);
+    const [smartTraderSettings, setSmartTraderSettings] = useState({
+        stopLoss: 0,
+        takeProfit: 0,
+        martingaleMultiplier: 1,
+        stake: 1.0
+    });
+    const [isSmartTraderActive, setIsSmartTraderActive] = useState(false);
+    const [smartTraderProfit, setSmartTraderProfit] = useState(0);
+    const [smartTraderBalance, setSmartTraderBalance] = useState(0);
+    const [currentSmartTrade, setCurrentSmartTrade] = useState<TradingRecommendation | null>(null);
+
+    // Smart Trader Trading Logic
+    const startSmartTrader = useCallback(async () => {
+        if (!recommendations.length) {
+            setStatus('No recommendations available. Please wait for market analysis.');
+            return;
+        }
+
+        // Get the top recommendation
+        const topRecommendation = recommendations[0];
+        if (!topRecommendation) {
+            setStatus('No valid recommendation found.');
+            return;
+        }
+
+        if (!apiRef.current) {
+            try {
+                const { generateDerivApiInstance } = await import('@/external/bot-skeleton/services/api/appId');
+                apiRef.current = generateDerivApiInstance();
+                console.log('🔌 Smart Trader: API initialized');
+            } catch (error) {
+                console.error('Failed to initialize API for Smart Trader:', error);
+                setStatus('Error: Failed to initialize trading API');
+                return;
+            }
+        }
+
+        setIsSmartTraderActive(true);
+        setCurrentSmartTrade(topRecommendation);
+        setStatus(`🚀 Smart Trader started: ${topRecommendation.displayName} ${topRecommendation.direction}`);
+
+        // Execute the trade
+        executeSmartTrade(topRecommendation);
+    }, [recommendations]);
+
+    const executeSmartTrade = async (recommendation: TradingRecommendation) => {
+        if (!apiRef.current || !isSmartTraderActive) return;
+
+        try {
+            await authorizeIfNeeded();
+
+            // Map recommendation direction to contract type
+            const contractType = recommendation.direction === 'BUY' ? 'CALL' : 'PUT';
+
+            // Create trade option
+            const trade_option: any = {
+                amount: Number(smartTraderSettings.stake),
+                basis: 'stake',
+                currency: account_currency,
+                duration: recommendation.suggestedDuration || 20,
+                duration_unit: recommendation.suggestedDurationUnit || 's',
+                symbol: recommendation.symbol,
+            };
+
+            // Add barrier for Higher/Lower trades if needed
+            if (recommendation.barrier) {
+                const currentPrice = recommendation.currentPrice || 0;
+                if (currentPrice > 0) {
+                    const barrierValue = contractType === 'CALL' 
+                        ? currentPrice + 0.001 
+                        : currentPrice - 0.001;
+                    trade_option.barrier = barrierValue.toFixed(5);
+                }
+            }
+
+            const buy_req = tradeOptionToBuy(contractType, trade_option);
+            const { buy, error } = await apiRef.current.buy(buy_req);
+            
+            if (error) {
+                console.error('❌ Smart Trade Purchase failed:', error);
+                setStatus(`Trade error: ${error.message || error.code || 'Unknown error'}`);
+                setIsSmartTraderActive(false);
+                return;
+            }
+
+            if (!buy || !buy.contract_id) {
+                console.error('❌ Smart Trade: No contract returned from purchase');
+                setStatus('Error: No contract returned from purchase');
+                setIsSmartTraderActive(false);
+                return;
+            }
+
+            console.log(`✅ Smart Trade executed successfully:`, {
+                contractId: buy.contract_id,
+                longcode: buy.longcode,
+                amount: smartTraderSettings.stake,
+                direction: recommendation.direction
+            });
+
+            setStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
+
+            // Monitor contract
+            monitorSmartTradeContract(buy.contract_id);
+
+        } catch (error) {
+            console.error('Smart Trade execution error:', error);
+            setStatus(`Error: ${error?.message || 'Unknown error'}`);
+            setIsSmartTraderActive(false);
+        }
+    };
+
+    const monitorSmartTradeContract = async (contractId: string) => {
+        try {
+            const { subscription, error: subError } = await apiRef.current.send({
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1,
+            });
+
+            if (subError) {
+                console.error('Error subscribing to Smart Trade contract:', subError);
+                setIsSmartTraderActive(false);
+                return;
+            }
+
+            const onContractUpdate = (evt: MessageEvent) => {
+                try {
+                    if (!isSmartTraderActive) {
+                        apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
+                        return;
+                    }
+
+                    const data = JSON.parse(evt.data);
+                    if (data?.msg_type === 'proposal_open_contract') {
+                        const poc = data.proposal_open_contract;
+                        
+                        if (String(poc?.contract_id || '') === String(contractId)) {
+                            // Update status while contract is running
+                            if (!poc?.is_sold && poc?.status !== 'sold') {
+                                const profit = Number(poc?.profit || 0);
+                                setSmartTraderProfit(profit);
+                                setStatus(`📊 Smart Trade running: Profit: ${profit.toFixed(2)} ${account_currency}`);
+                            }
+
+                            // Handle contract completion
+                            if (poc?.is_sold || poc?.status === 'sold') {
+                                const profit = Number(poc?.profit || 0);
+                                setSmartTraderProfit(profit);
+
+                                if (profit > 0) {
+                                    console.log(`✅ Smart Trade WIN: +${profit.toFixed(2)} ${account_currency}`);
+                                    setStatus(`✅ WIN: +${profit.toFixed(2)} ${account_currency}`);
+                                    
+                                    // Check take profit
+                                    if (smartTraderSettings.takeProfit > 0 && profit >= smartTraderSettings.takeProfit) {
+                                        setStatus(`🎯 Take Profit reached: +${profit.toFixed(2)} ${account_currency}`);
+                                        setIsSmartTraderActive(false);
+                                        return;
+                                    }
+                                } else {
+                                    console.log(`❌ Smart Trade LOSS: ${profit.toFixed(2)} ${account_currency}`);
+                                    setStatus(`❌ LOSS: ${profit.toFixed(2)} ${account_currency}`);
+                                    
+                                    // Check stop loss
+                                    if (smartTraderSettings.stopLoss > 0 && Math.abs(profit) >= smartTraderSettings.stopLoss) {
+                                        setStatus(`🛑 Stop Loss reached: ${profit.toFixed(2)} ${account_currency}`);
+                                        setIsSmartTraderActive(false);
+                                        return;
+                                    }
+
+                                    // Apply martingale multiplier for next trade
+                                    if (smartTraderSettings.martingaleMultiplier > 1) {
+                                        const newStake = smartTraderSettings.stake * smartTraderSettings.martingaleMultiplier;
+                                        setSmartTraderSettings(prev => ({ ...prev, stake: newStake }));
+                                        setStatus(`📈 Martingale applied: Next stake: ${newStake.toFixed(2)}`);
+                                    }
+                                }
+
+                                // Clean up subscription
+                                apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
+
+                                // Schedule next trade if still active
+                                if (isSmartTraderActive && recommendations.length > 0) {
+                                    setTimeout(() => {
+                                        if (isSmartTraderActive && recommendations.length > 0) {
+                                            executeSmartTrade(recommendations[0]);
+                                        }
+                                    }, 3000); // Wait 3 seconds between trades
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error processing Smart Trade contract update:', e);
+                }
+            };
+
+            apiRef.current?.connection?.addEventListener('message', onContractUpdate);
+
+        } catch (subError) {
+            console.error('Smart Trade contract subscription error:', subError);
+            setIsSmartTraderActive(false);
+        }
+    };
+
+    const stopSmartTrader = () => {
+        setIsSmartTraderActive(false);
+        setCurrentSmartTrade(null);
+        setStatus('🛑 Smart Trader stopped');
+        
+        // Reset stake to original value if martingale was applied
+        setSmartTraderSettings(prev => ({ ...prev, stake: 1.0 }));
+    };
+
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
@@ -1179,6 +1395,144 @@ const MLTrader = observer(() => {
 
                 <div className="ml-trader__content">
                     <div className="ml-trader__main-content">
+                        {/* Smart Trader Manual Controls */}
+                        <div className="ml-trader__smart-controls">
+                            <div className="smart-controls-header">
+                                <Text as="h3">Smart Trader Controls</Text>
+                                <div className="smart-controls-toggle">
+                                    <button 
+                                        className={`toggle-btn ${showSmartTrader ? 'active' : ''}`}
+                                        onClick={() => setShowSmartTrader(!showSmartTrader)}
+                                    >
+                                        {showSmartTrader ? 'Hide Controls' : 'Show Controls'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {showSmartTrader && (
+                                <div className="smart-controls-panel">
+                                    <div className="controls-grid">
+                                        <div className="control-group">
+                                            <Text size="sm" weight="bold">Stop Loss (USD):</Text>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={smartTraderSettings.stopLoss}
+                                                onChange={(e) => setSmartTraderSettings(prev => ({
+                                                    ...prev,
+                                                    stopLoss: Number(e.target.value)
+                                                }))}
+                                                className="control-input"
+                                                disabled={isSmartTraderActive}
+                                            />
+                                        </div>
+
+                                        <div className="control-group">
+                                            <Text size="sm" weight="bold">Take Profit (USD):</Text>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={smartTraderSettings.takeProfit}
+                                                onChange={(e) => setSmartTraderSettings(prev => ({
+                                                    ...prev,
+                                                    takeProfit: Number(e.target.value)
+                                                }))}
+                                                className="control-input"
+                                                disabled={isSmartTraderActive}
+                                            />
+                                        </div>
+
+                                        <div className="control-group">
+                                            <Text size="sm" weight="bold">Martingale Multiplier:</Text>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="5"
+                                                step="0.1"
+                                                value={smartTraderSettings.martingaleMultiplier}
+                                                onChange={(e) => setSmartTraderSettings(prev => ({
+                                                    ...prev,
+                                                    martingaleMultiplier: Number(e.target.value)
+                                                }))}
+                                                className="control-input"
+                                                disabled={isSmartTraderActive}
+                                            />
+                                        </div>
+
+                                        <div className="control-group">
+                                            <Text size="sm" weight="bold">Stake:</Text>
+                                            <input
+                                                type="number"
+                                                min="0.5"
+                                                step="0.1"
+                                                value={smartTraderSettings.stake}
+                                                onChange={(e) => setSmartTraderSettings(prev => ({
+                                                    ...prev,
+                                                    stake: Number(e.target.value)
+                                                }))}
+                                                className="control-input"
+                                                disabled={isSmartTraderActive}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="smart-controls-actions">
+                                        {!isSmartTraderActive ? (
+                                            <button 
+                                                className="smart-trader-btn start"
+                                                onClick={startSmartTrader}
+                                                disabled={!recommendations.length}
+                                            >
+                                                🚀 Start Smart Trader
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                className="smart-trader-btn stop"
+                                                onClick={stopSmartTrader}
+                                            >
+                                                🛑 Stop Smart Trader
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {isSmartTraderActive && currentSmartTrade && (
+                                        <div className="smart-trader-status">
+                                            <div className="status-row">
+                                                <Text size="sm">
+                                                    <strong>Trading:</strong> {currentSmartTrade.displayName} - {currentSmartTrade.direction}
+                                                </Text>
+                                            </div>
+                                            <div className="status-row">
+                                                <Text size="sm">
+                                                    <strong>Confidence:</strong> {currentSmartTrade.confidence.toFixed(1)}%
+                                                </Text>
+                                            </div>
+                                            <div className="status-row">
+                                                <Text size="sm">
+                                                    <strong>Current Profit:</strong> 
+                                                    <span className={smartTraderProfit >= 0 ? 'profit' : 'loss'}>
+                                                        {smartTraderProfit >= 0 ? '+' : ''}{smartTraderProfit.toFixed(2)} {account_currency}
+                                                    </span>
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {recommendations.length > 0 && (
+                                        <div className="next-trade-info">
+                                            <Text size="sm" weight="bold">Next Trade:</Text>
+                                            <Text size="sm">
+                                                {recommendations[0].displayName} - {recommendations[0].direction} 
+                                                ({recommendations[0].confidence.toFixed(1)}% confidence)
+                                            </Text>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Market Recommendations */}
                         {recommendations.length > 0 ? (
                         <div className="ml-trader__recommendations">
