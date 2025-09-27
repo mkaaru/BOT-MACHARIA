@@ -1,0 +1,638 @@
+import { CandleData } from './candle-reconstruction-engine';
+
+export interface EhlersIndicators {
+    // Core Ehlers Indicators
+    decycler: number;
+    instantaneousTrendline: number;
+    signalToNoiseRatio: number;
+    mama: number;
+    fama: number;
+    hilbertTransform: {
+        inPhase: number;
+        quadrature: number;
+        phase: number;
+        period: number;
+    };
+    
+    // Predictive Indicators
+    anticipatorySignal: number;
+    predictiveStochastic: number;
+    rocOfDecycler: number;
+    
+    // Market State
+    marketMode: 'trending' | 'cycling' | 'transition';
+    cycleStrength: number;
+    trendStrength: number;
+    
+    // Signals
+    buySignal: boolean;
+    sellSignal: boolean;
+    signalStrength: number;
+    confidence: number;
+}
+
+export class PureEhlersTradingSystem {
+    private data: CandleData[] = [];
+    private readonly maxDataPoints = 200;
+    private readonly alpha = 0.07; // Default smoothing
+    
+    // Ehlers coefficients for various filters
+    private readonly supersmoother = {
+        a1: 0,
+        b1: 0,
+        c1: 0,
+        c2: 0,
+        c3: 0
+    };
+
+    constructor(private period: number = 20) {
+        this.initializeCoefficients(period);
+    }
+
+    private initializeCoefficients(period: number): void {
+        // Super Smoother coefficients
+        const a1 = Math.exp(-1.414 * Math.PI / period);
+        const b1 = 2 * a1 * Math.cos(1.414 * Math.PI / period);
+        
+        this.supersmoother.a1 = a1;
+        this.supersmoother.b1 = b1;
+        this.supersmoother.c1 = 1 - b1 + a1 * a1;
+        this.supersmoother.c2 = b1;
+        this.supersmoother.c3 = -a1 * a1;
+    }
+
+    addCandle(candle: CandleData): void {
+        this.data.push(candle);
+        
+        // Maintain sliding window
+        if (this.data.length > this.maxDataPoints) {
+            this.data.shift();
+        }
+    }
+
+    /**
+     * Ehlers Super Smoother - The foundation of noise reduction
+     */
+    private calculateSuperSmoother(prices: number[]): number[] {
+        const result: number[] = [];
+        const { c1, c2, c3 } = this.supersmoother;
+
+        for (let i = 0; i < prices.length; i++) {
+            if (i < 2) {
+                result.push(prices[i]);
+            } else {
+                const smoothed = c1 * (prices[i] + prices[i - 1]) / 2 + 
+                               c2 * result[i - 1] + 
+                               c3 * result[i - 2];
+                result.push(smoothed);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Ehlers Decycler - Removes cyclic components, pure trend
+     */
+    private calculateDecycler(prices: number[], hpPeriod: number = 125): number[] {
+        const decycler: number[] = [];
+        const alpha = (Math.cos(0.707 * 2 * Math.PI / hpPeriod) + 
+                      Math.sin(0.707 * 2 * Math.PI / hpPeriod) - 1) / 
+                      Math.cos(0.707 * 2 * Math.PI / hpPeriod);
+
+        for (let i = 0; i < prices.length; i++) {
+            if (i < 2) {
+                decycler.push(prices[i]);
+            } else {
+                const value = (alpha / 2) * (prices[i] + prices[i - 1]) + 
+                             (1 - alpha) * decycler[i - 1];
+                decycler.push(value);
+            }
+        }
+        return decycler;
+    }
+
+    /**
+     * Ehlers Instantaneous Trendline - Adaptive trend following
+     */
+    private calculateInstantaneousTrendline(prices: number[]): number[] {
+        const trendline: number[] = [];
+        const smooth: number[] = this.calculateSuperSmoother(prices);
+        
+        const a = 0.07; // Adaptive factor
+
+        for (let i = 0; i < smooth.length; i++) {
+            if (i < 7) {
+                trendline.push(smooth[i]);
+            } else {
+                // Ehlers formula for instantaneous trendline
+                const it = (a - (a * a / 4)) * smooth[i] + 
+                          0.5 * a * a * smooth[i - 1] - 
+                          (a - 0.75 * a * a) * smooth[i - 2] + 
+                          2 * (1 - a) * trendline[i - 1] - 
+                          (1 - a) * (1 - a) * trendline[i - 2];
+                trendline.push(it);
+            }
+        }
+        return trendline;
+    }
+
+    /**
+     * Ehlers Hilbert Transform for market cycle analysis
+     */
+    private calculateHilbertTransform(prices: number[]): {
+        inPhase: number[];
+        quadrature: number[];
+        phase: number[];
+        period: number[];
+    } {
+        const smooth = this.calculateSuperSmoother(prices);
+        const detrender: number[] = [];
+        const inPhase: number[] = [];
+        const quadrature: number[] = [];
+        const phase: number[] = [];
+        const period: number[] = [];
+
+        for (let i = 0; i < smooth.length; i++) {
+            if (i < 7) {
+                detrender.push(0);
+                inPhase.push(0);
+                quadrature.push(0);
+                phase.push(0);
+                period.push(0);
+                continue;
+            }
+
+            // Detrend the data
+            detrender[i] = (0.0962 * smooth[i] + 0.5769 * smooth[i - 2] - 
+                           0.5769 * smooth[i - 4] - 0.0962 * smooth[i - 6]) * 
+                           (0.075 * (period[i - 1] || 20) + 0.54);
+
+            // InPhase and Quadrature components
+            const i1 = detrender[i - 3];
+            const q1 = (0.0962 * detrender[i] + 0.5769 * detrender[i - 2] - 
+                       0.5769 * detrender[i - 4] - 0.0962 * detrender[i - 6]) * 
+                       (0.075 * (period[i - 1] || 20) + 0.54);
+
+            // Smooth the I and Q components
+            inPhase[i] = 0.2 * i1 + 0.8 * (inPhase[i - 1] || 0);
+            quadrature[i] = 0.2 * q1 + 0.8 * (quadrature[i - 1] || 0);
+
+            // Calculate phase and period
+            if (inPhase[i] !== 0) {
+                phase[i] = Math.atan(quadrature[i] / inPhase[i]) * 180 / Math.PI;
+            } else {
+                phase[i] = 90;
+            }
+
+            // Calculate dominant cycle period
+            const deltaPhase = phase[i] - (phase[i - 1] || 0);
+            if (deltaPhase < 1) {
+                period[i] = period[i - 1] || 20;
+            } else {
+                period[i] = 360 / deltaPhase;
+            }
+
+            // Constrain period
+            if (period[i] > 50) period[i] = 50;
+            if (period[i] < 6) period[i] = 6;
+        }
+
+        return { inPhase, quadrature, phase, period };
+    }
+
+    /**
+     * Ehlers MAMA (MESA Adaptive Moving Average) - The gold standard
+     */
+    private calculateMAMA(prices: number[]): { mama: number[]; fama: number[] } {
+        const smooth = this.calculateSuperSmoother(prices);
+        const hilbert = this.calculateHilbertTransform(smooth);
+        const mama: number[] = [];
+        const fama: number[] = [];
+
+        for (let i = 0; i < smooth.length; i++) {
+            if (i < 10) {
+                mama.push(smooth[i]);
+                fama.push(smooth[i]);
+                continue;
+            }
+
+            // Calculate adaptive alpha based on dominant cycle
+            const fastLimit = 0.5 / (hilbert.period[i] / 2);
+            const slowLimit = 0.05 / (hilbert.period[i] / 2);
+
+            const mamaValue = fastLimit * smooth[i] + (1 - fastLimit) * mama[i - 1];
+            const famaValue = slowLimit * mamaValue + (1 - slowLimit) * fama[i - 1];
+
+            mama.push(mamaValue);
+            fama.push(famaValue);
+        }
+
+        return { mama, fama };
+    }
+
+    /**
+     * Ehlers Signal-to-Noise Ratio - Market quality assessment
+     */
+    private calculateSignalToNoiseRatio(prices: number[]): number[] {
+        const smooth = this.calculateSuperSmoother(prices);
+        const snr: number[] = [];
+
+        for (let i = 0; i < smooth.length; i++) {
+            if (i < 20) {
+                snr.push(0);
+                continue;
+            }
+
+            // Calculate signal (trend) and noise components
+            let signal = 0;
+            let noise = 0;
+
+            for (let j = 1; j <= 20; j++) {
+                const change = smooth[i] - smooth[i - j];
+                signal += change * change;
+                
+                if (j > 1) {
+                    const shortChange = smooth[i - j + 1] - smooth[i - j];
+                    noise += shortChange * shortChange;
+                }
+            }
+
+            if (noise > 0) {
+                snr.push(10 * Math.log10(signal / noise));
+            } else {
+                snr.push(0);
+            }
+        }
+
+        return snr;
+    }
+
+    /**
+     * Ehlers Predictive Stochastic
+     */
+    private calculatePredictiveStochastic(prices: number[]): number[] {
+        const stoch: number[] = [];
+        const smooth = this.calculateSuperSmoother(prices);
+
+        for (let i = 0; i < smooth.length; i++) {
+            if (i < 20) {
+                stoch.push(50);
+                continue;
+            }
+
+            // Find highest high and lowest low over period
+            let highest = -Infinity;
+            let lowest = Infinity;
+
+            for (let j = 0; j < 20; j++) {
+                if (smooth[i - j] > highest) highest = smooth[i - j];
+                if (smooth[i - j] < lowest) lowest = smooth[i - j];
+            }
+
+            if (highest !== lowest) {
+                const k = 100 * (smooth[i] - lowest) / (highest - lowest);
+                stoch.push(k);
+            } else {
+                stoch.push(50);
+            }
+        }
+
+        return this.calculateSuperSmoother(stoch);
+    }
+
+    /**
+     * Ehlers Anticipatory Signal - The predictive edge
+     */
+    private calculateAnticipatorySignal(prices: number[]): number[] {
+        const decycler = this.calculateDecycler(prices);
+        const anticipatory: number[] = [];
+
+        for (let i = 0; i < decycler.length; i++) {
+            if (i < 3) {
+                anticipatory.push(decycler[i]);
+                continue;
+            }
+
+            // Ehlers anticipatory formula - predicts next value
+            const predicted = 3 * decycler[i] - 3 * decycler[i - 1] + decycler[i - 2];
+            anticipatory.push(predicted);
+        }
+
+        return anticipatory;
+    }
+
+    /**
+     * Determine market mode based on SNR and cycle analysis
+     */
+    private determineMarketMode(snr: number, cycleStrength: number): 'trending' | 'cycling' | 'transition' {
+        if (snr > 6 && cycleStrength > 0.6) {
+            return 'trending';
+        } else if (snr > 3 && cycleStrength < 0.4) {
+            return 'cycling';
+        }
+        return 'transition';
+    }
+
+    /**
+     * Generate comprehensive Ehlers analysis
+     */
+    generateAnalysis(): EhlersIndicators | null {
+        if (this.data.length < 50) return null;
+
+        const prices = this.data.map(d => (d.high + d.low + d.close) / 3); // Typical price
+        const closes = this.data.map(d => d.close);
+
+        // Calculate all Ehlers indicators
+        const decycler = this.calculateDecycler(prices);
+        const instantaneousTrendline = this.calculateInstantaneousTrendline(prices);
+        const { mama, fama } = this.calculateMAMA(prices);
+        const hilbert = this.calculateHilbertTransform(prices);
+        const snr = this.calculateSignalToNoiseRatio(prices);
+        const anticipatory = this.calculateAnticipatorySignal(decycler);
+        const predictiveStoch = this.calculatePredictiveStochastic(prices);
+
+        const lastIndex = prices.length - 1;
+
+        // Current values
+        const currentDecycler = decycler[lastIndex];
+        const currentTrendline = instantaneousTrendline[lastIndex];
+        const currentMAMA = mama[lastIndex];
+        const currentFAMA = fama[lastIndex];
+        const currentSNR = snr[lastIndex];
+        const currentAnticipatory = anticipatory[lastIndex];
+        const currentStoch = predictiveStoch[lastIndex];
+
+        // Calculate ROC of decycler for momentum
+        const rocOfDecycler = lastIndex >= 5 ? 
+            ((currentDecycler - decycler[lastIndex - 5]) / decycler[lastIndex - 5]) * 100 : 0;
+
+        // Market state analysis
+        const cycleStrength = Math.abs(hilbert.inPhase[lastIndex]) + Math.abs(hilbert.quadrature[lastIndex]);
+        const trendStrength = Math.abs(currentMAMA - currentFAMA) / currentMAMA * 100;
+        const marketMode = this.determineMarketMode(currentSNR, cycleStrength);
+
+        // Signal generation using pure Ehlers methodology
+        let buySignal = false;
+        let sellSignal = false;
+        let signalStrength = 0;
+
+        // MAMA/FAMA crossover signals
+        const prevMAMA = mama[lastIndex - 1];
+        const prevFAMA = fama[lastIndex - 1];
+
+        if (currentMAMA > currentFAMA && prevMAMA <= prevFAMA) {
+            buySignal = true;
+            signalStrength = Math.min(100, trendStrength * 2);
+        } else if (currentMAMA < currentFAMA && prevMAMA >= prevFAMA) {
+            sellSignal = true;
+            signalStrength = Math.min(100, trendStrength * 2);
+        }
+
+        // Anticipatory signal confirmation
+        if (buySignal && currentAnticipatory > currentDecycler) {
+            signalStrength += 20;
+        } else if (sellSignal && currentAnticipatory < currentDecycler) {
+            signalStrength += 20;
+        }
+
+        // SNR quality filter
+        let confidence = Math.min(100, Math.max(0, currentSNR * 10));
+        
+        // Predictive stochastic confirmation
+        if (buySignal && currentStoch > 20 && currentStoch < 80) {
+            confidence += 15;
+        } else if (sellSignal && currentStoch > 20 && currentStoch < 80) {
+            confidence += 15;
+        }
+
+        return {
+            decycler: currentDecycler,
+            instantaneousTrendline: currentTrendline,
+            signalToNoiseRatio: currentSNR,
+            mama: currentMAMA,
+            fama: currentFAMA,
+            hilbertTransform: {
+                inPhase: hilbert.inPhase[lastIndex],
+                quadrature: hilbert.quadrature[lastIndex],
+                phase: hilbert.phase[lastIndex],
+                period: hilbert.period[lastIndex]
+            },
+            anticipatorySignal: currentAnticipatory,
+            predictiveStochastic: currentStoch,
+            rocOfDecycler,
+            marketMode,
+            cycleStrength,
+            trendStrength,
+            buySignal,
+            sellSignal,
+            signalStrength: Math.min(100, signalStrength),
+            confidence: Math.min(100, confidence)
+        };
+    }
+
+    /**
+     * Get trading recommendation based on pure Ehlers methodology
+     */
+    getTradingRecommendation(): {
+        action: 'BUY' | 'SELL' | 'HOLD';
+        strength: 'weak' | 'medium' | 'strong';
+        confidence: number;
+        reasoning: string[];
+        marketPhase: string;
+    } {
+        const analysis = this.generateAnalysis();
+        if (!analysis) {
+            return {
+                action: 'HOLD',
+                strength: 'weak',
+                confidence: 0,
+                reasoning: ['Insufficient data for analysis'],
+                marketPhase: 'unknown'
+            };
+        }
+
+        const reasoning: string[] = [];
+        let action: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
+        let strength: 'weak' | 'medium' | 'strong' = 'weak';
+
+        // Primary signal logic
+        if (analysis.buySignal && analysis.confidence > 60) {
+            action = 'BUY';
+            reasoning.push('MAMA crossed above FAMA (bullish momentum)');
+            
+            if (analysis.anticipatorySignal > analysis.decycler) {
+                reasoning.push('Anticipatory signal confirms upward move');
+                analysis.confidence += 10;
+            }
+        } else if (analysis.sellSignal && analysis.confidence > 60) {
+            action = 'SELL';
+            reasoning.push('MAMA crossed below FAMA (bearish momentum)');
+            
+            if (analysis.anticipatorySignal < analysis.decycler) {
+                reasoning.push('Anticipatory signal confirms downward move');
+                analysis.confidence += 10;
+            }
+        }
+
+        // Market quality assessment
+        if (analysis.signalToNoiseRatio > 6) {
+            reasoning.push('High signal quality (SNR > 6)');
+            strength = analysis.signalToNoiseRatio > 10 ? 'strong' : 'medium';
+        } else if (analysis.signalToNoiseRatio < 3) {
+            reasoning.push('Poor signal quality (SNR < 3) - avoid trading');
+            action = 'HOLD';
+        }
+
+        // Market mode considerations
+        reasoning.push(`Market in ${analysis.marketMode} mode`);
+        if (analysis.marketMode === 'cycling' && (action === 'BUY' || action === 'SELL')) {
+            reasoning.push('Cycle trading mode - consider mean reversion');
+        }
+
+        return {
+            action,
+            strength,
+            confidence: analysis.confidence,
+            reasoning,
+            marketPhase: `${analysis.marketMode} (SNR: ${analysis.signalToNoiseRatio.toFixed(1)})`
+        };
+    }
+}
+
+// Integration with your existing system
+export class EnhancedTrendAnalysisEngine {
+    private pureEhlers: Map<string, PureEhlersTradingSystem> = new Map();
+    
+    initializeSymbol(symbol: string): void {
+        if (!this.pureEhlers.has(symbol)) {
+            this.pureEhlers.set(symbol, new PureEhlersTradingSystem(20));
+            console.log(`🎯 Pure Ehlers system initialized for ${symbol}`);
+        }
+    }
+
+    addCandleData(candle: CandleData): void {
+        this.initializeSymbol(candle.symbol);
+        this.pureEhlers.get(candle.symbol)?.addCandle(candle);
+    }
+
+    getEhlersAnalysis(symbol: string): EhlersIndicators | null {
+        return this.pureEhlers.get(symbol)?.generateAnalysis() || null;
+    }
+
+    getEhlersRecommendation(symbol: string) {
+        return this.pureEhlers.get(symbol)?.getTradingRecommendation() || null;
+    }
+
+    /**
+     * Enhanced trend analysis integrating pure Ehlers with your existing ROC analysis
+     */
+    getEnhancedTrendAnalysis(symbol: string, currentPrice: number) {
+        const ehlersAnalysis = this.getEhlersAnalysis(symbol);
+        const ehlersRecommendation = this.getEhlersRecommendation(symbol);
+
+        if (!ehlersAnalysis || !ehlersRecommendation) {
+            return null;
+        }
+
+        // Combine Ehlers analysis with market structure
+        const combinedStrength = this.calculateCombinedStrength(ehlersAnalysis);
+        const marketQuality = this.assessMarketQuality(ehlersAnalysis);
+        
+        return {
+            symbol,
+            timestamp: Date.now(),
+            price: currentPrice,
+            
+            // Pure Ehlers indicators
+            ehlers: {
+                decycler: ehlersAnalysis.decycler,
+                instantaneousTrendline: ehlersAnalysis.instantaneousTrendline,
+                snr: ehlersAnalysis.signalToNoiseRatio,
+                netValue: ehlersAnalysis.mama - ehlersAnalysis.fama,
+                anticipatorySignal: ehlersAnalysis.anticipatorySignal
+            },
+            
+            // Enhanced recommendation
+            ehlersRecommendation: {
+                action: ehlersRecommendation.action,
+                confidence: ehlersRecommendation.confidence,
+                reason: ehlersRecommendation.reasoning.join(', '),
+                anticipatory: ehlersAnalysis.anticipatorySignal !== ehlersAnalysis.decycler,
+                signalStrength: ehlersRecommendation.strength,
+                isPullbackSignal: this.detectEhlersPullback(ehlersAnalysis)
+            },
+            
+            // Market assessment
+            marketQuality,
+            combinedStrength,
+            marketPhase: ehlersAnalysis.marketMode,
+            
+            // Final recommendation with priority
+            recommendation: ehlersRecommendation.action,
+            confidence: ehlersRecommendation.confidence,
+            score: this.calculateEhlersScore(ehlersAnalysis, ehlersRecommendation)
+        };
+    }
+
+    private calculateCombinedStrength(analysis: EhlersIndicators): number {
+        // Combine trend strength with signal strength
+        return Math.min(100, (analysis.trendStrength * 0.6) + (analysis.signalStrength * 0.4));
+    }
+
+    private assessMarketQuality(analysis: EhlersIndicators): {
+        suitable: boolean;
+        snrLevel: 'poor' | 'good' | 'excellent';
+        recommendation: string;
+    } {
+        const snr = analysis.signalToNoiseRatio;
+        
+        if (snr > 10) {
+            return {
+                suitable: true,
+                snrLevel: 'excellent',
+                recommendation: 'High-quality signals - safe to trade'
+            };
+        } else if (snr > 6) {
+            return {
+                suitable: true,
+                snrLevel: 'good',
+                recommendation: 'Good signal quality - moderate risk'
+            };
+        } else {
+            return {
+                suitable: false,
+                snrLevel: 'poor',
+                recommendation: 'Poor signal quality - avoid trading'
+            };
+        }
+    }
+
+    private detectEhlersPullback(analysis: EhlersIndicators): boolean {
+        // Detect pullback using anticipatory signal vs current trend
+        const anticipatoryDivergence = Math.abs(analysis.anticipatorySignal - analysis.decycler);
+        const trendlineDistance = Math.abs(analysis.instantaneousTrendline - analysis.decycler);
+        
+        return anticipatoryDivergence > trendlineDistance * 0.5;
+    }
+
+    private calculateEhlersScore(analysis: EhlersIndicators, recommendation: any): number {
+        let score = 0;
+        
+        // Base score from signal strength and confidence
+        score += analysis.signalStrength * 0.4;
+        score += recommendation.confidence * 0.4;
+        
+        // SNR quality bonus
+        if (analysis.signalToNoiseRatio > 10) score += 15;
+        else if (analysis.signalToNoiseRatio > 6) score += 10;
+        else if (analysis.signalToNoiseRatio < 3) score -= 20;
+        
+        // Market mode bonus
+        if (analysis.marketMode === 'trending') score += 10;
+        else if (analysis.marketMode === 'cycling') score += 5;
+        
+        return Math.min(98, Math.max(0, score));
+    }
+}
+
+export { PureEhlersTradingSystem };
