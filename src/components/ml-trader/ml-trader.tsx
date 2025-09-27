@@ -122,22 +122,57 @@ const MLTrader = observer(() => {
 
     const handleContractOutcome = useCallback((profit: number) => {
         if (profit > 0) {
-            // WIN: Reset to pre-loss state
+            // WIN: Reset to pre-loss state with intelligent adjustments
             lastOutcomeWasLossRef.current = false;
-            lossStreakRef.current = 0;
-            stepRef.current = 0;
-            setStake(baseStake); // Reset stake to base stake
-            console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
+            
+            // Gradual loss streak reset based on profit magnitude
+            if (profit > baseStake * 2) { // Big win
+                lossStreakRef.current = 0;
+                stepRef.current = 0;
+                setStake(baseStake);
+            } else { // Small win - partial reset
+                lossStreakRef.current = Math.max(0, lossStreakRef.current - 2);
+                stepRef.current = Math.max(0, stepRef.current - 1);
+                const newStake = Math.max(baseStake, parseFloat(modal_stake) * 0.8);
+                setStake(newStake.toFixed(2));
+            }
+            
+            console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Streak: ${lossStreakRef.current}, Step: ${stepRef.current}`);
         } else {
-            // LOSS: Set flag for next trade to use after-loss prediction and apply Martingale
+            // LOSS: Intelligent progression with safety limits
             lastOutcomeWasLossRef.current = true;
             lossStreakRef.current++;
-            stepRef.current = Math.min(stepRef.current + 1, 10); // Increment step, cap at 10
-            const martingaleMultiplier = 1.5; // Updated multiplier
-            setStake(prevStake => (prevStake * martingaleMultiplier).toFixed(2)); // Apply Martingale
-            console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
+            
+            // Dynamic martingale based on loss streak and account balance
+            let martingaleMultiplier = 1.5;
+            
+            // Reduce aggression after multiple losses
+            if (lossStreakRef.current >= 3) {
+                martingaleMultiplier = 1.3; // Slower progression
+            }
+            if (lossStreakRef.current >= 5) {
+                martingaleMultiplier = 1.2; // Very conservative
+            }
+            
+            // Safety cap: don't exceed 5% of balance per trade
+            const currentStake = parseFloat(modal_stake);
+            const newStake = currentStake * martingaleMultiplier;
+            const safeStake = Math.min(newStake, baseStake * 20); // Max 20x base stake
+            
+            stepRef.current = Math.min(stepRef.current + 1, 8); // Reduced cap
+            setStake(safeStake.toFixed(2));
+            
+            // Auto-pause after excessive losses
+            if (lossStreakRef.current >= 7) {
+                setIsRunning(false);
+                setStatus('Auto-paused after 7 consecutive losses for review');
+                console.log('🛑 AUTO-PAUSE: Excessive losses detected');
+                return;
+            }
+            
+            console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Streak: ${lossStreakRef.current}, New stake: ${safeStake.toFixed(2)}`);
         }
-    }, [account_currency, baseStake, ouPredPostLoss]); // Add dependencies
+    }, [account_currency, baseStake, modal_stake]); // Add dependencies
 
     useEffect(() => {
         // Initialize API connection and market scanner

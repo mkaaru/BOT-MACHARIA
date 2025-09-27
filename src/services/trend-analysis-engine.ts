@@ -5,17 +5,7 @@ import { ehlersProcessor, EhlersSignals, DerivMarketConfig } from './ehlers-sign
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
 
-export interface PullbackAnalysis {
-    isPullback: boolean;
-    pullbackType: 'bullish_pullback' | 'bearish_pullback' | 'none';
-    pullbackStrength: 'weak' | 'medium' | 'strong';
-    longerTermTrend: 'bullish' | 'bearish' | 'neutral';
-    confidence: number;
-    entrySignal: boolean;
-    decyclerValue?: number;
-    priceVsDecycler?: number;
-    recommendation: 'BUY' | 'SELL' | 'HOLD';
-}
+
 
 export interface TrendAnalysis {
     symbol: string;
@@ -51,11 +41,17 @@ export interface TrendAnalysis {
         reason: string;
         anticipatory: boolean;
         signalStrength: 'weak' | 'medium' | 'strong';
-        isPullbackSignal?: boolean;
     };
 
-    // Enhanced pullback analysis
-    pullbackAnalysis?: PullbackAnalysis;
+    // Sustained momentum analysis for Higher/Lower trades
+    sustainedMomentum?: {
+        hasSustainedMomentum: boolean;
+        direction: 'HIGHER' | 'LOWER' | 'NEUTRAL';
+        strength: number;
+        confidence: number;
+        duration: number;
+        factors: string[];
+    };
 
     // Cycle trading assessment
     cycleTrading?: {
@@ -150,8 +146,11 @@ export class TrendAnalysisEngine {
         const highs = recentCandles.map((candle: any) => candle.high);
         const lows = recentCandles.map((candle: any) => candle.low);
 
-        // Enhanced pullback detection using at least 5 candles
-        const pullbackAnalysis = this.analyzePullbackWithDecycler(recentCandles, ehlersSignals);
+        // Simple trend continuation analysis
+        const trendContinuationInfo = this.analyzeTrendContinuation(recentCandles, ehlersSignals);
+
+        // Detect sustained momentum for Higher/Lower trades
+        const sustainedMomentum = this.detectSustainedMomentum(symbol, recentCandles, ehlersSignals);
 
         // Use default ROC periods (can be made configurable later)
         const rocPeriods = this.getROCPeriods(false); // Default to non-sensitive
@@ -240,31 +239,52 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // ROC-focused analysis (removed mean reversion priorities)
-        let finalRecommendation = recommendation;
-        let enhancedScore = score;
+        // SIMPLIFIED TREND FOLLOWING SYSTEM ONLY
 
-        // Priority 1: ROC signals with increased sensitivity
-        if (persistentROCSignal && confidence >= 60) { // Lowered from 75 to 60 for higher sensitivity
-            finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
-            enhancedScore = Math.min(98, confidence + 30); // Increased bonus for ROC signals
-            console.log(`🎯 HIGH-SENSITIVITY ROC: ${persistentROCSignal} signal (${enhancedScore.toFixed(1)}%)`);
+        // VALIDATE ROC ALIGNMENT WITH RECOMMENDATION DIRECTION
+        const validateROCAlignment = (rec: string, rocAlign: 'BULLISH' | 'BEARISH' | 'NEUTRAL'): boolean => {
+            // For trend following, ROC alignment must match recommendation direction
+            if (rec === 'BUY' && rocAlign !== 'BULLISH') {
+                console.log(`❌ ${symbol}: BUY recommendation rejected - ROC alignment is ${rocAlign}, expected BULLISH`);
+                return false;
+            }
+            if (rec === 'SELL' && rocAlign !== 'BEARISH') {
+                console.log(`❌ ${symbol}: SELL recommendation rejected - ROC alignment is ${rocAlign}, expected BEARISH`);
+                return false;
+            }
+            return true;
+        };
+
+        // TREND FOLLOWING SIGNAL GENERATION
+        let recommendationType: RecommendationType = 'TREND_FOLLOWING';
+        let finalRecommendation = 'HOLD';
+        let enhancedScore = 0;
+        let finalReason = 'No trend following signal';
+
+        // Priority 1: Strong ROC signals (TREND FOLLOWING)
+        if (persistentROCSignal && confidence >= 75) {
+            const rocRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
+            if (validateROCAlignment(rocRecommendation, rocAlignment)) {
+                finalRecommendation = rocRecommendation;
+                enhancedScore = Math.min(98, confidence + 25);
+                finalReason = `Strong ${persistentROCSignal} ROC trend signal (${confidence.toFixed(1)}%)`;
+                console.log(`🎯 TREND FOLLOWING: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
+            }
         }
-        // Priority 2: Strong Ehlers trending signals (removed anticipatory focus)
-        else if (ehlersSignals && ehlersRecommendation.signalStrength === 'strong' && !ehlersRecommendation.anticipatory) {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(95, score + 20);
-            console.log(`⚡ EHLERS TRENDING: Strong signal (${enhancedScore.toFixed(1)}%)`);
+        // Priority 2: Strong non-anticipatory Ehlers trend signals
+        else if (ehlersSignals && !ehlersRecommendation.anticipatory && ehlersRecommendation.confidence >= 70) {
+            if (validateROCAlignment(ehlersRecommendation.action, rocAlignment)) {
+                finalRecommendation = ehlersRecommendation.action;
+                enhancedScore = Math.min(95, ehlersRecommendation.confidence + 15);
+                finalReason = `Ehlers trend signal: ${ehlersRecommendation.reason}`;
+                console.log(`📊 TREND FOLLOWING: Ehlers signal (${enhancedScore.toFixed(1)}%)`);
+            }
         }
-        // Priority 3: Medium Ehlers trending signals
-        else if (ehlersSignals && ehlersRecommendation.signalStrength === 'medium' && !ehlersRecommendation.anticipatory) {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(90, score + 15);
-        }
-        // Priority 4: Basic momentum from pullback analysis
-        else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 60) {
-            finalRecommendation = pullbackAnalysis.recommendation;
-            enhancedScore = Math.min(85, pullbackAnalysis.confidence);
+        // Priority 3: Basic ROC recommendation with validation
+        else if (validateROCAlignment(recommendation, rocAlignment)) {
+            finalRecommendation = recommendation;
+            enhancedScore = score;
+            finalReason = 'ROC Trend Following Signal';
         }
 
         const analysis: TrendAnalysis = {
@@ -275,7 +295,9 @@ export class TrendAnalysisEngine {
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
+            reason: finalReason,
             score: enhancedScore,
+            timestamp: Date.now(),
             longTermROC,
             shortTermROC,
             rocAlignment,
@@ -283,7 +305,8 @@ export class TrendAnalysisEngine {
             ehlersRecommendation,
             cycleTrading,
             derivSignals,
-            pullbackAnalysis, // Add pullback analysis results
+            sustainedMomentum,
+            
         };
 
         this.trendData.set(symbol, analysis);
@@ -510,27 +533,27 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Get ROC periods based on sensitivity setting (increased sensitivity)
+     * Get ROC periods based on sensitivity setting
      */
-    private getROCPeriods(sensitive: boolean = true): { longTerm: number; shortTerm: number } {
+    private getROCPeriods(sensitive: boolean = false): { longTerm: number; shortTerm: number } {
         if (sensitive) {
             return {
-                longTerm: 8,  // Increased sensitivity: reduced from 10
-                shortTerm: 2  // Increased sensitivity: reduced from 3
+                longTerm: 10, // Half of default 20
+                shortTerm: 3   // Half of default 5 (rounded)
             };
         }
         return {
-            longTerm: 15, // Increased sensitivity: reduced from 20
-            shortTerm: 4   // Increased sensitivity: reduced from 5
+            longTerm: 20, // Default long-term period
+            shortTerm: 5   // Default short-term period
         };
     }
 
     /**
-     * Determine ROC alignment status (increased sensitivity)
+     * Determine ROC alignment status
      */
     private determineROCAlignment(longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
-        const longTermThreshold = 0.02; // Increased sensitivity: reduced from 0.05% to 0.02%
-        const shortTermThreshold = 0.05; // Increased sensitivity: reduced from 0.1% to 0.05%
+        const longTermThreshold = 0.05; // 0.05%
+        const shortTermThreshold = 0.1;  // 0.1%
 
         // Both ROC positive and short-term accelerating upward
         if (longTermROC > longTermThreshold && shortTermROC > shortTermThreshold && shortTermROC > longTermROC) {
@@ -593,59 +616,69 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate ROC alignment for trading signals
+     * Validate ROC alignment for trading signals with enhanced confluence
      */
     private validateROCAlignment(symbol: string, longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
 
-        // Get recent candles for candle pattern validation
-        const recentCandles = candleReconstructionEngine.getCandles(symbol, 3);
+        // Get recent candles for comprehensive pattern validation
+        const recentCandles = candleReconstructionEngine.getCandles(symbol, 10);
 
-        if (recentCandles.length < 2) {
+        if (recentCandles.length < 5) {
             console.log(`${symbol}: Insufficient candle data for pattern validation`);
             return null;
         }
 
         const lastCandle = recentCandles[recentCandles.length - 1];
         const previousCandle = recentCandles[recentCandles.length - 2];
+        const last5Candles = recentCandles.slice(-5);
+
+        // Enhanced multi-timeframe validation
+        const confluenceFactors = this.calculateConfluenceFactors(symbol, longTermROC, shortTermROC, last5Candles);
+        
+        // Require minimum confluence score for signal validation
+        if (confluenceFactors.score < 0.65) {
+            console.log(`${symbol}: Confluence score too low: ${confluenceFactors.score.toFixed(2)}`);
+            return null;
+        }
 
         // Determine candle colors
         const isLastCandleGreen = lastCandle.close > lastCandle.open;
         const isLastCandleRed = lastCandle.close < lastCandle.open;
 
-        // BULLISH SIGNAL CONDITIONS (increased sensitivity):
+        // BULLISHSIGNAL CONDITIONS:
         // 1. Long-term ROC positive (upward trend)
         // 2. Short-term ROC stronger positive (acceleration)
         // 3. Last candle is green and closes above previous high
-        if (longTermROC > 0.02 && // Increased sensitivity: reduced from 0.05% to 0.02%
-            shortTermROC > 0.05 && // Increased sensitivity: reduced from 0.1% to 0.05%
+        if (longTermROC > 0.05 && // Long-term positive momentum (> 0.05%)
+            shortTermROC > 0.1 && // Short-term positive momentum (> 0.1%)
             shortTermROC > longTermROC && // Short-term stronger than long-term (acceleration)
             isLastCandleGreen &&
             lastCandle.close > previousCandle.high) {
 
-            console.log(`${symbol}: ✅ ROC BULLISH signal confirmed (HIGH SENSITIVITY):
-                - Long-term ROC (8): ${longTermROC.toFixed(3)}% (positive trend)
-                - Short-term ROC (2): ${shortTermROC.toFixed(3)}% (accelerating upward)
+            console.log(`${symbol}: ✅ ROCBULLISH signal confirmed:
+                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (positive trend)
+                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating upward)
                 - ROC alignment: SHORT > LONG (${shortTermROC.toFixed(3)}% > ${longTermROC.toFixed(3)}%)
                 - Last candle GREEN: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes above prev high: ${lastCandle.close.toFixed(5)} > ${previousCandle.high.toFixed(5)}`);
             return 'BULLISH';
         }
 
-        // BEARISH SIGNAL CONDITIONS (increased sensitivity):
+        // BEARISH SIGNAL CONDITIONS:
         // 1. Long-term ROC negative (downward trend)
         // 2. Short-term ROC stronger negative (acceleration)
         // 3. Last candle is red and closes below previous low
-        if (longTermROC < -0.02 && // Increased sensitivity: reduced from -0.05% to -0.02%
-            shortTermROC < -0.05 && // Increased sensitivity: reduced from -0.1% to -0.05%
+        if (longTermROC < -0.05 && // Long-term negative momentum (< -0.05%)
+            shortTermROC < -0.1 && // Short-term negative momentum (< -0.1%)
             shortTermROC < longTermROC && // Short-term more negative than long-term (acceleration)
             isLastCandleRed &&
             lastCandle.close < previousCandle.low) {
 
-            console.log(`${symbol}: ✅ ROC BEARISH signal confirmed (HIGH SENSITIVITY):
-                - Long-term ROC (8): ${longTermROC.toFixed(3)}% (negative trend)
-                - Short-term ROC (2): ${shortTermROC.toFixed(3)}% (accelerating downward)
+            console.log(`${symbol}: ✅ ROC BEARISH signal confirmed:
+                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (negative trend)
+                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating downward)
                 - ROC alignment: SHORT < LONG (${shortTermROC.toFixed(3)}% < ${longTermROC.toFixed(3)}%)
                 - Last candle RED: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes below prev low: ${lastCandle.close.toFixed(5)} < ${previousCandle.low.toFixed(5)}`);
@@ -664,7 +697,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate recommendation based on ROC alignment
+     * Generate recommendation based on ROC alignment with adaptive thresholds
      */
     private generateRecommendationByROC(
         direction: TrendDirection,
@@ -677,10 +710,13 @@ export class TrendAnalysisEngine {
             return 'HOLD';
         }
 
-        // Apply the validated ROC signal - INCREASED SENSITIVITY
-        if (rocSignal === 'BULLISH' && confidence > 45) { // Increased sensitivity: lowered from 55 to 45
+        // Dynamic threshold based on market conditions
+        const adaptiveThreshold = this.calculateAdaptiveThreshold(strength, direction);
+        
+        // Apply the validated ROC signal with adaptive thresholds
+        if (rocSignal === 'BULLISH' && confidence > adaptiveThreshold.bullish) {
             return 'BUY';
-        } else if (rocSignal === 'BEARISH' && confidence > 45) { // Increased sensitivity: lowered from 55 to 45
+        } else if (rocSignal === 'BEARISH' && confidence > adaptiveThreshold.bearish) {
             return 'SELL';
         }
 
@@ -688,55 +724,417 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Analyze basic trend momentum (removed mean reversion logic)
+     * Calculate adaptive thresholds based on market strength and volatility
      */
-    private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): PullbackAnalysis {
+    private calculateAdaptiveThreshold(strength: TrendStrength, direction: TrendDirection): {
+        bullish: number;
+        bearish: number;
+    } {
+        let baseThreshold = 65; // Conservative base
+
+        // Adjust based on trend strength
+        switch (strength) {
+            case 'strong':
+                baseThreshold = 55; // Lower threshold for strong trends
+                break;
+            case 'moderate':
+                baseThreshold = 65; // Standard threshold
+                break;
+            case 'weak':
+                baseThreshold = 75; // Higher threshold for weak trends
+                break;
+        }
+
+        // Further adjustment based on recent performance
+        const recentPerformance = this.getRecentSignalPerformance();
+        if (recentPerformance.winRate > 0.7) {
+            baseThreshold -= 5; // More aggressive when performing well
+        } else if (recentPerformance.winRate < 0.4) {
+            baseThreshold += 10; // More conservative when performing poorly
+        }
+
+        return {
+            bullish: baseThreshold,
+            bearish: baseThreshold
+        };
+    }
+
+    /**
+     * Track recent signal performance for adaptive learning
+     */
+    private getRecentSignalPerformance(): { winRate: number; totalSignals: number } {
+        // This would integrate with your transaction store to track win/loss
+        // For now, return neutral performance
+        return { winRate: 0.5, totalSignals: 0 };
+    }
+
+    /**
+     * Simple trend continuation analysis for trend following only
+     */
+    private analyzeTrendContinuation(candles: any[], ehlersSignals?: EhlersSignals): any {
         if (candles.length < 5) {
             return {
-                isPullback: false,
-                pullbackStrength: 'weak',
-                longerTermTrend: 'neutral',
-                pullbackType: 'none',
-                confidence: 0,
-                entrySignal: false,
-                recommendation: 'HOLD',
+                isTrendContinuation: false,
+                confidence: 0
             };
         }
 
-        // Basic trend momentum analysis without mean reversion
         const last5Candles = candles.slice(-5);
         const recentCloses = last5Candles.map(c => c.close);
         const currentPrice = recentCloses[recentCloses.length - 1];
-        const firstPrice = recentCloses[0];
-        
-        // Simple momentum calculation
-        const momentum = (currentPrice - firstPrice) / firstPrice;
-        
-        let pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback' = 'none';
+        const previousPrice = recentCloses[0];
+
+        // Simple trend continuation based on price direction
+        const priceChange = (currentPrice - previousPrice) / previousPrice;
         let confidence = 0;
-        
-        // Basic trend following (removed mean reversion)
-        if (momentum > 0.001) {
-            pullbackType = 'bullish_pullback';
-            confidence = Math.min(80, momentum * 10000);
-        } else if (momentum < -0.001) {
-            pullbackType = 'bearish_pullback';
-            confidence = Math.min(80, Math.abs(momentum) * 10000);
+
+        // Detect trend continuation momentum
+        if (Math.abs(priceChange) > 0.002) { // 0.2% minimum movement
+            confidence = Math.min(50, Math.abs(priceChange) * 1000 * 10);
         }
         
-        const recommendation: 'BUY' | 'SELL' | 'HOLD' = 
-            pullbackType === 'bullish_pullback' && confidence >= 60 ? 'BUY' :
-            pullbackType === 'bearish_pullback' && confidence >= 60 ? 'SELL' : 'HOLD';
-        
         return {
-            isPullback: pullbackType !== 'none',
-            pullbackStrength: confidence > 70 ? 'strong' : confidence > 50 ? 'medium' : 'weak',
-            longerTermTrend: momentum > 0 ? 'bullish' : momentum < 0 ? 'bearish' : 'neutral',
-            pullbackType,
-            confidence,
-            entrySignal: confidence >= 60,
-            recommendation
+            isTrendContinuation: confidence > 20,
+            confidence
         };
+    }
+
+    /**
+     * Detect sustained momentum for Higher/Lower trades
+     */
+    private detectSustainedMomentum(symbol: string, candles: any[], ehlersSignals?: EhlersSignals): {
+        hasSustainedMomentum: boolean;
+        direction: 'HIGHER' | 'LOWER' | 'NEUTRAL';
+        strength: number;
+        confidence: number;
+        duration: number;
+        factors: string[];
+    } {
+        if (candles.length < 15) {
+            return {
+                hasSustainedMomentum: false,
+                direction: 'NEUTRAL',
+                strength: 0,
+                confidence: 0,
+                duration: 0,
+                factors: []
+            };
+        }
+
+        const prices = candles.map(c => c.close);
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+        const volumes = candles.map(c => c.tickCount || 1); // Use tick count as volume proxy
+
+        const factors: string[] = [];
+        let strength = 0;
+        let confidence = 0;
+        let direction: 'HIGHER' | 'LOWER' | 'NEUTRAL' = 'NEUTRAL';
+
+        // 1. Multi-timeframe ROC momentum alignment
+        const shortROC = this.calculateROC(prices, 3);
+        const mediumROC = this.calculateROC(prices, 7);
+        const longROC = this.calculateROC(prices, 14);
+
+        if (shortROC && mediumROC && longROC) {
+            // Bullish momentum alignment
+            if (shortROC > 0.1 && mediumROC > 0.05 && longROC > 0.02 && 
+                shortROC > mediumROC && mediumROC > longROC) {
+                direction = 'HIGHER';
+                strength += 25;
+                confidence += 20;
+                factors.push('multi_timeframe_bullish_momentum');
+            }
+            // Bearish momentum alignment
+            else if (shortROC < -0.1 && mediumROC < -0.05 && longROC < -0.02 && 
+                     shortROC < mediumROC && mediumROC < longROC) {
+                direction = 'LOWER';
+                strength += 25;
+                confidence += 20;
+                factors.push('multi_timeframe_bearish_momentum');
+            }
+        }
+
+        // 2. Consecutive candle direction (momentum persistence)
+        const last5Candles = candles.slice(-5);
+        const bullishCandles = last5Candles.filter(c => c.close > c.open).length;
+        const bearishCandles = last5Candles.filter(c => c.close < c.open).length;
+
+        if (bullishCandles >= 4) {
+            if (direction === 'HIGHER') strength += 20;
+            confidence += 15;
+            factors.push('consecutive_bullish_candles');
+        } else if (bearishCandles >= 4) {
+            if (direction === 'LOWER') strength += 20;
+            confidence += 15;
+            factors.push('consecutive_bearish_candles');
+        }
+
+        // 3. Volume-weighted momentum (using tick count)
+        const recentVolume = volumes.slice(-5).reduce((a, b) => a + b, 0);
+        const olderVolume = volumes.slice(-10, -5).reduce((a, b) => a + b, 0);
+        const volumeIncrease = (recentVolume - olderVolume) / olderVolume;
+
+        if (volumeIncrease > 0.2) { // 20% volume increase
+            strength += 15;
+            confidence += 10;
+            factors.push('increasing_volume');
+        }
+
+        // 4. Higher highs / Lower lows pattern
+        const recentHighs = highs.slice(-5);
+        const recentLows = lows.slice(-5);
+        const olderHighs = highs.slice(-10, -5);
+        const olderLows = lows.slice(-10, -5);
+
+        const higherHighs = Math.max(...recentHighs) > Math.max(...olderHighs);
+        const higherLows = Math.min(...recentLows) > Math.min(...olderLows);
+        const lowerHighs = Math.max(...recentHighs) < Math.max(...olderHighs);
+        const lowerLows = Math.min(...recentLows) < Math.min(...olderLows);
+
+        if (higherHighs && higherLows && direction === 'HIGHER') {
+            strength += 20;
+            confidence += 15;
+            factors.push('higher_highs_higher_lows');
+        } else if (lowerHighs && lowerLows && direction === 'LOWER') {
+            strength += 20;
+            confidence += 15;
+            factors.push('lower_highs_lower_lows');
+        }
+
+        // 5. Ehlers momentum indicators
+        if (ehlersSignals) {
+            const { anticipatorySignal, netValue, trend, instantaneousTrendline, decycler } = ehlersSignals;
+
+            // Strong anticipatory signals
+            if (Math.abs(anticipatorySignal) > 1.5) {
+                if (anticipatorySignal > 0 && direction === 'HIGHER') {
+                    strength += 15;
+                    confidence += 12;
+                    factors.push('ehlers_bullish_anticipatory');
+                } else if (anticipatorySignal < 0 && direction === 'LOWER') {
+                    strength += 15;
+                    confidence += 12;
+                    factors.push('ehlers_bearish_anticipatory');
+                }
+            }
+
+            // Trend alignment with instantaneous vs longer-term
+            if (instantaneousTrendline && decycler) {
+                const trendDivergence = (instantaneousTrendline - decycler) / decycler;
+                if (Math.abs(trendDivergence) > 0.001) { // 0.1% divergence
+                    if (trendDivergence > 0 && direction === 'HIGHER') {
+                        strength += 10;
+                        confidence += 8;
+                        factors.push('instant_above_decycler');
+                    } else if (trendDivergence < 0 && direction === 'LOWER') {
+                        strength += 10;
+                        confidence += 8;
+                        factors.push('instant_below_decycler');
+                    }
+                }
+            }
+        }
+
+        // 6. Price acceleration (rate of change of ROC)
+        if (shortROC && mediumROC) {
+            const acceleration = shortROC - mediumROC;
+            if (Math.abs(acceleration) > 0.05) {
+                if (acceleration > 0 && direction === 'HIGHER') {
+                    strength += 10;
+                    confidence += 8;
+                    factors.push('positive_acceleration');
+                } else if (acceleration < 0 && direction === 'LOWER') {
+                    strength += 10;
+                    confidence += 8;
+                    factors.push('negative_acceleration');
+                }
+            }
+        }
+
+        // 7. Momentum duration estimation
+        let duration = 0;
+        const currentPrice = prices[prices.length - 1];
+        
+        // Count consecutive periods in same direction
+        for (let i = prices.length - 2; i >= 0; i--) {
+            if (direction === 'HIGHER' && prices[i] < currentPrice) {
+                duration++;
+            } else if (direction === 'LOWER' && prices[i] > currentPrice) {
+                duration++;
+            } else {
+                break;
+            }
+        }
+
+        // Bonus for sustained duration
+        if (duration >= 5) {
+            strength += 10;
+            confidence += 5;
+            factors.push('sustained_duration');
+        }
+
+        // Final validation - require minimum thresholds
+        const hasSustainedMomentum = strength >= 50 && confidence >= 40 && factors.length >= 3;
+
+        return {
+            hasSustainedMomentum,
+            direction: hasSustainedMomentum ? direction : 'NEUTRAL',
+            strength: Math.min(100, strength),
+            confidence: Math.min(100, confidence),
+            duration,
+            factors
+        };
+    }
+
+    /**
+     * Calculate confluence factors for signal validation
+     */
+    private calculateConfluenceFactors(symbol: string, longTermROC: number, shortTermROC: number, candles: any[]): {
+        score: number;
+        factors: string[];
+    } {
+        const factors: string[] = [];
+        let score = 0;
+
+        // Factor 1: ROC Momentum Alignment (25% weight)
+        const rocMomentum = Math.abs(shortTermROC) > Math.abs(longTermROC) * 1.2;
+        if (rocMomentum) {
+            score += 0.25;
+            factors.push('ROC_MOMENTUM');
+        }
+
+        // Factor 2: Volume Confirmation (using candle size as proxy) (20% weight)
+        const avgCandleSize = candles.slice(0, -1).reduce((sum, c) => sum + Math.abs(c.close - c.open), 0) / (candles.length - 1);
+        const lastCandleSize = Math.abs(candles[candles.length - 1].close - candles[candles.length - 1].open);
+        if (lastCandleSize > avgCandleSize * 1.3) {
+            score += 0.20;
+            factors.push('VOLUME_CONFIRM');
+        }
+
+        // Factor 3: Price Pattern Validation (20% weight)
+        const pricePattern = this.validatePricePattern(candles);
+        if (pricePattern.isValid) {
+            score += 0.20;
+            factors.push(`PATTERN_${pricePattern.type}`);
+        }
+
+        // Factor 4: Support/Resistance Respect (15% weight)
+        const srLevel = this.checkSupportResistance(candles);
+        if (srLevel.respected) {
+            score += 0.15;
+            factors.push('SR_RESPECT');
+        }
+
+        // Factor 5: Time-based Filter (10% weight)
+        const timeFilter = this.checkTimeBasedFilter();
+        if (timeFilter) {
+            score += 0.10;
+            factors.push('TIME_FILTER');
+        }
+
+        // Factor 6: Volatility Filter (10% weight)
+        const volatilityOk = this.checkVolatilityFilter(candles);
+        if (volatilityOk) {
+            score += 0.10;
+            factors.push('VOLATILITY_OK');
+        }
+
+        return { score, factors };
+    }
+
+    /**
+     * Validate price patterns for better entry timing
+     */
+    private validatePricePattern(candles: any[]): { isValid: boolean; type: string } {
+        if (candles.length < 3) return { isValid: false, type: 'INSUFFICIENT_DATA' };
+
+        const last3 = candles.slice(-3);
+        const closes = last3.map(c => c.close);
+        const highs = last3.map(c => c.high);
+        const lows = last3.map(c => c.low);
+
+        // Higher highs and higher lows pattern
+        if (closes[2] > closes[1] && closes[1] > closes[0] && 
+            lows[2] > lows[1] && lows[1] > lows[0]) {
+            return { isValid: true, type: 'UPTREND' };
+        }
+
+        // Lower highs and lower lows pattern
+        if (closes[2] < closes[1] && closes[1] < closes[0] && 
+            highs[2] < highs[1] && highs[1] < highs[0]) {
+            return { isValid: true, type: 'DOWNTREND' };
+        }
+
+        // Consolidation with breakout
+        const range = Math.max(...highs) - Math.min(...lows);
+        const avgPrice = closes.reduce((a, b) => a + b, 0) / closes.length;
+        if (range / avgPrice < 0.003) { // Less than 0.3% range
+            return { isValid: true, type: 'CONSOLIDATION' };
+        }
+
+        return { isValid: false, type: 'NO_PATTERN' };
+    }
+
+    /**
+     * Check support/resistance level respect
+     */
+    private checkSupportResistance(candles: any[]): { respected: boolean; level?: number } {
+        if (candles.length < 5) return { respected: false };
+
+        const recent5 = candles.slice(-5);
+        const highs = recent5.map(c => c.high);
+        const lows = recent5.map(c => c.low);
+        const currentPrice = recent5[recent5.length - 1].close;
+
+        // Find potential resistance (recent high that was touched multiple times)
+        const recentHigh = Math.max(...highs);
+        const touchesHigh = highs.filter(h => Math.abs(h - recentHigh) / recentHigh < 0.001).length;
+
+        // Find potential support (recent low that was touched multiple times)
+        const recentLow = Math.min(...lows);
+        const touchesLow = lows.filter(l => Math.abs(l - recentLow) / recentLow < 0.001).length;
+
+        // If price respects support/resistance (bounces off)
+        if (touchesHigh >= 2 && currentPrice < recentHigh * 0.995) {
+            return { respected: true, level: recentHigh };
+        }
+
+        if (touchesLow >= 2 && currentPrice > recentLow * 1.005) {
+            return { respected: true, level: recentLow };
+        }
+
+        return { respected: false };
+    }
+
+    /**
+     * Time-based filter to avoid low-probability periods
+     */
+    private checkTimeBasedFilter(): boolean {
+        const now = new Date();
+        const hour = now.getUTCHours();
+        const minute = now.getUTCMinutes();
+
+        // Avoid first 5 minutes of each hour (news/volatility spikes)
+        if (minute < 5) return false;
+
+        // Focus on high-activity periods for synthetic indices
+        // Best times: 8-12 UTC, 13-17 UTC (overlapping sessions)
+        return (hour >= 8 && hour <= 12) || (hour >= 13 && hour <= 17);
+    }
+
+    /**
+     * Volatility filter to ensure adequate price movement
+     */
+    private checkVolatilityFilter(candles: any[]): boolean {
+        if (candles.length < 5) return false;
+
+        const recent5 = candles.slice(-5);
+        const ranges = recent5.map(c => (c.high - c.low) / c.close);
+        const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
+
+        // Require minimum volatility for clear signals (0.1% to 1%)
+        return avgRange >= 0.001 && avgRange <= 0.01;
     }
 
     /**
