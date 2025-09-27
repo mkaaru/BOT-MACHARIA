@@ -2383,7 +2383,7 @@
 
         .theme--dark & {
             .trading-modal__content {
-                background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+                background: linear-gradient(145deg, #1e293b, #0f172a);
 
                 &::before {
                     background: linear-gradient(
@@ -2401,7 +2401,7 @@
 
             .recommendation-info-card,
             .form-section {
-                background: linear-gradient(145deg, #1e293b 0%, #334155 50%, #475569 100%) !important;
+                background: linear-gradient(145deg, #1e293b, #334155, #475569) !important;
                 border-color: rgba(148, 163, 184, 0.1) !important;
                 box-shadow: 
                     0 20px 40px rgba(0, 0, 0, 0.3),
@@ -2416,7 +2416,7 @@
             }
 
             .form-section {
-                 background: linear-gradient(145deg, #1e293b 0%, #334155 100%) !important;
+                 background: linear-gradient(145deg, #1e293b, #334155) !important;
                 border-color: rgba(148, 163, 184, 0.08) !important;
                 box-shadow: 
                     0 16px 32px rgba(0, 0, 0, 0.2),
@@ -2455,7 +2455,7 @@
             }
 
             .detail-item {
-                background: linear-gradient(145deg, #334155 0%, #475569 100%) !important;
+                background: linear-gradient(145deg, #334155, #475569) !important;
                 border-color: rgba(148, 163, 184, 0.1) !important;
                 box-shadow: 
                     0 4px 12px rgba(0, 0, 0, 0.15),
