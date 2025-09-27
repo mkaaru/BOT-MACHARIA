@@ -162,6 +162,9 @@ const TradingHubDisplay: React.FC = observer(() => {
         { value: 'o5u4_strategy', label: 'O5U4 Strategy' }
     ];
 
+    // State for cleanup function
+    const [cleanupFunction, setCleanupFunction] = useState<(() => void) | null>(null);
+
     // AI message rotation effect
     useEffect(() => {
         if (aiScanningPhase !== 'complete' && connectionStatus === 'scanning') {
@@ -306,6 +309,84 @@ const TradingHubDisplay: React.FC = observer(() => {
             marketAnalyzer.stop();
         };
     }, []);
+
+    // Centralized WebSocket connection and tick handling
+    useEffect(() => {
+        let isSubscribed = true;
+        const connectAndSubscribe = async () => {
+            try {
+                setConnectionStatus('connecting');
+
+                // Connect to centralized WebSocket manager
+                await centralizedWebSocketManager.connect();
+
+                if (!isSubscribed) return;
+
+                console.log('✅ Connected to centralized WebSocket manager');
+                setConnectionStatus('connected');
+
+                // Subscribe to symbols we're tracking
+                const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+                const subscriptionPromises = symbols.map(async (symbol) => {
+                    try {
+                        await centralizedWebSocketManager.subscribe(symbol);
+                        console.log(`✅ Subscribed to ${symbol}`);
+                        return symbol;
+                    } catch (error) {
+                        console.error(`❌ Failed to subscribe to ${symbol}:`, error);
+                        return null;
+                    }
+                });
+
+                await Promise.all(subscriptionPromises);
+
+                // Add tick callback with proper error handling
+                const tickUnsubscribe = centralizedWebSocketManager.addMessageCallback(
+                    'tick',
+                    'trading-hub-ticks',
+                    (data: any) => {
+                        try {
+                            if (data.tick && data.tick.symbol && data.tick.quote) {
+                                console.log(`📊 Received tick for ${data.tick.symbol}: ${data.tick.quote}`);
+                                // Update market analyzer with new tick
+                                if (marketAnalyzer && typeof marketAnalyzer.processTick === 'function') {
+                                    marketAnalyzer.processTick(data.tick.symbol, data.tick.quote, data.tick.epoch);
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error processing tick data:', error);
+                        }
+                    }
+                );
+
+                if (isSubscribed) {
+                    setCleanupFunction(() => tickUnsubscribe);
+                }
+
+            } catch (error) {
+                console.error('❌ Failed to connect to WebSocket:', error);
+                if (isSubscribed) {
+                    setConnectionStatus('error');
+                    // Retry connection after 5 seconds
+                    setTimeout(() => {
+                        if (isSubscribed) {
+                            connectAndSubscribe();
+                        }
+                    }, 5000);
+                }
+            }
+        };
+
+        connectAndSubscribe();
+
+        return () => {
+            isSubscribed = false;
+            if (cleanupFunction) {
+                cleanupFunction();
+            }
+        };
+    }, []);
+
 
     // Generate comprehensive scan results
     const generateScanResults = useCallback((): ScanResult[] => {
