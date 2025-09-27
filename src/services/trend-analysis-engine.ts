@@ -67,12 +67,12 @@ export class TrendAnalysisEngine {
     private readonly SIGNAL_STRENGTH_THRESHOLD = 60;
     private readonly MAX_HISTORY = 200;
 
-    // ROC periods (tick-based)
-    private readonly FAST_ROC_PERIOD = 5;
-    private readonly SLOW_ROC_PERIOD = 20;
+    // ROC periods (tick-based) - now configurable
+    private FAST_ROC_PERIOD = 8;
+    private SLOW_ROC_PERIOD = 50;
 
-    // Tick tracking constants
-    private readonly REQUIRED_TICKS = 600; // Increased from 60 to 600 ticks
+    // Tick tracking constants - now configurable
+    private REQUIRED_TICKS = 600; // Increased from 60 to 600 ticks
     private readonly CONSISTENCY_THRESHOLD = 55; // Reduced from 65% to 55% consistency
 
     constructor() {
@@ -724,6 +724,40 @@ export class TrendAnalysisEngine {
             symbolsWithTickData,
             symbolsWithSufficientTicks,
             avgTickCount
+        };
+    }
+
+    /**
+     * Configure ROC periods
+     */
+    setROCPeriods(fastPeriod: number, slowPeriod: number): void {
+        this.FAST_ROC_PERIOD = Math.max(3, Math.min(20, fastPeriod));
+        this.SLOW_ROC_PERIOD = Math.max(20, Math.min(100, slowPeriod));
+        console.log(`🔧 ROC periods updated: Fast=${this.FAST_ROC_PERIOD}, Slow=${this.SLOW_ROC_PERIOD}`);
+    }
+
+    /**
+     * Configure validation ticks requirement
+     */
+    setValidationTicks(ticks: number): void {
+        this.REQUIRED_TICKS = Math.max(60, Math.min(1000, ticks));
+        console.log(`🔧 Validation ticks updated: ${this.REQUIRED_TICKS}`);
+    }
+
+    /**
+     * Get current configuration
+     */
+    getConfiguration(): {
+        fastROCPeriod: number;
+        slowROCPeriod: number;
+        requiredTicks: number;
+        consistencyThreshold: number;
+    } {
+        return {
+            fastROCPeriod: this.FAST_ROC_PERIOD,
+            slowROCPeriod: this.SLOW_ROC_PERIOD,
+            requiredTicks: this.REQUIRED_TICKS,
+            consistencyThreshold: this.CONSISTENCY_THRESHOLD
         };
     }
 

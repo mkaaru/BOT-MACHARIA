@@ -150,6 +150,11 @@ const MLTrader = observer(() => {
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
     const [roc_sensitive_settings, setRocSensitiveSettings] = useState(false); // ROC sensitivity toggle
 
+    // ROC Configuration
+    const [roc_fast_period, setRocFastPeriod] = useState(8); // Fast ROC period
+    const [roc_slow_period, setRocSlowPeriod] = useState(50); // Slow ROC period
+    const [validation_ticks, setValidationTicks] = useState(600); // Validation ticks count
+
 
 
     // Remove modal state - we bypass the modal completely
@@ -251,6 +256,23 @@ const MLTrader = observer(() => {
             }
         };
     }, []);
+
+    // Update trend analysis engine when settings change
+    useEffect(() => {
+        // Import and configure the trend analysis engine
+        const configureTrendEngine = async () => {
+            try {
+                const { trendAnalysisEngine } = await import('@/services/trend-analysis-engine');
+                trendAnalysisEngine.setROCPeriods(roc_fast_period, roc_slow_period);
+                trendAnalysisEngine.setValidationTicks(validation_ticks);
+                console.log(`🔧 Updated trend engine: Fast ROC=${roc_fast_period}, Slow ROC=${roc_slow_period}, Validation=${validation_ticks}`);
+            } catch (error) {
+                console.error('Failed to configure trend analysis engine:', error);
+            }
+        };
+
+        configureTrendEngine();
+    }, [roc_fast_period, roc_slow_period, validation_ticks]);
 
     // Initialize market scanner
     const initializeMarketScanner = useCallback(async () => {
@@ -496,13 +518,12 @@ const MLTrader = observer(() => {
             const defaultDuration = 5;
             const defaultDurationUnit = 't'; // ticks
 
-            // ROC sensitivity settings - use toggle state
+            // ROC sensitivity settings - use toggle state and user-defined periods
             const rocSensitive = roc_sensitive_settings;
-            // These periods are derived from the user's request: ROC(9) and ROC(50)
-            // and the sensitivity toggle halving them.
-            const longTermROCPeriod = rocSensitive ? 25 : 50; // Half of 50 is 25
-            const shortTermROCPeriod = rocSensitive ? 5 : 9;  // Half of 9 is ~4.5, let's use 5 for simplicity or stick to user's 9/50 base
-            const actualShortTermROC = shortTermROCPeriod; // Use the calculated value directly
+            // Use user-configurable periods with sensitivity toggle option
+            const longTermROCPeriod = rocSensitive ? Math.floor(roc_slow_period / 2) : roc_slow_period;
+            const shortTermROCPeriod = rocSensitive ? Math.floor(roc_fast_period / 2) : roc_fast_period;
+            const actualShortTermROC = shortTermROCPeriod;
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -2051,23 +2072,94 @@ const MLTrader = observer(() => {
                         </div>
                     </div>
 
-                    {/* ROC Sensitivity Controls */}
+                    {/* ROC Analysis Configuration */}
                     <div className="ml-trader__roc-controls">
                         <div className="roc-controls-header">
-                            <Text as="h3">ROC Analysis Settings</Text>
-                            <Text size="xs" color="general">Configure Rate of Change sensitivity for trend analysis</Text>
+                            <Text as="h3">ROC Analysis Configuration</Text>
+                            <Text size="xs" color="general">Configure Rate of Change periods and validation settings</Text>
                         </div>
 
                         <div className="roc-controls-grid">
+                            <div className="control-card roc-periods">
+                                <div className="card-icon">📈</div>
+                                <div className="card-content">
+                                    <Text className="card-title">ROC Periods</Text>
+                                    <div className="roc-period-inputs">
+                                        <div className="period-input-group">
+                                            <Text size="xs" color="general">Fast ROC Period:</Text>
+                                            <input
+                                                type="number"
+                                                min="3"
+                                                max="20"
+                                                value={roc_fast_period}
+                                                onChange={(e) => setRocFastPeriod(Number(e.target.value))}
+                                                className="period-input"
+                                            />
+                                        </div>
+                                        <div className="period-input-group">
+                                            <Text size="xs" color="general">Slow ROC Period:</Text>
+                                            <input
+                                                type="number"
+                                                min="20"
+                                                max="100"
+                                                value={roc_slow_period}
+                                                onChange={(e) => setRocSlowPeriod(Number(e.target.value))}
+                                                className="period-input"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="control-card validation-settings">
+                                <div className="card-icon">🔍</div>
+                                <div className="card-content">
+                                    <Text className="card-title">Validation Settings</Text>
+                                    <div className="validation-input-group">
+                                        <Text size="xs" color="general">Validation Ticks:</Text>
+                                        <input
+                                            type="number"
+                                            min="60"
+                                            max="1000"
+                                            step="10"
+                                            value={validation_ticks}
+                                            onChange={(e) => setValidationTicks(Number(e.target.value))}
+                                            className="period-input"
+                                        />
+                                        <Text size="xs" color="general">
+                                            Higher values = more reliable signals but slower response
+                                        </Text>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="control-card roc-info">
+                                <div className="card-icon">📊</div>
+                                <div className="card-content">
+                                    <Text className="card-title">Current Settings</Text>
+                                    <div className="roc-settings-display">
+                                        <Text size="xs">
+                                            Fast ROC: {roc_fast_period} periods
+                                        </Text>
+                                        <Text size="xs">
+                                            Slow ROC: {roc_slow_period} periods
+                                        </Text>
+                                        <Text size="xs">
+                                            Validation: {validation_ticks} ticks
+                                        </Text>
+                                        <Text size="xs" color="profit-success">
+                                            Status: {validation_ticks >= 600 ? 'High Reliability' : validation_ticks >= 300 ? 'Medium Reliability' : 'Fast Response'}
+                                        </Text>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="control-card roc-sensitivity">
                                 <div className="card-icon">⚙️</div>
                                 <div className="card-content">
                                     <Text className="card-title">ROC Sensitivity</Text>
                                     <Text className="card-description" size="xs" color="general">
-                                        {roc_sensitive_settings
-                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
-                                            : `Default: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
-                                        }
+                                        Use half periods for faster signals
                                     </Text>
                                 </div>
                                 <div className="toggle-container">
@@ -2081,24 +2173,6 @@ const MLTrader = observer(() => {
                                     <label htmlFor="roc-sensitive-toggle" className="toggle-label">
                                         <div className="toggle-switch"></div>
                                     </label>
-                                </div>
-                            </div>
-
-                            <div className="control-card roc-info">
-                                <div className="card-icon">📊</div>
-                                <div className="card-content">
-                                    <Text className="card-title">Current ROC Settings</Text>
-                                    <div className="roc-settings-display">
-                                        <Text size="xs">
-                                            Long-term: {roc_sensitive_settings ? 25 : 50} periods
-                                        </Text>
-                                        <Text size="xs">
-                                            Short-term: {roc_sensitive_settings ? 5 : 9} periods
-                                        </Text>
-                                        <Text size="xs" color={roc_sensitive_settings ? "profit-success" : "general"}>
-                                            Mode: {roc_sensitive_settings ? "Sensitive" : "Default"}
-                                        </Text>
-                                    </div>
                                 </div>
                             </div>
                         </div>

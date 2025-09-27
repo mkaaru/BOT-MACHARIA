@@ -1246,114 +1246,46 @@
         .roc-controls-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.6rem;
+            gap: var(--space-lg);
+            margin-top: var(--space-md);
 
-            @media (max-width: 768px) {
-                grid-template-columns: 1fr;
-            }
+            .roc-period-inputs, .validation-input-group {
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-sm);
 
-            .control-card {
-                background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
-                border-radius: 12px;
-                padding: 1.5rem;
-                border: 2px solid rgba(148, 163, 184, 0.1);
-                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                position: relative;
-                overflow: hidden;
-                box-shadow: 
-                    0 8px 25px rgba(0, 0, 0, 0.08),
-                    0 3px 6px rgba(0, 0, 0, 0.04),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+                .period-input-group {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: var(--space-sm);
 
-                &:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 
-                        0 12px 32px rgba(0, 0, 0, 0.12),
-                        0 4px 8px rgba(0, 0, 0, 0.08);
-                }
+                    .period-input {
+                        width: 80px;
+                        padding: var(--space-xs) var(--space-sm);
+                        border: 1px solid var(--border-normal);
+                        border-radius: var(--border-radius-sm);
+                        background: var(--color-white);
+                        color: var(--text-general);
+                        font-size: var(--text-size-xs);
+                        text-align: center;
 
-                .card-icon {
-                    font-size: 2rem;
-                    margin-bottom: 1rem;
-                    display: block;
-                }
-
-                .card-content {
-                    .card-title {
-                        font-size: 1.4rem;
-                        font-weight: 700;
-                        color: var(--text-prominent);
-                        margin: 0 0 0.5rem 0;
-                    }
-
-                    .card-description {
-                        margin: 0 0 1rem 0;
-                        line-height: 1.4;
-                    }
-                }
-
-                &.roc-sensitivity {
-                    .toggle-container {
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-
-                        .toggle-input {
-                            display: none;
+                        &:focus {
+                            outline: none;
+                            border-color: var(--color-brand-red-light);
                         }
 
-                        .toggle-label {
-                            position: relative;
+                        @include mobile {
                             width: 60px;
-                            height: 32px;
-                            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
-                            border-radius: 16px;
-                            cursor: pointer;
-                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                            box-shadow: 
-                                inset 0 2px 4px rgba(0, 0, 0, 0.1),
-                                0 2px 4px rgba(0, 0, 0, 0.05);
-
-                            .toggle-switch {
-                                position: absolute;
-                                top: 2px;
-                                left: 2px;
-                                width: 28px;
-                                height: 28px;
-                                background: white;
-                                border-radius: 50%;
-                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                                box-shadow: 
-                                    0 4px 8px rgba(0, 0, 0, 0.15),
-                                    0 2px 4px rgba(0, 0, 0, 0.1);
-                            }
-                        }
-
-                        .toggle-input:checked + .toggle-label {
-                            background: linear-gradient(135deg, #10b981, #059669);
-                            box-shadow: 
-                                inset 0 2px 4px rgba(0, 0, 0, 0.1),
-                                0 0 0 2px rgba(16, 185, 129, 0.2);
-
-                            .toggle-switch {
-                                transform: translateX(28px);
-                                box-shadow: 
-                                    0 4px 12px rgba(16, 185, 129, 0.3),
-                                    0 2px 6px rgba(16, 185, 129, 0.2);
-                            }
+                            font-size: var(--text-size-xxs);
                         }
                     }
                 }
 
-                &.roc-info {
-                    .roc-settings-display {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 0.4rem;
-                        padding: 0.8rem;
-                        background: rgba(59, 130, 246, 0.05);
-                        border-radius: 6px;
-                        border-left: 3px solid #3b82f6;
+                .validation-input-group {
+                    .period-input {
+                        width: 100px;
+                        margin-bottom: var(--space-xs);
                     }
                 }
             }
