@@ -1,4 +1,3 @@
-
 import { CandleData } from './candle-reconstruction-engine';
 import { TickBasedCandleEngine, TickCandleData } from './tick-based-candle-engine';
 import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
@@ -25,7 +24,7 @@ export interface TrendAnalysis {
     rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE';
 
-    // 60-tick trend validation
+    // 600-tick trend validation
     tickTrend: {
         direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
         consistency: number;
@@ -50,8 +49,8 @@ export interface MarketScanResult {
 export class TrendAnalysisEngine {
     private trendData: Map<string, TrendAnalysis> = new Map();
     private updateTimer: NodeJS.Timeout;
-    
-    // True tick price tracking (60 consecutive ticks)
+
+    // True tick price tracking (600 consecutive ticks)
     private tickPrices: Map<string, number[]> = new Map();
     private priceHistory: Map<string, number[]> = new Map();
     private ehlersHistory: Map<string, number[]> = new Map();
@@ -71,16 +70,16 @@ export class TrendAnalysisEngine {
     // ROC periods (tick-based)
     private readonly FAST_ROC_PERIOD = 5;
     private readonly SLOW_ROC_PERIOD = 20;
-    
+
     // Tick tracking constants
-    private readonly REQUIRED_TICKS = 30; // Reduced from 60 to 30 ticks
+    private readonly REQUIRED_TICKS = 600; // Increased from 60 to 600 ticks
     private readonly CONSISTENCY_THRESHOLD = 55; // Reduced from 65% to 55% consistency
 
     constructor() {
         // Update trend analysis periodically
         this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000); // Every 30 seconds
 
-        console.log('🚀 ROC-Only TrendAnalysisEngine initialized with true 60-tick validation');
+        console.log('🚀 ROC-Only TrendAnalysisEngine initialized with true 600-tick validation');
     }
 
     /**
@@ -134,17 +133,17 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Process individual tick data for true 60-tick validation
+     * Process individual tick data for true 600-tick validation
      */
     processTick(tick: { symbol: string; quote: number; epoch: number }): void {
         const { symbol, quote, epoch } = tick;
-        
-        // Store individual tick for 60-tick validation
+
+        // Store individual tick for 600-tick validation
         this.storeTickPrice(symbol, quote);
-        
+
         // Also store for price history (candle-based analysis)
         this.storePriceHistory(symbol, quote);
-        
+
         // Update trend analysis if we have enough data
         if (this.hasSufficientTickData(symbol)) {
             this.updateTrendAnalysis(symbol, quote);
@@ -152,7 +151,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Store individual tick prices for 60-tick trend validation
+     * Store individual tick prices for 600-tick trend validation
      */
     private storeTickPrice(symbol: string, price: number): void {
         if (!this.tickPrices.has(symbol)) {
@@ -162,7 +161,7 @@ export class TrendAnalysisEngine {
         const ticks = this.tickPrices.get(symbol)!;
         ticks.push(price);
 
-        // Maintain exactly 60 ticks for validation
+        // Maintain exactly 600 ticks for validation
         if (ticks.length > this.REQUIRED_TICKS) {
             ticks.shift();
         }
@@ -214,9 +213,9 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate 30-tick trend consistency with true tick-by-tick analysis
+     * Validate 600-tick trend consistency with true tick-by-tick analysis
      */
-    private validate30TickTrend(symbol: string): {
+    private validate600TickTrend(symbol: string): {
         direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
         consistency: number;
         bullishCount: number;
@@ -224,7 +223,7 @@ export class TrendAnalysisEngine {
         totalTicks: number;
     } {
         const ticks = this.tickPrices.get(symbol);
-        
+
         if (!ticks || ticks.length < this.REQUIRED_TICKS) {
             return {
                 direction: 'NEUTRAL',
@@ -242,7 +241,7 @@ export class TrendAnalysisEngine {
 
         for (let i = 1; i < ticks.length; i++) {
             const priceChange = ticks[i] - ticks[i - 1];
-            
+
             if (priceChange > 0) {
                 bullishCount++;
                 totalMovements++;
@@ -287,7 +286,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Update trend analysis with true 60-tick validation
+     * Update trend analysis with true 600-tick validation
      */
     private updateTrendAnalysis(symbol: string, currentPrice: number): void {
         const prices = this.priceHistory.get(symbol);
@@ -296,9 +295,9 @@ export class TrendAnalysisEngine {
             return;
         }
 
-        // Step 1: Validate 30-tick trend
-        const tickTrend = this.validate30TickTrend(symbol);
-        
+        // Step 1: Validate 600-tick trend
+        const tickTrend = this.validate600TickTrend(symbol);
+
         // Step 2: Apply Ehlers preprocessing to remove noise
         const preprocessedPrices = this.applyEhlersPreprocessing(prices);
 
@@ -323,7 +322,7 @@ export class TrendAnalysisEngine {
         const strength = this.calculateTrendStrength(fastROC, slowROC);
         const confidence = this.calculateConfidence(fastROC, slowROC, rocAlignment, rocCrossover);
 
-        // Step 6: Generate recommendation based on ROC strategy with 60-tick validation
+        // Step 6: Generate recommendation based on ROC strategy with 600-tick validation
         const recommendation = this.generateROCRecommendation(
             fastROC, slowROC, rocAlignment, rocCrossover, confidence, tickTrend
         );
@@ -355,7 +354,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
 
-        console.log(`🎯 ${symbol}: ${recommendation} | Fast ROC: ${fastROC.toFixed(3)}% | Slow ROC: ${slowROC.toFixed(3)}% | 30-Tick: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}%) | Bulls: ${tickTrend.bullishCount}, Bears: ${tickTrend.bearishCount}`);
+        console.log(`🎯 ${symbol}: ${recommendation} | Fast ROC: ${fastROC.toFixed(3)}% | Slow ROC: ${slowROC.toFixed(3)}% | 600-Tick: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}%) | Bulls: ${tickTrend.bullishCount}, Bears: ${tickTrend.bearishCount}`);
     }
 
     /**
@@ -429,8 +428,8 @@ export class TrendAnalysisEngine {
                 continue;
             }
 
-            const value = c1 * (prices[i] + prices[i - 1]) / 2 + 
-                         c2 * result[i - 1] + 
+            const value = c1 * (prices[i] + prices[i - 1]) / 2 +
+                         c2 * result[i - 1] +
                          c3 * result[i - 2];
             result[i] = value;
         }
@@ -547,23 +546,18 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate ROC-based recommendation with true 60-tick validation
+     * Generate ROC-based recommendation with true 600-tick validation
      */
     private generateROCRecommendation(
-        fastROC: number, 
-        slowROC: number, 
+        fastROC: number,
+        slowROC: number,
         rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
         rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE',
         confidence: number,
         tickTrend: { direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; consistency: number }
     ): 'BUY' | 'SELL' | 'HOLD' {
-        
-        // TEMPORARY: Bypass strict tick validation for immediate signals
-        // if (tickTrend.direction === 'NEUTRAL') {
-        //     return 'HOLD'; // No clear 60-tick trend
-        // }
 
-        // BUY signals require bullish 30-tick trend confirmation
+        // BUY signals require bullish 600-tick trend confirmation
         if (tickTrend.direction === 'BULLISH') {
             if (confidence > 60 && rocCrossover === 'BULLISH_CROSS') {
                 return 'BUY';
@@ -573,7 +567,7 @@ export class TrendAnalysisEngine {
             }
         }
 
-        // SELL signals require bearish 30-tick trend confirmation
+        // SELL signals require bearish 600-tick trend confirmation
         if (tickTrend.direction === 'BEARISH') {
             if (confidence > 60 && rocCrossover === 'BEARISH_CROSS') {
                 return 'SELL';
@@ -630,7 +624,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate detailed reason including 60-tick analysis
+     * Generate detailed reason including 600-tick analysis
      */
     private generateReasonForRecommendation(
         recommendation: 'BUY' | 'SELL' | 'HOLD',
@@ -644,17 +638,17 @@ export class TrendAnalysisEngine {
 
         reasons.push(`Fast ROC: ${fastROC.toFixed(3)}%, Slow ROC: ${slowROC.toFixed(3)}%`);
         reasons.push(`ROC Alignment: ${rocAlignment}, Crossover: ${rocCrossover}`);
-        reasons.push(`30-Tick Trend: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}% consistency)`);
+        reasons.push(`600-Tick Trend: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}% consistency)`);
         reasons.push(`Tick Movements: ${tickTrend.bullishCount} bullish, ${tickTrend.bearishCount} bearish`);
 
         if (recommendation === 'HOLD') {
             if (tickTrend.direction === 'NEUTRAL') {
-                reasons.push('No clear 30-tick trend direction (requires ≥55% consistency)');
+                reasons.push('No clear 600-tick trend direction (requires ≥55% consistency)');
             } else {
                 reasons.push('ROC signals not strong enough for confirmed trend direction');
             }
         } else {
-            reasons.push(`Strong ${recommendation} signal confirmed by 30-tick trend validation`);
+            reasons.push(`Strong ${recommendation} signal confirmed by 600-tick trend validation`);
         }
 
         return reasons.join(' | ');
@@ -666,7 +660,7 @@ export class TrendAnalysisEngine {
     private updateAllTrends(): void {
         // This would normally iterate through all active symbols
         // For now, just a placeholder since individual candles trigger updates
-        console.log(`🔄 ROC Trend Engine: Monitoring ${this.trendData.size} symbols with 60-tick validation`);
+        console.log(`🔄 ROC Trend Engine: Monitoring ${this.trendData.size} symbols with 600-tick validation`);
     }
 
     /**
@@ -720,7 +714,7 @@ export class TrendAnalysisEngine {
         const symbolsWithTickData = this.tickPrices.size;
         const symbolsWithSufficientTicks = Array.from(this.tickPrices.values())
             .filter(ticks => ticks.length >= this.REQUIRED_TICKS).length;
-        
+
         const totalTicks = Array.from(this.tickPrices.values())
             .reduce((sum, ticks) => sum + ticks.length, 0);
         const avgTickCount = symbolsWithTickData > 0 ? totalTicks / symbolsWithTickData : 0;
