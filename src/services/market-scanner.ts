@@ -33,7 +33,7 @@ export interface ScannerStatus {
     errors: string[];
 }
 
-// Updated TradingRecommendation interface with momentumAnalysis
+// Updated TradingRecommendation interface with momentumAnalysis and source field
 export interface TradingRecommendation {
     symbol: string;
     displayName: string; // Added display name for better readability
@@ -64,6 +64,7 @@ export interface TradingRecommendation {
         barrierDistance?: number;
         expectedDuration?: number;
     };
+    source?: 'market_scanner' | 'tick_flow'; // Added source field
 }
 
 
@@ -279,7 +280,8 @@ export class MarketScanner {
             // Long-term trend alignment fields
             longTermTrend: trend.longTermTrend,
             longTermStrength: trend.longTermTrendStrength,
-            trendAlignment: trend.colorAlignment === true // Assuming colorAlignment implies trend alignment for this context
+            trendAlignment: trend.colorAlignment === true, // Assuming colorAlignment implies trend alignment for this context
+            source: 'market_scanner' // Set source to market_scanner
         };
     }
 
@@ -423,7 +425,8 @@ export class MarketScanner {
                     suggestedDurationUnit: this.calculateOptimalDuration(trend.strength, symbol).durationUnit,
                     longTermTrend: trend.longTermTrend,
                     longTermStrength: trend.longTermTrendStrength,
-                    trendAlignment: trend.colorAlignment === true
+                    trendAlignment: trend.colorAlignment === true,
+                    source: 'market_scanner' // Set source to market_scanner
                 };
 
                 // Check for persistent recommendation
@@ -686,7 +689,8 @@ export class MarketScanner {
                 factors: sustainedMomentum.factors,
                 barrierDistance: barrierDistance,
                 expectedDuration: suggestedDuration
-            }
+            },
+            source: 'tick_flow' // Set source to tick_flow
         };
     }
 
@@ -773,6 +777,7 @@ export class MarketScanner {
             trendAlignment: trend.colorAlignment === true,
             timestamp: Date.now(),
             contractType: 'rise_fall',
+            source: 'market_scanner' // Set source to market_scanner
         };
     }
 
@@ -803,6 +808,7 @@ export class MarketScanner {
             trendAlignment: trend.colorAlignment === true,
             timestamp: Date.now(),
             contractType: 'rise_fall', // Assuming pullback is for rise/fall
+            source: 'market_scanner' // Set source to market_scanner
         };
     }
 
@@ -835,6 +841,7 @@ export class MarketScanner {
             trendAlignment: trend.colorAlignment === true,
             timestamp: Date.now(),
             contractType: 'rise_fall', // Assuming Ehlers is for rise/fall
+            source: 'market_scanner' // Set source to market_scanner
         };
     }
 
