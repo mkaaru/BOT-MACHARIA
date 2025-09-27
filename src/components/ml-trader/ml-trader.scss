@@ -2772,3 +2772,152 @@
     0%, 100% { opacity: 0.3; transform: scale(0.8); }
     50% { opacity: 1; transform: scale(1.2); }
 }
+
+.trend-card {
+    border: 1px solid var(--border-normal);
+    border-radius: var(--border-radius-sm);
+    padding: var(--gap-sm);
+    margin-bottom: var(--gap-xs);
+    background: var(--fill-normal);
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: var(--fill-hover);
+        cursor: pointer;
+    }
+
+    // Market phase specific styling
+    &.phase-rising {
+        border-left: 4px solid var(--text-profit-normal);
+        background: rgba(0, 255, 0, 0.05);
+    }
+
+    &.phase-falling {
+        border-left: 4px solid var(--text-loss-normal);
+        background: rgba(255, 0, 0, 0.05);
+    }
+
+    &.phase-ranging {
+        border-left: 4px solid var(--text-warning);
+        background: rgba(255, 165, 0, 0.05);
+    }
+
+    &.phase-transition {
+        border-left: 4px solid var(--text-general);
+        background: rgba(128, 128, 128, 0.05);
+    }
+
+    .trend-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--gap-xs);
+    }
+
+    .recommendation-badge {
+        padding: 2px 6px;
+        border-radius: var(--border-radius-xs);
+        background: var(--fill-hover);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        .confidence-score {
+            margin-top: 2px;
+            opacity: 0.7;
+        }
+    }
+
+    .market-phase {
+        display: flex;
+        align-items: center;
+        gap: var(--gap-xs);
+        margin-bottom: var(--gap-xs);
+
+        .phase-rising {
+            color: var(--text-profit-normal);
+        }
+
+        .phase-falling {
+            color: var(--text-loss-normal);
+        }
+
+        .phase-ranging {
+            color: var(--text-warning);
+        }
+
+        .phase-transition {
+            color: var(--text-general);
+        }
+    }
+
+    .multi-timeframe {
+        margin-bottom: var(--gap-xs);
+
+        .timeframe-row {
+            display: flex;
+            gap: var(--gap-xs);
+            margin-top: 2px;
+
+            span {
+                padding: 1px 4px;
+                border-radius: 2px;
+                font-size: 10px;
+
+                &.trend-bullish {
+                    background: var(--text-profit-normal);
+                    color: white;
+                }
+
+                &.trend-bearish {
+                    background: var(--text-loss-normal);
+                    color: white;
+                }
+
+                &.trend-neutral {
+                    background: var(--text-general);
+                    color: white;
+                }
+            }
+        }
+    }
+
+    .trend-duration {
+        margin-top: var(--gap-xs);
+        padding-top: var(--gap-xs);
+        border-top: 1px solid var(--border-disabled);
+    }
+}
+
+.market-phase-summary {
+    margin-bottom: var(--gap-md);
+    padding: var(--gap-sm);
+    background: var(--fill-hover);
+    border-radius: var(--border-radius-sm);
+
+    .phase-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 2px;
+
+        .phase-rising {
+            color: var(--text-profit-normal);
+        }
+
+        .phase-falling {
+            color: var(--text-loss-normal);
+        }
+
+        .phase-ranging {
+            color: var(--text-warning);
+        }
+
+        .phase-transition {
+            color: var(--text-general);
+        }
+
+        .trending-indicator {
+            margin-left: 4px;
+        }
+    }
+}
