@@ -1,3 +1,4 @@
+
 import { symbolAnalyzer, SymbolAnalysis } from './symbol-analyzer';
 
 export interface TradeRecommendation {
@@ -52,7 +53,6 @@ class MarketAnalyzer {
     private errorCallbacks: ErrorCallback[] = [];
     private tickHistory: Record<string, any[]> = {};
     private subscriptionIds: Record<string, string> = {};
-    private symbolData: Map<string, any> = new Map(); // Added for new processTick
 
     private symbols = [
         'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
@@ -62,7 +62,7 @@ class MarketAnalyzer {
 
     start() {
         if (this.isRunning) return;
-
+        
         this.isRunning = true;
         this.connectToDerivAPI();
         this.startAnalysis();
@@ -70,22 +70,21 @@ class MarketAnalyzer {
 
     stop() {
         this.isRunning = false;
-
+        
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
-
+        
         if (this.analysisInterval) {
             clearInterval(this.analysisInterval);
             this.analysisInterval = null;
         }
-
+        
         this.reconnectAttempts = 0;
         symbolAnalyzer.clearAll();
         this.tickHistory = {};
         this.subscriptionIds = {};
-        this.symbolData.clear(); // Clear symbol data on stop
     }
 
     onAnalysis(callback: AnalysisCallback): () => void {
@@ -110,21 +109,16 @@ class MarketAnalyzer {
 
     private connectToDerivAPI() {
         if (this.ws && [WebSocket.CONNECTING, WebSocket.OPEN].includes(this.ws.readyState)) {
-            console.log('🔄 WebSocket already connecting/connected, skipping...');
             return;
         }
 
         try {
-            console.log('🚀 Connecting to Deriv WebSocket API...');
             this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
-
+            
             this.ws.onopen = () => {
                 console.log('✅ Connected to Deriv WebSocket API');
                 this.reconnectAttempts = 0;
-                // Add small delay before subscribing
-                setTimeout(() => {
-                    this.subscribeToSymbols();
-                }, 500);
+                this.subscribeToSymbols();
             };
 
             this.ws.onmessage = (event) => {
@@ -143,14 +137,14 @@ class MarketAnalyzer {
                 }
             };
 
-            // Reduced connection timeout for faster feedback
+            // Connection timeout
             setTimeout(() => {
                 if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-                    console.log('⌛ WebSocket connection timeout - retrying...');
+                    console.log('⌛ WebSocket connection timeout');
                     this.ws.close();
                     this.scheduleReconnect();
                 }
-            }, 5000); // Reduced from 10s to 5s
+            }, 10000);
 
         } catch (error) {
             console.error('Failed to create WebSocket connection:', error);
@@ -167,7 +161,7 @@ class MarketAnalyzer {
 
         this.reconnectAttempts++;
         console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${this.reconnectDelay}ms`);
-
+        
         setTimeout(() => {
             if (this.isRunning) {
                 this.connectToDerivAPI();
@@ -185,7 +179,7 @@ class MarketAnalyzer {
                 ticks: symbol,
                 subscribe: 1
             };
-
+            
             try {
                 this.ws!.send(JSON.stringify(subscribeMsg));
                 console.log(`📊 Subscribed to ${symbol}`);
@@ -198,7 +192,7 @@ class MarketAnalyzer {
     private handleWebSocketMessage(event: MessageEvent) {
         try {
             const data = JSON.parse(event.data);
-
+            
             if (data.error) {
                 console.error('WebSocket error response:', data.error);
                 this.handleError(`API Error: ${data.error.message}`);
@@ -206,52 +200,40 @@ class MarketAnalyzer {
             }
 
             if (data.tick) {
-                this.processTick(data.tick.symbol, data.tick.quote, data.tick.epoch);
+                this.processTick(data.tick);
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
         }
     }
 
-    private processTick(symbol: string, quote: number, epoch: number) {
-        // Validate input data
-        if (!symbol || typeof quote !== 'number' || !isFinite(quote)) {
-            console.warn(`Invalid tick data for ${symbol}:`, { quote, epoch });
+    private processTick(tick: any) {
+        const { symbol, quote, epoch } = tick;
+        
+        if (!this.symbols.includes(symbol)) {
             return;
         }
 
-        if (!this.symbolData.has(symbol)) {
-            this.symbolData.set(symbol, {
-                ticks: [],
-                candleHistory: [],
-                volatility: 0,
-                trend: 'NEUTRAL',
-                rsi: 50,
-                lastAnalysis: Date.now()
-            });
-            console.log(`🆕 Initialized data structure for ${symbol}`);
+        // Store tick in symbol analyzer
+        symbolAnalyzer.addTick(symbol, {
+            time: epoch * 1000,
+            quote: parseFloat(quote)
+        });
+
+        // Store in local history
+        if (!this.tickHistory[symbol]) {
+            this.tickHistory[symbol] = [];
         }
+        
+        this.tickHistory[symbol].push({
+            time: epoch * 1000,
+            quote: parseFloat(quote),
+            last_digit: this.getLastDigit(parseFloat(quote))
+        });
 
-        const data = this.symbolData.get(symbol)!;
-        const tickData = {
-            quote: Number(quote),
-            epoch: epoch || Math.floor(Date.now() / 1000),
-            timestamp: Date.now()
-        };
-
-        data.ticks.push(tickData);
-        console.log(`📊 Added tick for ${symbol}: ${quote} (total ticks: ${data.ticks.length})`);
-
-        // Keep only last 100 ticks
-        if (data.ticks.length > 100) {
-            data.ticks.shift();
-        }
-
-        // Trigger analysis if we have enough data
-        if (data.ticks.length >= 5) {  // Further reduced threshold for faster startup
-            this.analyzeSymbol(symbol);
-        } else {
-            console.log(`📊 ${symbol}: Need ${5 - data.ticks.length} more ticks for analysis`);
+        // Keep only last 200 ticks
+        if (this.tickHistory[symbol].length > 200) {
+            this.tickHistory[symbol] = this.tickHistory[symbol].slice(-200);
         }
     }
 
@@ -266,15 +248,9 @@ class MarketAnalyzer {
             clearInterval(this.analysisInterval);
         }
 
-        console.log('📊 Starting market analysis engine...');
         this.analysisInterval = setInterval(() => {
             this.performAnalysis();
-        }, 2000); // Every 2 seconds for better stability
-
-        // Run initial analysis immediately
-        setTimeout(() => {
-            this.performAnalysis();
-        }, 1000);
+        }, 1500); // Every 1.5 seconds
     }
 
     private performAnalysis() {
@@ -284,10 +260,8 @@ class MarketAnalyzer {
             const o5u4Opportunities: O5U4Conditions[] = [];
 
             this.symbols.forEach(symbol => {
-                const data = this.symbolData.get(symbol);
-                const ticks = data?.ticks;
-
-                if (!ticks || ticks.length < 5) { // Use the same threshold as in processTick
+                const ticks = this.tickHistory[symbol];
+                if (!ticks || ticks.length < 50) {
                     marketStats[symbol] = {
                         symbol,
                         tickCount: ticks?.length || 0,
@@ -308,13 +282,13 @@ class MarketAnalyzer {
                 }
 
                 ticks.forEach(tick => {
-                    const digit = this.getLastDigit(tick.quote);
+                    const digit = tick.last_digit;
                     digitFreq[digit] = (digitFreq[digit] || 0) + 1;
                 });
 
                 const mostFreqDigit = Object.entries(digitFreq)
                     .reduce((a, b) => digitFreq[parseInt(a[0])] > digitFreq[parseInt(b[0])] ? a : b)[0];
-
+                
                 const leastFreqDigit = Object.entries(digitFreq)
                     .reduce((a, b) => digitFreq[parseInt(a[0])] < digitFreq[parseInt(b[0])] ? a : b)[0];
 
@@ -322,7 +296,7 @@ class MarketAnalyzer {
                     symbol,
                     tickCount: ticks.length,
                     lastDigitFrequency: digitFreq,
-                    currentLastDigit: this.getLastDigit(ticks[ticks.length - 1].quote),
+                    currentLastDigit: ticks[ticks.length - 1].last_digit,
                     mostFrequentDigit: parseInt(mostFreqDigit),
                     leastFrequentDigit: parseInt(leastFreqDigit),
                     isReady: true,
@@ -335,7 +309,7 @@ class MarketAnalyzer {
             });
 
             // Find best recommendation
-            const bestRecommendation = recommendations.reduce((best, current) =>
+            const bestRecommendation = recommendations.reduce((best, current) => 
                 current.confidence > (best?.confidence || 0) ? current : best, null);
 
             // Notify all callbacks
@@ -353,14 +327,14 @@ class MarketAnalyzer {
         const recommendations: TradeRecommendation[] = [];
         const totalTicks = Object.values(digitFreq).reduce((a, b) => a + b, 0);
 
-        if (totalTicks < 10) return recommendations; // Use the same threshold
+        if (totalTicks < 50) return recommendations;
 
         // Over/Under analysis
         const barriers = [3, 4, 5, 6, 7];
         barriers.forEach(barrier => {
             let overCount = 0;
             let underCount = 0;
-
+            
             for (let digit = 0; digit <= 9; digit++) {
                 const count = digitFreq[digit] || 0;
                 if (digit > barrier) {
@@ -437,15 +411,6 @@ class MarketAnalyzer {
 
     private handleError(message: string) {
         this.errorCallbacks.forEach(callback => callback(message));
-    }
-
-    // Placeholder for analyzeSymbol method, as it was present in the old processTick
-    private analyzeSymbol(symbol: string) {
-        // This method might need to be implemented or integrated with performAnalysis
-        // For now, it's a placeholder to avoid errors.
-        // console.log(`Analysis triggered for ${symbol}`);
-        // In a real scenario, this would likely call parts of performAnalysis for the specific symbol
-        // or update the symbolData directly for a more granular analysis.
     }
 }
 

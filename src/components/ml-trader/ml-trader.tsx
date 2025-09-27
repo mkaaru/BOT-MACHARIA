@@ -1223,7 +1223,7 @@ const MLTrader = observer(() => {
                                                         </div>
                                                     )}
 
-
+                                                    
                                                 </div>
                                             )}
 
@@ -1380,39 +1380,21 @@ const MLTrader = observer(() => {
                                                 </div>
 
                                                 <div className="trend-metrics">
-                                                    <Text size="xs">LT ROC: {trend.longTermROC.toFixed(4)}</Text>
-                                                    <Text size="xs">ST ROC: {trend.shortTermROC.toFixed(4)}</Text>
-                                                    <Text 
-                                                        size="xs" 
-                                                        color={trend.rocAlignment === 'NEUTRAL' ? 'general' : 
-                                                              trend.rocAlignment === 'BULLISH' ? 'profit-success' : 'loss-danger'}
-                                                    >
-                                                        Align: {trend.rocAlignment}
-                                                    </Text>
-                                                    {trend.rocMismatch?.hasMismatch && (
-                                                        <div className={`roc-mismatch-warning ${trend.rocMismatch.severity}`}>
-                                                            <Text size="xs" color="loss-danger">
-                                                                ⚠️ ROC Mismatch ({trend.rocMismatch.severity.toUpperCase()})
-                                                            </Text>
+                                                    <div className="metric">
+                                                        <Text size="xs">Confidence</Text>
+                                                        <div className="confidence-bar">
+                                                            <div
+                                                                className="confidence-fill"
+                                                                style={{ width: `${trend.confidence}%` }}
+                                                            />
                                                         </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="trend-metrics">
-                                                    <Text size="xs">Confidence</Text>
-                                                    <div className="confidence-bar">
-                                                        <div
-                                                            className="confidence-fill"
-                                                            style={{ width: `${trend.confidence}%` }}
-                                                        />
+                                                        <Text size="xs" weight="bold">{trend.confidence.toFixed(0)}%</Text>
                                                     </div>
-                                                    <Text size="xs" weight="bold">{trend.confidence.toFixed(0)}%</Text>
+                                                    <div className="metric">
+                                                        <Text size="xs">Score</Text>
+                                                        <Text size="sm" weight="bold">{trend.score.toFixed(1)}/100</Text>
+                                                    </div>
                                                 </div>
-                                                <div className="metric">
-                                                    <Text size="xs">Score</Text>
-                                                    <Text size="sm" weight="bold">{trend.score.toFixed(1)}/100</Text>
-                                                </div>
-                                                
 
                                                 <div className="indicator-data">
                                                     <div className="indicator-row">

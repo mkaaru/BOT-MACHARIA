@@ -242,31 +242,9 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // Enhanced ROC analysis with mismatch detection
-        const rocMismatch = this.detectROCMismatch(longTermROC, shortTermROC, recommendation);
-
-        // Adjust recommendation based on ROC mismatch analysis
+        // ROC-focused analysis (removed mean reversion priorities)
         let finalRecommendation = recommendation;
         let enhancedScore = score;
-
-        if (rocMismatch.hasMismatch) {
-            console.log(`⚠️ ${symbol}: ROC Mismatch detected (${rocMismatch.severity}) - ${rocMismatch.recommendation}`);
-            
-            // Reduce confidence for mismatched signals
-            if (rocMismatch.severity === 'high') {
-                enhancedScore = Math.max(30, score * 0.4); // Significant reduction
-                finalRecommendation = 'HOLD'; // Override to HOLD for high severity mismatches
-            } else if (rocMismatch.severity === 'medium') {
-                enhancedScore = Math.max(40, score * 0.7); // Moderate reduction
-            }
-        } else if (rocAlignment !== 'NEUTRAL') {
-            // Boost confidence for aligned ROC signals
-            enhancedScore = Math.min(95, score * 1.15);
-        }
-
-        console.log(`📊 ${symbol}: ROC Analysis - Long: ${longTermROC.toFixed(6)}, Short: ${shortTermROC.toFixed(6)}, Alignment: ${rocAlignment}, Mismatch: ${rocMismatch.hasMismatch}`);
-
-        const finalScore = enhancedScorere;
 
         // Priority 1: ROC signals with increased sensitivity
         if (persistentROCSignal && confidence >= 60) { // Lowered from 75 to 60 for higher sensitivity
@@ -595,126 +573,35 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Calculate confidence based on ROC alignment and strength with mismatch detection
+     * Calculate confidence based on ROC alignment and strength
      */
     private calculateConfidenceByROC(longTermROC: number, shortTermROC: number, rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL'): number {
         let confidence = 40; // Base confidence
 
-        // Enhanced ROC alignment with stricter thresholds
-        const rocStrength = Math.abs(longTermROC) + Math.abs(shortTermROC);
-        const rocConsistency = longTermROC * shortTermROC; // Positive if same direction
-
-        // Only award alignment bonus if ROC signals are consistent and strong enough
-        if (rocAlignment !== 'NEUTRAL' && rocConsistency > 0 && rocStrength > 0.0002) {
-            confidence += 35; // Reduced from 40 to prevent over-confidence on weak signals
-        } else if (rocAlignment !== 'NEUTRAL' && rocConsistency <= 0) {
-            // Penalty for conflicting ROC signals
-            confidence -= 15;
+        // ROC alignment bonus - INCREASED WEIGHT
+        if (rocAlignment !== 'NEUTRAL') {
+            confidence += 40; // Increased from 30 to 40 points for aligned ROC
         }
 
-        // ROC magnitude bonus with more conservative scaling
-        confidence += Math.min(20, rocStrength * 8000); // Reduced multiplier for more realistic scaling
+        // ROC magnitude bonus - ENHANCED
+        const rocMagnitude = Math.abs(longTermROC) + Math.abs(shortTermROC);
+        confidence += Math.min(25, rocMagnitude * 12); // Increased multiplier and cap
 
-        // Consistency bonus (both ROCs in same direction)
-        if (rocConsistency > 0) {
-            confidence += Math.min(10, Math.abs(rocConsistency) * 15000);
-        }
-
-        // Acceleration bonus with stricter requirements
+        // Acceleration bonus (short-term momentum stronger than long-term) - ENHANCED
         const acceleration = Math.abs(shortTermROC - longTermROC);
-        if (acceleration > 0.0001) { // Only if acceleration is meaningful
-            confidence += Math.min(10, acceleration * 20000);
-        }
+        confidence += Math.min(15, acceleration * 25); // Increased multiplier and cap
 
         return Math.min(100, Math.max(0, confidence));
     }
 
     /**
-     * Enhanced ROC alignment validation with mismatch detection
+     * Validate ROC alignment for trading signals
      */
-    private validateROCAlignment(symbol: string, longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
-        // Enhanced thresholds for more accurate ROC detection
-        const strongThreshold = 0.0003; // Increased threshold for strong signals
-        const mediumThreshold = 0.0001; // Medium threshold
-        const consistencyThreshold = 0.00005; // Minimum threshold for consistency
-
-        // Check ROC strength and consistency
-        const longTermStrong = Math.abs(longTermROC) > strongThreshold;
-        const shortTermStrong = Math.abs(shortTermROC) > strongThreshold;
-        const bothMedium = Math.abs(longTermROC) > mediumThreshold && Math.abs(shortTermROC) > mediumThreshold;
-        const sameDirection = longTermROC * shortTermROC > 0;
-        const significantMagnitude = Math.abs(longTermROC) + Math.abs(shortTermROC) > consistencyThreshold;
-
-        // Only declare alignment if signals are consistent and significant
-        if (sameDirection && significantMagnitude) {
-            if ((longTermStrong && shortTermStrong) || bothMedium) {
-                if (longTermROC > 0 && shortTermROC > 0) {
-                    return 'BULLISH';
-                } else if (longTermROC < 0 && shortTermROC < 0) {
-                    return 'BEARISH';
-                }
-            }
-        }
-
-        // Return NEUTRAL for weak, conflicting, or insignificant signals
-        return 'NEUTRAL';
-    }
-
-    /**
-     * Detect and handle ROC alignment mismatches
-     */
-    private detectROCMismatch(longTermROC: number, shortTermROC: number, overallTrend: string): {
-        hasMismatch: boolean;
-        severity: 'low' | 'medium' | 'high';
-        recommendation: string;
-    } {
-        const rocAlignment = this.validateROCAlignment('', longTermROC, shortTermROC);
-        
-        // Check for mismatch between ROC signals and overall trend
-        const trendRocMismatch = 
-            (rocAlignment === 'BULLISH' && overallTrend === 'BEARISH') ||
-            (rocAlignment === 'BEARISH' && overallTrend === 'BULLISH');
-
-        // Check for internal ROC conflicts
-        const rocInternalConflict = longTermROC * shortTermROC < 0; // Opposite directions
-
-        let severity: 'low' | 'medium' | 'high' = 'low';
-        let recommendation = 'Monitor for clearer signals';
-
-        if (trendRocMismatch || rocInternalConflict) {
-            const conflictMagnitude = Math.abs(longTermROC) + Math.abs(shortTermROC);
-            
-            if (conflictMagnitude > 0.0005) {
-                severity = 'high';
-                recommendation = 'Wait for trend confirmation - conflicting signals detected';
-            } else if (conflictMagnitude > 0.0002) {
-                severity = 'medium';
-                recommendation = 'Exercise caution - mixed momentum signals';
-            } else {
-                severity = 'low';
-                recommendation = 'Weak signals - consider waiting for stronger momentum';
-            }
-
-            return {
-                hasMismatch: true,
-                severity,
-                recommendation
-            };
-        }
-
-        return {
-            hasMismatch: false,
-            severity: 'low',
-            recommendation: 'ROC alignment consistent with trend analysis'
-        };
-    }
-
-    /**
-     * Validate dual ROC signal with candle pattern confirmation (increased sensitivity)
-     */
-    private validateDualROCSignal(symbol: string): 'BULLISH' | 'BEARISH' | null {
+    private validateROCAlignment(symbol: string, longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | null {
         // Import candle reconstruction engine
         const { candleReconstructionEngine } = require('./candle-reconstruction-engine');
+
+        // Get recent candles for candle pattern validation
         const recentCandles = candleReconstructionEngine.getCandles(symbol, 3);
 
         if (recentCandles.length < 2) {

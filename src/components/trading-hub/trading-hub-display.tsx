@@ -162,9 +162,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         { value: 'o5u4_strategy', label: 'O5U4 Strategy' }
     ];
 
-    // State for cleanup function
-    const [cleanupFunction, setCleanupFunction] = useState<(() => void) | null>(null);
-
     // AI message rotation effect
     useEffect(() => {
         if (aiScanningPhase !== 'complete' && connectionStatus === 'scanning') {
@@ -214,36 +211,66 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
-                    // Simplified analysis phase detection
+                    // Enhanced AI scanning phases - Load interface after 5 markets
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
 
                     if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
-                        setCurrentAiMessage('🤖 Initializing market analysis...');
+                        setCurrentAiMessage(aiScanningMessages.initializing[0]);
                         setStatusMessage('🤖 AI initializing market analysis...');
-                        setConnectionStatus('scanning');
-                    } else if (readySymbolsCount >= 3) {
-                        // Switch to ready state after 3 markets are analyzed (faster)
-                        setAiScanningPhase('complete');
-                        setCurrentAiMessage('✅ AI analysis ready - Markets analyzed successfully!');
-                        setStatusMessage('🚀 AI analysis complete - Ready to trade!');
-                        setConnectionStatus('ready');
-                        setIsScanning(false);
-                        setProcessingSymbol('');
-                    } else {
-                        // Show progress for 1-2 markets
+                    } else if (readySymbolsCount < 5) {
+                        // Keep scanning state until 5 markets are analyzed
                         setAiScanningPhase('analyzing');
-                        setCurrentAiMessage(`🧠 Analyzing market patterns... ${readySymbolsCount}/12 markets ready`);
-                        setStatusMessage(`🧠 Processing ${readySymbolsCount} of 12 markets...`);
+                        const msgIndex = Math.floor((readySymbolsCount / 5) * aiScanningMessages.analyzing.length);
+                        setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
+                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/5 markets ready`);
                         setConnectionStatus('scanning');
 
                         // Show which symbol is being processed
                         const symbols = Object.keys(currentStats);
-                        if (symbols.length > 0) {
-                            const currentSymbol = symbols[symbols.length - 1];
+                        if (symbols[readySymbolsCount - 1]) {
+                            const currentSymbol = symbols[readySymbolsCount - 1];
                             const displayName = symbolMap[currentSymbol] || currentSymbol;
                             setProcessingSymbol(displayName);
                         }
+                    } else if (readySymbolsCount === 5) {
+                        // Switch to ready state after 5 markets are analyzed
+                        setAiScanningPhase('complete');
+                        setCurrentAiMessage('✅ AI analysis ready - 5 markets analyzed, loading interface...');
+                        setStatusMessage('🚀 AI has identified trading opportunities - Interface loading...');
+                        setConnectionStatus('ready');
+                        setIsScanning(false);
+                        setProcessingSymbol('');
+                    } else if (progressPercentage < 40) {
+                        setAiScanningPhase('analyzing');
+                        const msgIndex = Math.floor((progressPercentage / 40) * aiScanningMessages.analyzing.length);
+                        setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
+                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/${totalSymbols} markets`);
+                        setConnectionStatus('scanning');
+
+                        // Show which symbol is being processed
+                        const symbols = Object.keys(currentStats);
+                        if (symbols[readySymbolsCount - 1]) {
+                            const currentSymbol = symbols[readySymbolsCount - 1];
+                            const displayName = symbolMap[currentSymbol] || currentSymbol;
+                            setProcessingSymbol(displayName);
+                        }
+                    } else if (progressPercentage < 80) {
+                        setAiScanningPhase('evaluating');
+                        const msgIndex = Math.floor(((progressPercentage - 40) / 40) * aiScanningMessages.evaluating.length);
+                        setCurrentAiMessage(aiScanningMessages.evaluating[Math.min(msgIndex, aiScanningMessages.evaluating.length - 1)]);
+                        setStatusMessage(`🤖 AI evaluating opportunities... ${readySymbolsCount}/${totalSymbols} complete`);
+                    } else if (progressPercentage < 100) {
+                        setAiScanningPhase('recommending');
+                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
+                        setStatusMessage(`🎯 AI preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
+                    } else {
+                        setAiScanningPhase('complete');
+                        setCurrentAiMessage('✅ AI analysis complete - Ready to trade!');
+                        setStatusMessage('🚀 AI has identified the best trading opportunities');
+                        setConnectionStatus('ready');
+                        setIsScanning(false);
+                        setProcessingSymbol('');
                     }
                 });
 
@@ -279,50 +306,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             marketAnalyzer.stop();
         };
     }, []);
-
-    // Simplified WebSocket connection and analysis initialization
-    useEffect(() => {
-        let isSubscribed = true;
-        
-        const initializeAnalysis = async () => {
-            try {
-                setConnectionStatus('connecting');
-                console.log('🚀 Initializing Trading Hub analysis...');
-
-                // Direct market analyzer initialization - bypass centralized manager
-                if (marketAnalyzer && typeof marketAnalyzer.start === 'function') {
-                    console.log('📊 Starting market analyzer directly...');
-                    marketAnalyzer.start();
-                    setConnectionStatus('connected');
-                } else {
-                    console.error('❌ Market analyzer not available');
-                    setConnectionStatus('error');
-                }
-
-            } catch (error) {
-                console.error('❌ Failed to initialize analysis:', error);
-                if (isSubscribed) {
-                    setConnectionStatus('error');
-                    // Retry after 3 seconds
-                    setTimeout(() => {
-                        if (isSubscribed) {
-                            initializeAnalysis();
-                        }
-                    }, 3000);
-                }
-            }
-        };
-
-        initializeAnalysis();
-
-        return () => {
-            isSubscribed = false;
-            if (marketAnalyzer && typeof marketAnalyzer.stop === 'function') {
-                marketAnalyzer.stop();
-            }
-        };
-    }, []);
-
 
     // Generate comprehensive scan results
     const generateScanResults = useCallback((): ScanResult[] => {

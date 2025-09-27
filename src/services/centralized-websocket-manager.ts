@@ -71,7 +71,7 @@ export class CentralizedWebSocketManager {
      * Connect to WebSocket with auto-reconnection logic
      */
     async connect(): Promise<void> {
-        if (this.isConnected && this.api?.connection?.readyState === WebSocket.OPEN) {
+        if (this.isConnected) {
             return Promise.resolve();
         }
 
@@ -272,13 +272,7 @@ export class CentralizedWebSocketManager {
      * Subscribe to a symbol with reference counting
      */
     async subscribe(symbol: string): Promise<string | null> {
-        // Ensure we're connected first
         await this.connect();
-        
-        // Wait a bit more to ensure connection is stable
-        if (!this.isConnected || !this.api) {
-            throw new Error(`WebSocket not properly connected for ${symbol}`);
-        }
         
         // Increment reference count
         const currentRefs = this.subscriptionRefCounts.get(symbol) || 0;
@@ -292,7 +286,6 @@ export class CentralizedWebSocketManager {
         }
         
         try {
-            console.log(`WebSocket Manager: Attempting to subscribe to ${symbol}`);
             const response = await this.api.send({ ticks: symbol, subscribe: 1 });
             
             if (response.error) {
@@ -305,7 +298,6 @@ export class CentralizedWebSocketManager {
                 return response.subscription.id;
             }
             
-            console.warn(`WebSocket Manager: No subscription ID received for ${symbol}`);
             return null;
             
         } catch (error) {
