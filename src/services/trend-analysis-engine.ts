@@ -186,7 +186,6 @@ export class TrendAnalysisEngine {
         const momentumBreakout = this.detectMomentumBreakout(recentCandles, symbol);
 
         // Use sensitive ROC periods for 1-second volatility symbols
-        const is1sVolatility = symbol.match(/\d+\s*1s/i);
         const rocPeriods = this.getROCPeriods(is1sVolatility); // Use sensitive for 1s volatilities
         const longTermROC = this.calculateROC(prices, rocPeriods.longTerm);
         const shortTermROC = this.calculateROC(prices, rocPeriods.shortTerm);
