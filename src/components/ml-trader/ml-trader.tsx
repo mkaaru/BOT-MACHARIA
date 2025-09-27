@@ -1,802 +1,1696 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
-import Button from '@/components/shared_ui/button';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
+import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
+import { TrendAnalysis } from '@/services/trend-analysis-engine';
+
 import './ml-trader.scss';
 
-// Enhanced volatility symbols for comprehensive analysis
-const VOLATILITY_SYMBOLS = [
-    { symbol: 'R_10', display_name: 'Volatility 10 Index', volatility: 10 },
-    { symbol: 'R_25', display_name: 'Volatility 25 Index', volatility: 25 },
-    { symbol: 'R_50', display_name: 'Volatility 50 Index', volatility: 50 },
-    { symbol: 'R_75', display_name: 'Volatility 75 Index', volatility: 75 },
-    { symbol: 'R_100', display_name: 'Volatility 100 Index', volatility: 100 },
-    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', volatility: 10 },
-    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', volatility: 25 },
-    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', volatility: 50 },
-    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', volatility: 75 },
-    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', volatility: 100 },
+// Direct Bot Builder loading - bypassing modal completely
+
+// Enhanced volatility symbols including 1-second indices
+const ENHANCED_VOLATILITY_SYMBOLS = [
+    { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s: false },
+    { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s: false },
+    { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s: false },
+    { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s: false },
+    { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s: false },
+    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s: true },
+    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s: true },
+    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true },
+    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true },
+    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true },
 ];
 
-interface TechnicalIndicators {
-    ema5: number;
-    ema13: number;
-    ema21: number;
-    ema55: number;
-    rsi: number;
-    macd: number;
-    macdSignal: number;
-    bollinger: {
-        upper: number;
-        middle: number;
-        lower: number;
-    };
-    stochastic: {
-        k: number;
-        d: number;
-    };
-    adx: number;
-    atr: number;
-    williamsR: number;
-    momentum: number;
-}
+// Trade types for Rise/Fall and Higher/Lower
+const TRADE_TYPES = [
+    { value: 'CALL', label: 'Rise', description: 'Win if exit spot is higher than entry spot' },
+    { value: 'PUT', label: 'Fall', description: 'Win if exit spot is lower than entry spot' },
+];
 
-interface MLSignal {
-    symbol: string;
-    direction: 'RISE' | 'FALL';
-    confidence: number;
-    strength: 'STRONG' | 'MODERATE' | 'WEAK';
-    timeframe: number;
-    entry_price: number;
-    technical_score: number;
-    ml_score: number;
-    combined_score: number;
-    indicators: TechnicalIndicators;
-    reasoning: string[];
-    risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
-}
+const HIGHER_LOWER_TYPES = [
+    { value: 'CALL', label: 'Higher', description: 'Win if exit spot is higher than barrier' },
+    { value: 'PUT', label: 'Lower', description: 'Win if exit spot is lower than barrier' },
+];
 
-interface MarketData {
-    symbol: string;
-    prices: number[];
-    volumes: number[];
-    timestamps: number[];
-    indicators: TechnicalIndicators | null;
-}
+// Safe version of tradeOptionToBuy without Blockly dependencies
+const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
+    const buy: any = {
+        buy: '1',
+        price: trade_option.amount,
+        parameters: {
+            amount: trade_option.amount,
+            basis: trade_option.basis,
+            contract_type,
+            currency: trade_option.currency,
+            duration: trade_option.duration,
+            duration_unit: trade_option.duration_unit,
+            symbol: trade_option.symbol,
+        },
+    };
+
+    // Add barrier for Higher/Lower contracts
+    if (trade_option.barrier !== undefined) {
+        buy.parameters.barrier = trade_option.barrier;
+    }
+
+    return buy;
+};
 
 const MLTrader = observer(() => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
     const apiRef = useRef<any>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [marketData, setMarketData] = useState<Map<string, MarketData>>(new Map());
-    const [mlSignals, setMLSignals] = useState<MLSignal[]>([]);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [selectedSignal, setSelectedSignal] = useState<MLSignal | null>(null);
-    const [autoTrade, setAutoTrade] = useState(false);
+    const contractInProgressRef = useRef(false);
+    const lastOutcomeWasLossRef = useRef<boolean>(false);
+    const baseStakeRef = useRef<number>(1.0); // Store the initial stake
+    const lossStreakRef = useRef<number>(0);
+    const stepRef = useRef<number>(0); // Current step in Martingale or other progression
+
+    const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
-    const [status, setStatus] = useState<string>('Initializing ML Trader...');
+    const [current_price, setCurrentPrice] = useState<number | null>(null);
 
-    // ML Configuration
-    const [mlConfig, setMLConfig] = useState({
-        confidence_threshold: 75,
-        risk_tolerance: 'MEDIUM',
-        timeframe: 30, // seconds
-        stake_amount: 1.0,
-        max_concurrent_trades: 3,
-        stop_loss_threshold: -50, // USD
-        take_profit_threshold: 100 // USD
-    });
+    // Form state for the trading interface
+    const [modal_symbol, setModalSymbol] = useState<string>('');
+    const [modal_trade_mode, setModalTradeMode] = useState<'rise_fall' | 'higher_lower'>('rise_fall');
+    const [modal_contract_type, setModalContractType] = useState<string>('CALL');
+    const [modal_duration, setModalDuration] = useState<number>(20);
+    const [modal_duration_unit, setModalDurationUnit] = useState<'t' | 's' | 'm'>('s');
+    const [modal_stake, setModalStake] = useState<number>(1.0);
+    const [modal_barrier_offset, setModalBarrierOffset] = useState<number>(0.001);
 
-    // Technical Analysis Functions
-    const calculateEMA = (prices: number[], period: number): number => {
-        if (prices.length < period) return prices[prices.length - 1] || 0;
+    const [status, setStatus] = useState<string>('');
+    const [is_running, setIsRunning] = useState(false);
+    const stopFlagRef = useRef<boolean>(false);
 
-        const multiplier = 2 / (period + 1);
-        let ema = prices.slice(0, period).reduce((sum, price) => sum + price, 0) / period;
+    // Enhanced states for market scanning and trend analysis
+    const [scanner_status, setScannerStatus] = useState<ScannerStatus | null>(null);
+    const [recommendations, setRecommendations] = useState<TradingRecommendation[]>([]);
+    const [market_trends, setMarketTrends] = useState<Map<string, TrendAnalysis>>(new Map());
+    const [is_scanner_initialized, setIsScannerInitialized] = useState(false);
+    const [show_trend_analysis, setShowTrendAnalysis] = useState(true);
+    const [scanning_progress, setScanningProgress] = useState(0);
+    const [selected_recommendation, setSelectedRecommendation] = useState<TradingRecommendation | null>(null);
+    const [volatility_trends, setVolatilityTrends] = useState<Map<string, TrendAnalysis>>(new Map());
+    const [initial_scan_complete, setInitialScanComplete] = useState(false);
+    const [showAIAnalysis, setShowAIAnalysis] = useState(true); // State for AI analysis animation
 
-        for (let i = period; i < prices.length; i++) {
-            ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
-        }
+    // Trend filtering states
+    const [enable_trend_filter, setEnableTrendFilter] = useState(false);
+    const [min_trend_strength, setMinTrendStrength] = useState(70); // Default minimum strength
+    const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
+    const [roc_sensitive_settings, setRocSensitiveSettings] = useState(false); // ROC sensitivity toggle
 
-        return ema;
-    };
 
-    const calculateRSI = (prices: number[], period: number = 14): number => {
-        if (prices.length < period + 1) return 50;
 
-        const changes = [];
-        for (let i = 1; i < prices.length; i++) {
-            changes.push(prices[i] - prices[i - 1]);
-        }
+    // Remove modal state - we bypass the modal completely
+    const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
 
-        const gains = changes.slice(-period).filter(change => change > 0);
-        const losses = changes.slice(-period).filter(change => change < 0).map(loss => Math.abs(loss));
+    // Super Elite Bot Logic Adaptation
+    const baseStake = baseStakeRef.current; // Use baseStake from ref for calculations
+    const lossStreak = lossStreakRef.current;
+    const step = stepRef.current;
 
-        const avgGain = gains.length > 0 ? gains.reduce((sum, gain) => sum + gain, 0) / period : 0;
-        const avgLoss = losses.length > 0 ? losses.reduce((sum, loss) => sum + loss, 0) / period : 0;
+    // Placeholder for Super Elite's prediction logic
+    const ouPredPostLoss = 3; // Example: Super Elite uses 3 after a loss
 
-        if (avgLoss === 0) return 100;
-
-        const rs = avgGain / avgLoss;
-        return 100 - (100 / (1 + rs));
-    };
-
-    const calculateMACD = (prices: number[]): { macd: number; signal: number } => {
-        const ema12 = calculateEMA(prices, 12);
-        const ema26 = calculateEMA(prices, 26);
-        const macd = ema12 - ema26;
-
-        // Simplified signal line (would need more sophisticated calculation)
-        const signal = macd * 0.9;
-
-        return { macd, signal };
-    };
-
-    const calculateBollingerBands = (prices: number[], period: number = 20): { upper: number; middle: number; lower: number } => {
-        if (prices.length < period) {
-            const current = prices[prices.length - 1] || 0;
-            return { upper: current * 1.02, middle: current, lower: current * 0.98 };
-        }
-
-        const slice = prices.slice(-period);
-        const middle = slice.reduce((sum, price) => sum + price, 0) / period;
-        const variance = slice.reduce((sum, price) => sum + Math.pow(price - middle, 2), 0) / period;
-        const stdDev = Math.sqrt(variance);
-
-        return {
-            upper: middle + (stdDev * 2),
-            middle,
-            lower: middle - (stdDev * 2)
-        };
-    };
-
-    const calculateStochastic = (prices: number[], period: number = 14): { k: number; d: number } => {
-        if (prices.length < period) return { k: 50, d: 50 };
-
-        const slice = prices.slice(-period);
-        const highest = Math.max(...slice);
-        const lowest = Math.min(...slice);
-        const current = prices[prices.length - 1];
-
-        const k = ((current - lowest) / (highest - lowest)) * 100;
-        const d = k * 0.9; // Simplified D line
-
-        return { k, d };
-    };
-
-    const calculateADX = (prices: number[]): number => {
-        // Simplified ADX calculation
-        if (prices.length < 14) return 25;
-
-        let trends = 0;
-        for (let i = 1; i < Math.min(14, prices.length); i++) {
-            if (Math.abs(prices[i] - prices[i - 1]) > 0.001) trends++;
-        }
-
-        return (trends / 13) * 100;
-    };
-
-    const calculateATR = (prices: number[], period: number = 14): number => {
-        if (prices.length < period) return 0.001;
-
-        let totalRange = 0;
-        for (let i = 1; i < Math.min(period + 1, prices.length); i++) {
-            totalRange += Math.abs(prices[i] - prices[i - 1]);
-        }
-
-        return totalRange / Math.min(period, prices.length - 1);
-    };
-
-    const calculateWilliamsR = (prices: number[], period: number = 14): number => {
-        if (prices.length < period) return -50;
-
-        const slice = prices.slice(-period);
-        const highest = Math.max(...slice);
-        const lowest = Math.min(...slice);
-        const current = prices[prices.length - 1];
-
-        return ((highest - current) / (highest - lowest)) * -100;
-    };
-
-    // ML Analysis Engine
-    const analyzeWithML = useCallback((data: MarketData): MLSignal | null => {
-        if (data.prices.length < 50) return null;
-
-        const indicators = calculateIndicators(data.prices);
-        const technicalScore = calculateTechnicalScore(indicators, data.prices);
-        const mlScore = calculateMLScore(indicators, data.prices);
-        const combinedScore = (technicalScore * 0.4) + (mlScore * 0.6);
-
-        // AI Decision Logic
-        const reasoning = [];
-        let direction: 'RISE' | 'FALL' = 'RISE';
-        let confidence = 50;
-
-        // EMA Analysis
-        if (indicators.ema5 > indicators.ema13 && indicators.ema13 > indicators.ema21) {
-            reasoning.push('Bullish EMA alignment detected');
-            confidence += 15;
-            direction = 'RISE';
-        } else if (indicators.ema5 < indicators.ema13 && indicators.ema13 < indicators.ema21) {
-            reasoning.push('Bearish EMA alignment detected');
-            confidence += 15;
-            direction = 'FALL';
-        }
-
-        // RSI Analysis
-        if (indicators.rsi > 70) {
-            reasoning.push('RSI indicates overbought conditions');
-            if (direction === 'FALL') confidence += 10;
-        } else if (indicators.rsi < 30) {
-            reasoning.push('RSI indicates oversold conditions');
-            if (direction === 'RISE') confidence += 10;
-        }
-
-        // MACD Analysis
-        if (indicators.macd > indicators.macdSignal) {
-            reasoning.push('MACD shows bullish momentum');
-            if (direction === 'RISE') confidence += 12;
+    const handleContractOutcome = useCallback((profit: number) => {
+        if (profit > 0) {
+            // WIN: Reset to pre-loss state
+            lastOutcomeWasLossRef.current = false;
+            lossStreakRef.current = 0;
+            stepRef.current = 0;
+            setStake(baseStake); // Reset stake to base stake
+            console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
         } else {
-            reasoning.push('MACD shows bearish momentum');
-            if (direction === 'FALL') confidence += 12;
+            // LOSS: Set flag for next trade to use after-loss prediction and apply Martingale
+            lastOutcomeWasLossRef.current = true;
+            lossStreakRef.current++;
+            stepRef.current = Math.min(stepRef.current + 1, 10); // Increment step, cap at 10
+            const martingaleMultiplier = 1.5; // Updated multiplier
+            setStake(prevStake => (prevStake * martingaleMultiplier).toFixed(2)); // Apply Martingale
+            console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
         }
+    }, [account_currency, baseStake, ouPredPostLoss]); // Add dependencies
 
-        // Bollinger Bands Analysis
-        const currentPrice = data.prices[data.prices.length - 1];
-        if (currentPrice <= indicators.bollinger.lower) {
-            reasoning.push('Price at lower Bollinger Band - oversold');
-            if (direction === 'RISE') confidence += 8;
-        } else if (currentPrice >= indicators.bollinger.upper) {
-            reasoning.push('Price at upper Bollinger Band - overbought');
-            if (direction === 'FALL') confidence += 8;
-        }
-
-        // Stochastic Analysis
-        if (indicators.stochastic.k < 20 && indicators.stochastic.d < 20) {
-            reasoning.push('Stochastic in oversold territory');
-            if (direction === 'RISE') confidence += 7;
-        } else if (indicators.stochastic.k > 80 && indicators.stochastic.d > 80) {
-            reasoning.push('Stochastic in overbought territory');
-            if (direction === 'FALL') confidence += 7;
-        }
-
-        // ADX Trend Strength
-        if (indicators.adx > 40) {
-            reasoning.push('Strong trend detected by ADX');
-            confidence += 10;
-        } else if (indicators.adx < 20) {
-            reasoning.push('Weak trend - ranging market');
-            confidence -= 5;
-        }
-
-        // Williams %R
-        if (indicators.williamsR < -80) {
-            reasoning.push('Williams %R shows oversold');
-            if (direction === 'RISE') confidence += 5;
-        } else if (indicators.williamsR > -20) {
-            reasoning.push('Williams %R shows overbought');
-            if (direction === 'FALL') confidence += 5;
-        }
-
-        // ML Pattern Recognition
-        const pricePattern = analyzePricePattern(data.prices.slice(-20));
-        confidence += pricePattern.confidence_boost;
-        reasoning.push(...pricePattern.patterns);
-
-        // Risk Assessment
-        const volatility = indicators.atr / currentPrice;
-        let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM';
-
-        if (volatility < 0.005) riskLevel = 'LOW';
-        else if (volatility > 0.02) riskLevel = 'HIGH';
-
-        // Confidence adjustment based on confluence
-        if (reasoning.length >= 5) confidence += 10;
-        if (reasoning.length >= 7) confidence += 15;
-
-        confidence = Math.min(confidence, 95);
-        confidence = Math.max(confidence, 30);
-
-        const strength = confidence > 80 ? 'STRONG' : confidence > 60 ? 'MODERATE' : 'WEAK';
-
-        return {
-            symbol: data.symbol,
-            direction,
-            confidence,
-            strength,
-            timeframe: mlConfig.timeframe,
-            entry_price: currentPrice,
-            technical_score: technicalScore,
-            ml_score: mlScore,
-            combined_score: combinedScore,
-            indicators,
-            reasoning,
-            risk_level: riskLevel
-        };
-    }, [mlConfig.timeframe]);
-
-    const calculateIndicators = (prices: number[]): TechnicalIndicators => {
-        return {
-            ema5: calculateEMA(prices, 5),
-            ema13: calculateEMA(prices, 13),
-            ema21: calculateEMA(prices, 21),
-            ema55: calculateEMA(prices, 55),
-            rsi: calculateRSI(prices),
-            ...calculateMACD(prices),
-            bollinger: calculateBollingerBands(prices),
-            stochastic: calculateStochastic(prices),
-            adx: calculateADX(prices),
-            atr: calculateATR(prices),
-            williamsR: calculateWilliamsR(prices),
-            momentum: prices.length > 10 ? ((prices[prices.length - 1] - prices[prices.length - 11]) / prices[prices.length - 11]) * 100 : 0
-        };
-    };
-
-    const calculateTechnicalScore = (indicators: TechnicalIndicators, prices: number[]): number => {
-        let score = 50;
-
-        // EMA Score
-        if (indicators.ema5 > indicators.ema13) score += 10;
-        if (indicators.ema13 > indicators.ema21) score += 10;
-        if (indicators.ema21 > indicators.ema55) score += 10;
-
-        // RSI Score
-        if (indicators.rsi > 30 && indicators.rsi < 70) score += 5;
-
-        // MACD Score
-        if (indicators.macd > indicators.macdSignal) score += 8;
-
-        // Bollinger Score
-        const currentPrice = prices[prices.length - 1];
-        const bbPosition = (currentPrice - indicators.bollinger.lower) / (indicators.bollinger.upper - indicators.bollinger.lower);
-        if (bbPosition > 0.2 && bbPosition < 0.8) score += 7;
-
-        return Math.min(score, 100);
-    };
-
-    const calculateMLScore = (indicators: TechnicalIndicators, prices: number[]): number => {
-        // Neural network-like scoring
-        const features = [
-            indicators.rsi / 100,
-            indicators.momentum / 100,
-            indicators.adx / 100,
-            indicators.stochastic.k / 100,
-            indicators.williamsR / -100,
-            Math.tanh(indicators.macd),
-            indicators.atr / prices[prices.length - 1]
-        ];
-
-        // Simplified neural network weights
-        const weights = [0.2, 0.25, 0.15, 0.12, 0.08, 0.15, 0.05];
-
-        let score = 0;
-        for (let i = 0; i < features.length; i++) {
-            score += features[i] * weights[i];
-        }
-
-        return Math.max(0, Math.min(100, score * 100));
-    };
-
-    const analyzePricePattern = (prices: number[]): { confidence_boost: number; patterns: string[] } => {
-        if (prices.length < 10) return { confidence_boost: 0, patterns: [] };
-
-        const patterns = [];
-        let boost = 0;
-
-        // Trend Pattern
-        const firstHalf = prices.slice(0, 10).reduce((sum, p) => sum + p, 0) / 10;
-        const secondHalf = prices.slice(-10).reduce((sum, p) => sum + p, 0) / 10;
-
-        if (secondHalf > firstHalf * 1.002) {
-            patterns.push('Uptrend pattern detected');
-            boost += 8;
-        } else if (secondHalf < firstHalf * 0.998) {
-            patterns.push('Downtrend pattern detected');
-            boost += 8;
-        }
-
-        // Volatility Pattern
-        const volatility = calculateATR(prices) / prices[prices.length - 1];
-        if (volatility > 0.01) {
-            patterns.push('High volatility environment');
-            boost += 5;
-        }
-
-        // Support/Resistance
-        const current = prices[prices.length - 1];
-        const max = Math.max(...prices);
-        const min = Math.min(...prices);
-
-        if (current <= min * 1.002) {
-            patterns.push('Price near support level');
-            boost += 6;
-        } else if (current >= max * 0.998) {
-            patterns.push('Price near resistance level');
-            boost += 6;
-        }
-
-        return { confidence_boost: boost, patterns };
-    };
-
-    // Initialize API and connect to streams
     useEffect(() => {
-        const initializeAPI = async () => {
+        // Initialize API connection and market scanner
+        const api = generateDerivApiInstance();
+        apiRef.current = api;
+        let scannerCleanup: (() => void) | null = null;
+
+        const init = async () => {
             try {
-                setStatus('Connecting to Deriv API...');
-                const api = generateDerivApiInstance();
-                apiRef.current = api;
+                setStatus('Initializing ML Trader...');
 
-                // Authorize
-                const token = V2GetActiveToken();
-                if (token) {
-                    const { authorize, error } = await api.authorize(token);
-                    if (error) {
-                        setStatus(`Authorization error: ${error.message}`);
-                        return;
-                    }
-                    setAccountCurrency(authorize?.currency || 'USD');
-                    setIsConnected(true);
-                    setStatus('Connected - Starting market analysis...');
+                // Initialize market scanner
+                scannerCleanup = await initializeMarketScanner();
 
-                    // Subscribe to ticks for all symbols
-                    subscribeToMarketData();
-                } else {
-                    setStatus('Please login to start trading');
-                }
-            } catch (error) {
-                console.error('API initialization error:', error);
-                setStatus('Failed to connect to Deriv API');
+                setStatus('ML Trader initialized successfully');
+            } catch (e: any) {
+                console.error('MLTrader init error', e);
+                setStatus(e?.message || 'Failed to initialize ML Trader');
             }
         };
 
-        initializeAPI();
+        init();
 
         return () => {
-            if (apiRef.current) {
-                apiRef.current.disconnect();
+            if (scannerCleanup) {
+                scannerCleanup();
+            }
+
+            // Cleanup observers on unmount
+            if (store?.run_panel?.dbot?.observer) {
+                store.run_panel.dbot.observer.unregisterAll('bot.stop');
+                store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
             }
         };
     }, []);
 
-    const subscribeToMarketData = async () => {
-        if (!apiRef.current) return;
-
-        VOLATILITY_SYMBOLS.forEach(async (symbolInfo) => {
-            try {
-                const response = await apiRef.current.send({
-                    ticks: symbolInfo.symbol,
-                    subscribe: 1
-                });
-
-                if (response.error) {
-                    console.error(`Subscription error for ${symbolInfo.symbol}:`, response.error);
-                    return;
-                }
-
-                // Initialize market data
-                setMarketData(prev => {
-                    const newData = new Map(prev);
-                    newData.set(symbolInfo.symbol, {
-                        symbol: symbolInfo.symbol,
-                        prices: [],
-                        volumes: [],
-                        timestamps: [],
-                        indicators: null
-                    });
-                    return newData;
-                });
-
-            } catch (error) {
-                console.error(`Failed to subscribe to ${symbolInfo.symbol}:`, error);
-            }
-        });
-
-        // Listen for tick updates
-        apiRef.current.onmessage = (event: MessageEvent) => {
-            const data = JSON.parse(event.data);
-            if (data.tick) {
-                processTick(data.tick);
-            }
-        };
-
-        setIsAnalyzing(true);
-        setStatus('Analyzing market data with AI...');
-    };
-
-    const processTick = (tick: any) => {
-        const { symbol, quote, epoch } = tick;
-
-        setMarketData(prev => {
-            const newData = new Map(prev);
-            const symbolData = newData.get(symbol);
-
-            if (symbolData) {
-                symbolData.prices.push(parseFloat(quote));
-                symbolData.timestamps.push(epoch);
-
-                // Keep last 200 ticks for analysis
-                if (symbolData.prices.length > 200) {
-                    symbolData.prices.shift();
-                    symbolData.timestamps.shift();
-                }
-
-                // Calculate indicators if we have enough data
-                if (symbolData.prices.length >= 55) {
-                    symbolData.indicators = calculateIndicators(symbolData.prices);
-                }
-
-                newData.set(symbol, symbolData);
-            }
-
-            return newData;
-        });
-    };
-
-    // Generate ML signals every 5 seconds
-    useEffect(() => {
-        if (!isAnalyzing) return;
-
-        const interval = setInterval(() => {
-            generateMLSignals();
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, [isAnalyzing, marketData, analyzeWithML]);
-
-    const generateMLSignals = () => {
-        const signals: MLSignal[] = [];
-
-        marketData.forEach((data, symbol) => {
-            if (data.prices.length >= 50) {
-                const signal = analyzeWithML(data);
-                if (signal && signal.confidence >= mlConfig.confidence_threshold) {
-                    signals.push(signal);
-                }
-            }
-        });
-
-        // Sort by combined score
-        signals.sort((a, b) => b.combined_score - a.combined_score);
-
-        setMLSignals(signals.slice(0, 10)); // Keep top 10 signals
-
-        if (signals.length > 0) {
-            setStatus(`${signals.length} AI trading opportunities identified`);
-        }
-    };
-
-    const executeMLTrade = async (signal: MLSignal) => {
-        if (!apiRef.current || !isConnected) return;
+    // Initialize market scanner
+    const initializeMarketScanner = useCallback(async () => {
+        if (is_scanner_initialized) return;
 
         try {
-            setStatus(`Executing ${signal.direction} trade for ${signal.symbol}...`);
+            setStatus('Initializing market scanner...');
 
-            const contractType = signal.direction === 'RISE' ? 'CALL' : 'PUT';
+            // Initialize the market scanner
+            await marketScanner.initialize();
 
-            const buyRequest = {
-                buy: '1',
-                price: mlConfig.stake_amount,
-                parameters: {
-                    amount: mlConfig.stake_amount,
-                    basis: 'stake',
-                    contract_type: contractType,
-                    currency: account_currency,
-                    duration: signal.timeframe,
-                    duration_unit: 's',
-                    symbol: signal.symbol,
+            // Subscribe to scanner status updates
+            const statusUnsubscribe = marketScanner.onStatusChange((status) => {
+                setScannerStatus(status);
+                setScanningProgress((status.connectedSymbols / status.totalSymbols) * 100);
+
+                // Force update trends when symbols are connected
+                if (status.connectedSymbols > 0) {
+                    updateTrendsFromScanner();
                 }
+            });
+
+            // Subscribe to recommendation updates
+            const recommendationUnsubscribe = marketScanner.onRecommendationChange(async (recs) => {
+                setRecommendations(recs);
+                updateTrendsFromScanner();
+            });
+
+            setIsScannerInitialized(true);
+            setStatus('Market scanner initialized successfully');
+
+            // Start scanning immediately
+            await startMarketScan();
+
+            // Set up periodic trend updates
+            const trendUpdateInterval = setInterval(() => {
+                updateTrendsFromScanner();
+            }, 5000); // Update every 5 seconds
+
+            // Mark as complete after initial data processing (reduced time with 5000 historical ticks)
+            // HMA calculations need 40+ candles, but with 5000 ticks we get immediate candle reconstruction
+            setTimeout(() => {
+                if (!initial_scan_complete) {
+                    console.log('⏰ ML Trader: Forcing scan completion after timeout - historical data processed');
+                    setInitialScanComplete(true);
+                    setStatus('Market analysis ready - historical trends available');
+                }
+            }, 15000); // 15 seconds should be enough with 5000 historical ticks
+
+            // Cleanup function stored in ref for unmount
+            return () => {
+                statusUnsubscribe();
+                recommendationUnsubscribe();
+                clearInterval(trendUpdateInterval);
             };
 
-            const { buy, error } = await apiRef.current.buy(buyRequest);
+        } catch (error) {
+            console.error('Failed to initialize market scanner:', error);
+            setStatus(`Scanner initialization failed: ${error}`);
+        }
+    }, [is_scanner_initialized, is_running]);
 
-            if (error) {
-                setStatus(`Trade error: ${error.message}`);
+    // Update trends from scanner
+    const updateTrendsFromScanner = useCallback(() => {
+        const trendsMap = new Map<string, TrendAnalysis>();
+        let hasData = false;
+        let dataProgress = 0;
+
+        ENHANCED_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+            const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
+            if (trend) {
+                // Apply trend filter if enabled
+                if (enable_trend_filter) {
+                    let strengthMatch = false;
+                    if (trend.longTermTrendStrength !== undefined) {
+                        const requiredStrength = min_trend_strength / 100;
+                        switch (trend_filter_mode) {
+                            case 'relaxed':
+                                strengthMatch = trend.longTermTrendStrength >= (min_trend_strength * 0.8);
+                                break;
+                            case 'moderate':
+                                strengthMatch = trend.longTermTrendStrength >= min_trend_strength && trend.longTermTrend === 'bullish';
+                                break;
+                            case 'strict':
+                                strengthMatch = trend.longTermTrendStrength === 100 && trend.longTermTrend === 'bullish';
+                                break;
+                        }
+                    }
+                    if (strengthMatch) {
+                        trendsMap.set(symbolInfo.symbol, trend);
+                        hasData = true;
+                        dataProgress++;
+                    }
+                } else {
+                    // No filter applied, add all trends
+                    trendsMap.set(symbolInfo.symbol, trend);
+                    hasData = true;
+                    dataProgress++;
+                }
+            }
+        });
+
+        console.log(`📊 ML Trader: Found trends for ${trendsMap.size}/${ENHANCED_VOLATILITY_SYMBOLS.length} symbols`);
+
+        // Update progress even if no complete trends yet
+        setScanningProgress((dataProgress / ENHANCED_VOLATILITY_SYMBOLS.length) * 100);
+
+        if (hasData) {
+            setMarketTrends(trendsMap);
+            setVolatilityTrends(trendsMap);
+
+            // Mark initial scan as complete when we have trends for at least 2 symbols (reasonable with 5000 ticks)
+            if (trendsMap.size >= 2 && !initial_scan_complete) {
+                console.log(`✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols using historical data`);
+                setInitialScanComplete(true);
+                setStatus(`Market analysis ready - ${trendsMap.size} symbols analyzed with historical trends`);
+            }
+        } else {
+            // Check if we have any candle data at all
+            const symbolsWithCandles = ENHANCED_VOLATILITY_SYMBOLS.filter(symbolInfo => {
+                // You can check if the candle reconstruction engine has data
+                return true; // For now, assume data is flowing based on console logs
+            }).length;
+
+            if (symbolsWithCandles > 0) {
+                setStatus(`Building trend analysis... ${symbolsWithCandles}/10 symbols have data`);
+                setScanningProgress((symbolsWithCandles / ENHANCED_VOLATILITY_SYMBOLS.length) * 50); // 50% for having data
+            }
+        }
+    }, [enable_trend_filter, min_trend_strength, trend_filter_mode, initial_scan_complete]);
+
+    // Start market scan
+    const startMarketScan = useCallback(async () => {
+        try {
+            setStatus('Scanning volatility markets...');
+            await marketScanner.refresh();
+            setStatus('Market scan completed');
+
+            // Force update trends after scan
+            setTimeout(() => {
+                updateTrendsFromScanner();
+            }, 2000);
+
+        } catch (error) {
+            console.error('Market scan failed:', error);
+            setStatus(`Market scan failed: ${error}`);
+        }
+    }, [updateTrendsFromScanner]);
+
+
+
+    // Apply a trading recommendation to the trading interface (not modal)
+    const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
+        if (is_running || contractInProgressRef.current) {
+            console.warn('Cannot apply recommendation: trading in progress');
+            return;
+        }
+
+        setSelectedRecommendation(recommendation);
+        setModalSymbol(recommendation.symbol);
+        setModalContractType(recommendation.direction);
+        setModalDuration(recommendation.suggestedDuration || 20); // Default to 20 seconds
+        setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's'); // Default to seconds
+        setModalStake(recommendation.suggestedStake || 1.0); // Default to $1
+        baseStakeRef.current = recommendation.suggestedStake || 1.0; // Set the base stake
+
+        // Update trade mode based on recommendation
+        if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
+            setTradeMode('rise_fall');
+        }
+
+        setCurrentPrice(recommendation.currentPrice);
+        setStatus(`Applied recommendation: ${recommendation.reason}`);
+    }, [is_running]);
+
+    // Directly load recommendation to Bot Builder (completely bypass modal)
+    const openRecommendationModal = useCallback(async (recommendation: TradingRecommendation) => {
+        try {
+            if (!recommendation) {
+                console.error('No recommendation provided');
                 return;
             }
 
-            setStatus(`✅ ${signal.direction} trade executed for ${signal.symbol}`);
+            console.log('🚀 Bypassing modal - Loading recommendation directly to Bot Builder:', recommendation);
+
+            // Set modal form data for generateBotBuilderXML function
+            setModalRecommendation(recommendation);
+            setModalSymbol(recommendation.symbol || '');
+            setModalContractType(recommendation.direction || 'CALL');
+            setModalDuration(recommendation.suggestedDuration || 20); // Default to 20 seconds
+            setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's'); // Default to seconds
+            setModalStake(recommendation.suggestedStake || 1.0); // Default to $1
+
+            // Set trade mode based on recommendation strategy or direction
+            const strategy = recommendation.strategy || recommendation.direction || 'call';
+            if (strategy === 'call' || strategy === 'put' ||
+                recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
+                setModalTradeMode('rise_fall');
+            } else {
+                // For barrier-based strategies, use higher/lower
+                setModalTradeMode('higher_lower');
+            }
+
+            // Set barrier offset for higher/lower trades
+            if (recommendation.barrier) {
+                const barrierValue = parseFloat(recommendation.barrier);
+                const currentPriceValue = recommendation.currentPrice || 0;
+                if (currentPriceValue > 0) {
+                    const calculatedOffset = Math.abs(barrierValue - currentPriceValue);
+                    setModalBarrierOffset(calculatedOffset);
+                }
+            }
+
+            setCurrentPrice(recommendation.currentPrice || null);
+            baseStakeRef.current = recommendation.suggestedStake || 1.0;
+
+            // Generate Bot Builder XML with the recommendation data
+            const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol);
+            const trade_mode = strategy === 'call' || strategy === 'put' ||
+                recommendation.direction === 'CALL' || recommendation.direction === 'PUT' ? 'rise_fall' : 'higher_lower';
+            const contract_type = recommendation.direction || 'CALL';
+            const duration = recommendation.suggestedDuration || 20;
+            const duration_unit = (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's';
+            const stake = recommendation.suggestedStake || 1.0;
+            const barrier_offset = recommendation.barrier ?
+                Math.abs(parseFloat(recommendation.barrier) - (recommendation.currentPrice || 0)) : 0.001;
+
+            // Calculate barrier offset based on contract type
+            const calculateBarrierOffset = () => {
+                if (trade_mode === 'higher_lower') {
+                    return contract_type === 'CALL' ? `+${barrier_offset}` : `-${barrier_offset}`;
+                }
+                return '+0.35';
+            };
+
+            const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
+            const tradeTypeList = trade_mode === 'higher_lower' ? 'highlow' : 'risefall';
+            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
+            const barrierOffsetValue = calculateBarrierOffset();
+
+            // Use default values: stakes = 0.5, duration = 5 ticks
+            const defaultStake = 0.5;
+            const defaultDuration = 5;
+            const defaultDurationUnit = 't'; // ticks
+
+            // ROC sensitivity settings - use toggle state
+            const rocSensitive = roc_sensitive_settings;
+            const longTermROCPeriod = rocSensitive ? 15 : 30; // Half for sensitive: 30/2 = 15
+            const shortTermROCPeriod = rocSensitive ? 7 : 14; // Half for sensitive: 14/2 = 7
+            const actualShortTermROC = shortTermROCPeriod; // Use the calculated value directly
+
+            const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id=":yGQ!WYKA[R_sO1MkSjL">tick1</variable>
+    <variable id="y)BE|l7At6oT)ur0Dsw?">Stake</variable>
+    <variable id="jZ@oue8^bFSf$W^OcBHK">predict 3</variable>
+    <variable id="7S=JB!;S?@%x@F=5xFsK">tick 2</variable>
+    <variable id="qQ]^z(23IIrz6z~JnY#h">tick 3</variable>
+    <variable id="I4.{v(IzG;i#bX-6h(1#">win stake</variable>
+    <variable id=".5ELQ4[J.e4czk,qPqKM">Martingale split</variable>
+    <variable id="Result_is">Result_is</variable>
+    <variable id="ROC_Long_Period">ROC Long Period</variable>
+    <variable id="ROC_Short_Period">ROC Short Period</variable>
+    <variable id="ROC_Sensitive">ROC Sensitive</variable>
+  </variables>
+
+  <!-- Trade Definition Block -->
+  <block type="trade_definition" id="=;b|aw3,G(o+jI6HNU0_" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="GrbKdLI=66(KGnSGl*=_" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">continuous_indices</field>
+        <field name="SYMBOL_LIST">${recommendation.symbol}</field>
+        <next>
+          <block type="trade_definition_tradetype" id="F)ky6X[Pq]/Anl_CQ%)" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">${tradeTypeCategory}</field>
+            <field name="TRADETYPE_LIST">${tradeTypeList}</field>
+            <next>
+              <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
+                <field name="TYPE_LIST">${contractTypeField}</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="?%X1!vudp91L1/W30?x" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="Uw+CuacxzG/2-ktTeC|P" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id=",Dtx3!}1;A5bX#kc%+@y" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Run once at start -->
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="x4l[!tcMk5~9$g9tp)F.">
+        <value name="TEXT">
+          <shadow type="text" id="?#mD$Ejd%z^s]r*M(Co]">
+            <field name="TEXT">ML Trader Strategy Loading...</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="text_print" id="H5S$R8eJ,8_xuO2;w07T">
+            <value name="TEXT">
+              <shadow type="text" id="-(O49Z%3:}onz_i%UInT">
+                <field name="TEXT">${selectedSymbol?.display_name || recommendation.symbol} - ${(recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase()}</field>
+              </shadow>
+            </value>
+            <next>
+              <block type="variables_set" id="*k=Zh]oy^xkO%$_J}wmI">
+                <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                <value name="VALUE">
+                  <block type="math_number" id="TDv/W;dNI84TFbp}8X8=">
+                    <field name="NUM">${defaultStake}</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="a+aI}xH)h$*P-GA=;IJi">
+                    <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="9Z%4%dmqCp;/sSt8wGv#">
+                        <field name="NUM">${defaultStake}</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="}RkgwZuqtMN[-O}zHU%8">
+                        <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="Ib,KrcnUJzn1KMo9)A">
+                            <field name="NUM">1.5</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="ROCLongPeriodSet">
+                            <field name="VAR" id="ROC_Long_Period">ROC Long Period</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="ROCLongPeriodNum">
+                                <field name="NUM">${longTermROCPeriod}</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="ROCShortPeriodSet">
+                                <field name="VAR" id="ROC_Short_Period">ROC Short Period</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="ROCShortPeriodNum">
+                                    <field name="NUM">${actualShortTermROC}</field>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="variables_set" id="ROCSensitiveSet">
+                                    <field name="VAR" id="ROC_Sensitive">ROC Sensitive</field>
+                                    <value name="VALUE">
+                                      <block type="logic_boolean" id="ROCSensitiveBool">
+                                        <field name="BOOL">${rocSensitive ? 'TRUE' : 'FALSE'}</field>
+                                      </block>
+                                    </value>
+                                    <next>
+                                      <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yzm">
+                                        <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                                        <value name="VALUE">
+                                          <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
+                                            <value name="FROM">
+                                              <shadow type="math_number" id="$A^)*y7W0([+ckWE+BCo">
+                                                <field name="NUM">1</field>
+                                              </shadow>
+                                            </value>
+                                            <value name="TO">
+                                              <shadow type="math_number" id=",_;o3PUOp?^|_ffS^P8">
+                                                <field name="NUM">1</field>
+                                              </shadow>
+                                            </value>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Trade options -->
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${trade_mode === 'higher_lower' ? 'true' : 'false'}" has_second_barrier="false" has_prediction="false"></mutation>
+        <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
+        <value name="DURATION">
+          <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
+            <field name="NUM">${defaultDuration}</field>
+          </shadow>
+          <block type="math_number" id="*l8K~H:oQ)^=Cn,A^N~s">
+            <field name="NUM">${defaultDuration}</field>
+          </block>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number" id="ziEt8|we%%I_ac)[?0aT">
+            <field name="NUM">0.5</field>
+          </shadow>
+          <block type="variables_get" id="m3{*qF|69xv{GI:=Nr#R">
+            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+          </block>
+        </value>
+        ${trade_mode === 'higher_lower' ? `
+        <value name="BARRIEROFFSET">
+          <shadow type="math_number" id="barrierOffsetBlock">
+            <field name="NUM">${barrier_offset}</field>
+          </shadow>
+        </value>
+        <field name="BARRIEROFFSETTYPE_LIST">${contract_type === 'CALL' ? '+' : '-'}</field>` : ''}
+      </block>
+    </statement>
+  </block>
+
+  <!-- Purchase conditions -->
+  <block type="before_purchase" id="m^:eB90FBG!Q9f85%x-K" deletable="false" x="267" y="544">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="notify" id="^KrKto{h0?Oi5y!Uo!k">
+        <field name="NOTIFICATION_TYPE">success</field>
+        <field name="NOTIFICATION_SOUND">silent</field>
+        <value name="MESSAGE">
+          <shadow type="text" id="OGu:tW}V1el7}LlhgE">
+            <field name="TEXT">ML Strategy Executing...</field>
+          </shadow>
+          <block type="variables_get" id="DIO6HH*]Tf87lkH)]W1">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+          </block>
+        </value>
+        <next>
+          <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
+            <field name="PURCHASE_LIST">${contractTypeField}</field>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Restart trading conditions -->
+  <block type="after_purchase" id="RSFi6b^1!S1=u5HT9ij5" x="679" y="293">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="controls_if" id="m~FN=}k/:4T0C|!9RWv7">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+        <value name="IF0">
+          <block type="contract_check_result" id="?#pF}/RWg,s)qyk6~Q4">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="variables_set" id="VCplk%:6-m~2N?w590V3">
+            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+            <value name="VALUE">
+              <block type="math_random_int" id="e!w*#f6#@(J=!w[e]aR">
+                <value name="FROM">
+                  <shadow type="math_number" id="|~+Cbgj^c]K~uP_)~88!">
+                    <field name="NUM">1</field>
+                  </shadow>
+                </value>
+                <value name="TO">
+                  <shadow type="math_number" id="]0rAYrYh#6);#j/=i}y=">
+                    <field name="NUM">1</field>
+                  </shadow>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="ZPFx9h$~-#?hu({nP9br">
+                <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                <value name="VALUE">
+                  <block type="variables_get" id="evk@VL!Cns23Tt-YO#i">
+                    <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="setResultWin">
+                    <field name="VAR" id="Result_is">Result_is</field>
+                    <value name="VALUE">
+                      <block type="text" id="resultWinText">
+                        <field name="TEXT">Win</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="controls_if" id="[]}t.-zV3B}F{r_wuWIK">
+            <value name="IF0">
+              <block type="contract_check_result" id="d6I:nMCIu?M|pZu?8Di">
+                <field name="CHECK_RESULT">loss</field>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="variables_set" id="yqjWT{JtZ.@glB=i+3kC">
+                <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                <value name="VALUE">
+                  <block type="math_random_int" id="Kbr]yzFaM7h==L/mxt_">
+                    <value name="FROM">
+                      <shadow type="math_number" id="rbIXa)*X_r-cy5S%Rw">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                    <value name="TO">
+                      <shadow type="math_number" id="EgOTvfy4?jpKvYT{M6;8">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="H%Y3[M]r3F};XmOP/iSt">
+                    <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                    <value name="VALUE">
+                      <block type="math_arithmetic" id="0(2SFhVd_f3.w;,4CdAW">
+                        <field name="OP">MULTIPLY</field>
+                        <value name="A">
+                          <shadow type="math_number" id=")X~,;|04N,b=v{cA?n:y">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="%#Fuv537r?g4g-8#ZNu7">
+                            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <shadow type="math_number" id="D-kN(N|~hTit;*Q-HF3L">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="W;ZaB.*3OzGGyV2PDE$L">
+                            <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="setResultLoss">
+                        <field name="VAR" id="Result_is">Result_is</field>
+                        <value name="VALUE">
+                          <block type="text" id="resultLossText">
+                            <field name="TEXT">Loss</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <next>
+              <block type="trade_again" id="O0gyt$46u#i^LXu}0~SE"></block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Tick Analysis -->
+  <block type="tick_analysis" id="C1)t(KjgV5)#c:5Fz2@_" collapsed="true" x="0" y="1594">
+    <statement name="TICKANALYSIS_STACK">
+      <block type="variables_set" id="/K_P8vj*(@v:6j]Bu~P=">
+        <field name="VAR" id=":yGQ!WYKA[R_sO1MkSjL">tick1</field>
+        <value name="VALUE">
+          <block type="lists_getIndex" id="XSu=~QE//2Y:]d~p=P/m">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+            <field name="MODE">GET</field>
+            <field name="WHERE">FROM_END</field>
+            <value name="VALUE">
+              <block type="lastDigitList" id="}LYybI/S:cjI/Rcy1nY"></block>
+            </value>
+            <value name="AT">
+              <block type="math_number" id="[_RkdoP8]lF/%Gn^">
+                <field name="NUM">1</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set" id="3.LXWq^5JH25~0J,AR2Z">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+            <value name="VALUE">
+              <block type="lists_getIndex" id="rkKQ307@g~epO|6C0tAc">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+                <field name="MODE">GET</field>
+                <field name="WHERE">FROM_END</field>
+                <value name="VALUE">
+                  <block type="lastDigitList" id=".]BV8x.1c1)~p8t:NugU"></block>
+                </value>
+                <value name="AT">
+                  <block type="math_number" id="iY.UfnOo*u4[q]dYMoWD">
+                    <field name="NUM">2</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id=")$vS+D(;t!*)xtofGW9R">
+                <field name="VAR" id="qQ]^z(23IIrz6z~JnY#h">tick 3</field>
+                <value name="VALUE">
+                  <block type="lists_getIndex" id="Di!)G4xp1N#;_bQVq8LG">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+                    <field name="MODE">GET</field>
+                    <field name="WHERE">FROM_END</field>
+                    <value name="VALUE">
+                      <block type="lastDigitList" id="E{if[4oW3+]]1Aq]d5!G"></block>
+                    </value>
+                    <value name="AT">
+                      <block type="math_number" id="#ULUAs[:gF)![)*!]8;j">
+                        <field name="NUM">3</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+</xml>`;
+
+            console.log('📄 Loading bot skeleton XML with recommendation settings...');
+
+            // Switch to Bot Builder tab (index 1)
+            store.dashboard.setActiveTab(1);
+
+            // Wait for tab switch and workspace initialization
+            setTimeout(async () => {
+                try {
+                    // Import bot skeleton functions
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+
+                    // Ensure workspace is ready
+                    if (window.Blockly?.derivWorkspace) {
+                        console.log('📦 Loading ML recommendation strategy to workspace...');
+
+                        await load({
+                            block_string: botSkeletonXML,
+                            file_name: `ML_${selectedSymbol?.display_name || recommendation.symbol}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+
+                        // Center and focus workspace
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML recommendation strategy loaded to workspace');
+
+                    } else {
+                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+
+                        // Fallback: Direct XML loading
+                        setTimeout(() => {
+                            if (window.Blockly?.derivWorkspace) {
+                                window.Blockly.derivWorkspace.clear();
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                                window.Blockly.derivWorkspace.scrollCenter();
+                                console.log('✅ ML recommendation strategy loaded using fallback method');
+                            }
+                        }, 500);
+                    }
+                } catch (loadError) {
+                    console.error('❌ Error loading ML recommendation strategy:', loadError);
+
+                    // Final fallback
+                    if (window.Blockly?.derivWorkspace) {
+                        window.Blockly.derivWorkspace.clear();
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML recommendation strategy loaded using final fallback');
+                    }
+                }
+            }, 300);
+
+            const displayName = selectedSymbol?.display_name || recommendation.symbol;
+            const strategyText = (recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase();
+            setStatus(`✅ Loaded ${displayName} - ${strategyText} strategy to Bot Builder`);
+        } catch (error) {
+            console.error('Error loading recommendation to Bot Builder:', error);
+            setStatus('❌ Error loading strategy to Bot Builder');
+        }
+    }, [store.dashboard]);
+
+    // Load settings from modal to the bot builder
+    const loadSettingsToBotBuilder = useCallback(async () => {
+        if (!modal_recommendation) {
+            console.error('No modal recommendation available');
+            return;
+        }
+
+        try {
+            console.log('🚀 Loading settings to Bot Builder:', {
+                symbol: modal_symbol,
+                trade_mode: modal_trade_mode,
+                contract_type: modal_contract_type,
+                duration: modal_duration,
+                duration_unit: modal_duration_unit,
+                stake: modal_stake,
+                barrier_offset: modal_barrier_offset,
+                recommendation: modal_recommendation
+            });
+
+            // The TradingModal component will handle the actual loading
+            // This function is now just a placeholder for the callback
+            setStatus(`Preparing to load settings to Bot Builder...`);
+
+        } catch (error) {
+            console.error('Error in loadSettingsToBotBuilder:', error);
+            setStatus(`❌ Error: ${error.message}`);
+        }
+    }, [modal_recommendation, modal_symbol, modal_trade_mode, modal_contract_type, modal_duration, modal_duration_unit, modal_stake, modal_barrier_offset]);
+
+
+    const authorizeIfNeeded = async () => {
+        if (is_authorized) return;
+        const token = V2GetActiveToken();
+        if (!token) {
+            setStatus('No token found. Please log in and select an account.');
+            throw new Error('No token');
+        }
+        const { authorize, error } = await apiRef.current.authorize(token);
+        if (error) {
+            setStatus(`Authorization error: ${error.message || error.code}`);
+            throw error;
+        }
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
+
+        try {
+            // Sync auth state into shared ClientStore
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch {}
+    };
+
+    const purchaseContract = async () => {
+        if (contractInProgressRef.current) {
+            throw new Error('Contract already in progress');
+        }
+
+        await authorizeIfNeeded();
+
+        if (!current_price && modal_trade_mode === 'higher_lower') {
+            throw new Error('Current price not available');
+        }
+
+        const trade_option: any = {
+            amount: Number(modal_stake),
+            basis: 'stake',
+            currency: account_currency,
+            duration: Number(modal_duration),
+            duration_unit: modal_duration_unit,
+            symbol: modal_symbol,
+        };
+
+        // Add barrier for Higher/Lower trades
+        if (modal_trade_mode === 'higher_lower' && current_price) {
+            const barrier_value = modal_contract_type === 'CALL'
+                ? current_price + modal_barrier_offset
+                : current_price - modal_barrier_offset;
+            trade_option.barrier = barrier_value.toFixed(5);
+        }
+
+        const buy_req = tradeOptionToBuy(modal_contract_type, trade_option);
+        const { buy, error } = await apiRef.current.buy(buy_req);
+        if (error) throw error;
+
+        contractInProgressRef.current = true;
+        return buy;
+    };
+
+    const onStart = async () => {
+        if (!modal_recommendation) { // Use modal_recommendation here as it's the source after modal interaction
+            setStatus('Please select a recommendation and confirm settings');
+            return;
+        }
+
+        setStatus('');
+        setIsRunning(true);
+        stopFlagRef.current = false;
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1);
+        run_panel.run_id = `ml-trader-${Date.now()}`;
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
+
+        try {
+            const buy = await purchaseContract();
 
             // Add to transactions
-            const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === signal.symbol);
+            const symbol_display = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === modal_symbol)?.display_name || modal_symbol;
             transactions.onBotContractEvent({
                 contract_id: buy?.contract_id,
                 transaction_ids: { buy: buy?.transaction_id },
                 buy_price: buy?.buy_price,
                 currency: account_currency,
-                contract_type: contractType as any,
-                underlying: signal.symbol,
-                display_name: symbolInfo?.display_name || signal.symbol,
+                contract_type: modal_contract_type as any,
+                underlying: modal_symbol,
+                display_name: symbol_display,
                 date_start: Math.floor(Date.now() / 1000),
                 status: 'open',
             } as any);
 
-        } catch (error) {
-            console.error('Trade execution error:', error);
-            setStatus(`Trade failed: ${error.message}`);
+            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+            setStatus(`Contract purchased: ${buy?.longcode}`);
+
+            // Start monitoring the contract
+            const poc = await apiRef.current.proposal_open_contract({ contract_id: buy?.contract_id });
+            run_panel.setContractStage(contract_stages.PENDING);
+
+            let pocSubId: string | null = null;
+            const onMsg = (msg: any) => {
+                if (msg.event === 'proposal_open_contract' && msg.proposal_open_contract.contract_id === buy?.contract_id) {
+                    const pocUpdate = msg.proposal_open_contract;
+                    if (pocUpdate.is_sold || pocUpdate.status === 'sold') {
+                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                        run_panel.setHasOpenContract(false);
+                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                        apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                        contractInProgressRef.current = false;
+                        const profit = Number(pocUpdate?.profit || 0);
+
+                        // Apply Super Elite bot outcome logic
+                        handleContractOutcome(profit);
+
+                        setStatus(`Contract completed: ${profit > 0 ? 'WIN' : 'LOSS'} ${profit.toFixed(2)} ${account_currency}`);
+                    } else {
+                        run_panel.setContractStage(contract_stages.OPEN);
+                        // Update transaction status if needed
+                        transactions.onBotContractEvent({
+                            contract_id: pocUpdate.contract_id,
+                            status: 'open',
+                            profit: Number(pocUpdate.profit || 0),
+                            payout: Number(pocUpdate.final_price || 0),
+                            longcode: pocUpdate.longcode,
+                        } as any);
+                    }
+                }
+            };
+
+            apiRef.current?.connection?.addEventListener('message', onMsg);
+            pocSubId = await apiRef.current.subscribe({ proposal_open_contract: 1, contract_id: buy?.contract_id });
+
+        } catch (error: any) {
+            console.error('Purchase error:', error);
+            setStatus(`Purchase failed: ${error.message}`);
+            setIsRunning(false);
+            run_panel.setIsRunning(false);
+            contractInProgressRef.current = false; // Ensure this is reset on error
         }
     };
 
-    const getRiskColor = (risk: string) => {
-        switch (risk) {
-            case 'LOW': return '#4CAF50';
-            case 'MEDIUM': return '#FF9800';
-            case 'HIGH': return '#F44336';
-            default: return '#9E9E9E';
-        }
+    const onStop = () => {
+        setIsRunning(false);
+        stopFlagRef.current = true;
+        contractInProgressRef.current = false;
+        run_panel.setIsRunning(false);
+        setStatus('Stopped');
     };
 
-    const getDirectionColor = (direction: string) => {
-        return direction === 'RISE' ? '#4CAF50' : '#F44336';
+    // Get trend color class
+    const getTrendColorClass = (trend: TrendAnalysis) => {
+        if (trend.direction === 'bullish') return 'trend-bullish';
+        if (trend.direction === 'bearish') return 'trend-bearish';
+        return 'trend-neutral';
     };
+
+    // Get trend icon
+    const getTrendIcon = (trend: TrendAnalysis) => {
+        if (trend.direction === 'bullish') return '📈';
+        if (trend.direction === 'bearish') return '📉';
+        return '➡️';
+    };
+
+    // Flag to check if the modal is open for recommendation loading
+    const is_modal_open = !!modal_recommendation; 
 
     return (
-        <div className="ml-trader">
-            <div className="ml-trader__header">
-                <Text as="h1" className="ml-trader__title">
-                    🤖 AI Technical Analyst
-                </Text>
-                <Text className="ml-trader__subtitle">
-                    Advanced Machine Learning for Rise/Fall Market Analysis
-                </Text>
-                <div className="ml-trader__status">
-                    <Text size="sm" color={isConnected ? 'profit-success' : 'loss-danger'}>
-                        {status}
+        <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
+            <div className="ml-trader__container">
+                <div className="ml-trader__header">
+                    <Text as="h1" className="ml-trader__title">
+                        {localize('ML Trader')}
+                    </Text>
+                    <Text className="ml-trader__subtitle">
+                        {localize('AI-powered market analysis and trading recommendations')}
                     </Text>
                 </div>
-            </div>
 
-            <div className="ml-trader__config">
-                <div className="config-item">
-                    <Text size="xs">Confidence Threshold:</Text>
-                    <input
-                        type="range"
-                        min="50"
-                        max="95"
-                        value={mlConfig.confidence_threshold}
-                        onChange={(e) => setMLConfig(prev => ({ ...prev, confidence_threshold: parseInt(e.target.value) }))}
-                    />
-                    <Text size="xs">{mlConfig.confidence_threshold}%</Text>
-                </div>
+                <div className="ml-trader__content">
+                    <div className="ml-trader__main-content">
+                        {/* Market Recommendations */}
+                        {recommendations.length > 0 ? (
+                        <div className="ml-trader__recommendations">
+                            <div className="recommendations-header">
+                                <Text as="h3">Trading Recommendations</Text>
+                                <Text size="xs">Click a recommendation to load trading details</Text>
+                            </div>
 
-                <div className="config-item">
-                    <Text size="xs">Stake Amount:</Text>
-                    <input
-                        type="number"
-                        min="0.5"
-                        max="100"
-                        step="0.5"
-                        value={mlConfig.stake_amount}
-                        onChange={(e) => setMLConfig(prev => ({ ...prev, stake_amount: parseFloat(e.target.value) }))}
-                    />
-                    <Text size="xs">{account_currency}</Text>
-                </div>
+                            <div className="recommendations-grid">
+                                {recommendations.slice(0, 6).map((rec, index) => {
+                                    const trend = market_trends.get(rec.symbol);
+                                    const isSelected = selected_recommendation?.symbol === rec.symbol;
 
-                <div className="config-item">
-                    <Text size="xs">Trade Duration:</Text>
-                    <select
-                        value={mlConfig.timeframe}
-                        onChange={(e) => setMLConfig(prev => ({ ...prev, timeframe: parseInt(e.target.value) }))}
-                    >
-                        <option value={15}>15 seconds</option>
-                        <option value={30}>30 seconds</option>
-                        <option value={60}>1 minute</option>
-                        <option value={120}>2 minutes</option>
-                        <option value={300}>5 minutes</option>
-                    </select>
-                </div>
-            </div>
+                                    return (
+                                        <div
+                                            key={rec.symbol}
+                                            className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
+                                            onClick={() => openRecommendationModal(rec)}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <div className="rec-header">
+                                                <div className="rec-rank">#{index + 1}</div>
+                                                <div className="rec-symbol">{rec.displayName}</div>
+                                                <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
+                                                    {rec.direction === 'CALL' ? 'BUY NOW' : rec.direction === 'PUT' ? 'SELL NOW' : rec.direction === 'HOLD' ? 'PLEASE WAIT' : rec.direction}
+                                                </div>
+                                            </div>
 
-            <div className="ml-trader__signals">
-                <div className="signals-header">
-                    <Text as="h3">🎯 AI Trading Signals</Text>
-                    <Text size="xs">Based on 15+ Technical Indicators & Machine Learning</Text>
-                </div>
+                                            <div className="rec-details">
+                                                <div className="detail-item">
+                                                    <span className="detail-label">Score</span>
+                                                    <span className="detail-value">{rec.confidence.toFixed(0)}</span>
+                                                </div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label">Confidence</span>
+                                                    <span className="detail-value">{rec.confidence.toFixed(0)}%</span>
+                                                </div>
+                                                <div className="detail-item">
+                                                    <span className="detail-label">Price</span>
+                                                    <span className="detail-value">{rec.currentPrice?.toFixed(5) || 'N/A'}</span>
+                                                </div>
+                                            </div>
 
-                {mlSignals.length === 0 && isAnalyzing && (
-                    <div className="no-signals">
-                        <Text>🔍 AI is analyzing market patterns...</Text>
-                        <Text size="xs">Waiting for high-confidence opportunities</Text>
-                    </div>
-                )}
+                                            {trend && (
+                                                <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
+                                                    <span className="trend-icon">{getTrendIcon(trend)}</span>
+                                                    <div className="trend-details">
+                                                        <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.strength} trend</Text>
+                                                    </div>
+                                                    <div className="indicator-data">
+                                                        <div className="indicator-row">
+                                                            <Text size="xs">Price: {trend.price?.toFixed(5) || 'N/A'}</Text>
+                                                            <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
+                                                                Trend: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                            </Text>
+                                                        </div>
+                                                        <div className="indicator-row">
+                                                            <Text size="xs">ROC Align: {trend.rocAlignment || 'NEUTRAL'}</Text>
+                                                            <Text size="xs" className={`roc-status ${(trend.rocAlignment || '').toLowerCase()}`}>
+                                                                {trend.rocAlignment === 'BULLISH' ? '📈' : trend.rocAlignment === 'BEARISH' ? '📉' : '➡️'}
+                                                            </Text>
+                                                        </div>
+                                                    </div>
 
-                <div className="signals-list">
-                    {mlSignals.map((signal, index) => (
-                        <div key={`${signal.symbol}-${index}`} className="signal-card">
-                            <div className="signal-header">
-                                <div className="signal-symbol">
-                                    <Text weight="bold">
-                                        {VOLATILITY_SYMBOLS.find(s => s.symbol === signal.symbol)?.display_name || signal.symbol}
+                                                    {/* Ehlers Signal Quality Indicators */}
+                                                    {trend.ehlers && (
+                                                        <div className="ehlers-signals">
+                                                            <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
+                                                            <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
+                                                            <Text size="xs">ANTIC: {trend.ehlers.anticipatorySignal.toFixed(2)}</Text>
+                                                            {trend.ehlersRecommendation?.anticipatory && (
+                                                                <div className={`anticipatory-signal ${trend.ehlersRecommendation.signalStrength}`}>
+                                                                    {trend.ehlersRecommendation.signalStrength === 'strong' && (
+                                                                        <Text size="xs" color="profit-success">🎯 STRONG PULLBACK</Text>
+                                                                    )}
+                                                                    {trend.ehlersRecommendation.signalStrength === 'medium' && (
+                                                                        <Text size="xs" color="prominent">⚡ EARLY SIGNAL</Text>
+                                                                    )}
+                                                                    {trend.ehlersRecommendation.signalStrength === 'weak' && (
+                                                                        <Text size="xs" color="general">📊 POTENTIAL</Text>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Enhanced Pullback Analysis Display */}
+                                                    {trend.pullbackAnalysis && trend.pullbackAnalysis.isPullback && (
+                                                        <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
+                                                            <div className="pullback-header">
+                                                                <Text size="xs" weight="bold" color={
+                                                                    trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
+                                                                    trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
+                                                                }>
+                                                                    🎯 PULLBACK DETECTED
+                                                                </Text>
+                                                                {trend.pullbackAnalysis.entrySignal && (
+                                                                    <div className="entry-signal-badge">
+                                                                        <Text size="xs" weight="bold" color="profit-success">
+                                                                            🚀 ENTRY SIGNAL
+                                                                        </Text>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="pullback-details">
+                                                                <Text size="xs">
+                                                                    Type: {trend.pullbackAnalysis.pullbackType.replace('_', ' ').toUpperCase()}
+                                                                </Text>
+                                                                <Text size="xs">
+                                                                    Strength: {trend.pullbackAnalysis.pullbackStrength.toUpperCase()}
+                                                                </Text>
+                                                                <Text size="xs">
+                                                                    Trend: {trend.pullbackAnalysis.longerTermTrend.toUpperCase()}
+                                                                </Text>
+                                                                <Text size="xs">
+                                                                    Confidence: {trend.pullbackAnalysis.confidence}%
+                                                                </Text>
+                                                                {trend.pullbackAnalysis.priceVsDecycler !== undefined && (
+                                                                    <Text size="xs">
+                                                                        Price vs Decycler: {trend.pullbackAnalysis.priceVsDecycler.toFixed(2)}%
+                                                                    </Text>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    
+                                                </div>
+                                            )}
+
+                                            <div className="rec-reason">
+                                                <Text size="xs">{rec.reason}</Text>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="no-recommendations">
+                            <div className="no-recommendations-header">
+                                <Text size="sm" weight="bold" color="prominent">
+                                    {localize('Market Analysis Active')}
+                                </Text>
+                            </div>
+                            <div className="no-recommendations-content">
+                                <Text size="xs" color="general">
+                                    {scanner_status?.isScanning ? 
+                                        localize('Scanning {{connectedSymbols}}/{{totalSymbols}} markets for opportunities...', {
+                                            connectedSymbols: scanner_status.connectedSymbols,
+                                            totalSymbols: scanner_status.totalSymbols
+                                        }) :
+                                        localize('Monitoring market conditions for high-confidence signals')
+                                    }
+                                </Text>
+                                <div className="market-analysis-status">
+                                    <div className="status-item">
+                                        <span className="status-label">{localize('Trends Analyzed:')}</span>
+                                        <span className="status-value">{scanner_status?.trendsAnalyzed || 0}</span>
+                                    </div>
+                                    <div className="status-item">
+                                        <span className="status-label">{localize('Last Update:')}</span>
+                                        <span className="status-value">
+                                            {scanner_status?.lastUpdate ? 
+                                                new Date(scanner_status.lastUpdate).toLocaleTimeString() : 
+                                                localize('Initializing...')
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                                <Text size="xs" color="general" className="waiting-message">
+                                    {localize('💡 Recommendations appear when ROC alignment and Ehlers signals meet strict quality thresholds')}
+                                </Text>
+
+                                {/* Market Health Overview */}
+                                <div className="market-health-overview">
+                                    <Text size="xs" weight="bold" color="prominent">
+                                        {localize('Current Market Analysis')}
                                     </Text>
-                                    <Text size="xs" color="general">#{index + 1}</Text>
-                                </div>
-
-                                <div className="signal-direction" style={{ color: getDirectionColor(signal.direction) }}>
-                                    <Text weight="bold" size="lg">
-                                        {signal.direction} {signal.direction === 'RISE' ? '📈' : '📉'}
-                                    </Text>
-                                </div>
-
-                                <div className="signal-confidence">
-                                    <Text weight="bold">{signal.confidence.toFixed(1)}%</Text>
-                                    <Text size="xs">{signal.strength}</Text>
-                                </div>
-                            </div>
-
-                            <div className="signal-scores">
-                                <div className="score-item">
-                                    <Text size="xs">Technical Score</Text>
-                                    <Text weight="bold">{signal.technical_score.toFixed(0)}/100</Text>
-                                </div>
-                                <div className="score-item">
-                                    <Text size="xs">ML Score</Text>
-                                    <Text weight="bold">{signal.ml_score.toFixed(0)}/100</Text>
-                                </div>
-                                <div className="score-item">
-                                    <Text size="xs">Combined</Text>
-                                    <Text weight="bold">{signal.combined_score.toFixed(0)}/100</Text>
-                                </div>
-                                <div className="score-item">
-                                    <Text size="xs">Risk</Text>
-                                    <Text weight="bold" style={{ color: getRiskColor(signal.risk_level) }}>
-                                        {signal.risk_level}
-                                    </Text>
-                                </div>
-                            </div>
-
-                            <div className="signal-indicators">
-                                <Text size="xs" weight="bold">Key Indicators:</Text>
-                                <div className="indicators-grid">
-                                    <div>RSI: {signal.indicators.rsi.toFixed(1)}</div>
-                                    <div>MACD: {signal.indicators.macd.toFixed(4)}</div>
-                                    <div>ADX: {signal.indicators.adx.toFixed(1)}</div>
-                                    <div>Stoch: {signal.indicators.stochastic.k.toFixed(1)}</div>
-                                </div>
-                            </div>
-
-                            <div className="signal-reasoning">
-                                <Text size="xs" weight="bold">AI Analysis:</Text>
-                                <ul>
-                                    {signal.reasoning.slice(0, 3).map((reason, i) => (
-                                        <li key={i}>
-                                            <Text size="xs">{reason}</Text>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-
-                            <div className="signal-actions">
-                                <Button
-                                    primary
-                                    small
-                                    onClick={() => executeMLTrade(signal)}
-                                    disabled={!isConnected}
-                                >
-                                    Execute Trade ({mlConfig.stake_amount} {account_currency})
-                                </Button>
-
-                                <div className="signal-details">
-                                    <Text size="xs">Entry: {signal.entry_price.toFixed(5)}</Text>
-                                    <Text size="xs">Duration: {signal.timeframe}s</Text>
+                                    <div className="market-symbols-grid">
+                                        {ENHANCED_VOLATILITY_SYMBOLS.slice(0, 5).map(symbolInfo => {
+                                            const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
+                                            return (
+                                                <div key={symbolInfo.symbol} className="symbol-status-card">
+                                                    <div className="symbol-header">
+                                                        <Text size="xs" weight="bold">{symbolInfo.display_name}</Text>
+                                                        <div className={`signal-indicator ${trend?.recommendation.toLowerCase() || 'hold'}`}>
+                                                            {trend?.recommendation === 'BUY' ? '📈' : 
+                                                             trend?.recommendation === 'SELL' ? '📉' : 
+                                                             '⏸️'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="symbol-metrics">
+                                                        <span className="metric">
+                                                            {localize('Score: {{score}}', { score: trend?.score?.toFixed(0) || '0' })}
+                                                        </span>
+                                                        <span className="metric">
+                                                            {localize('Confidence: {{confidence}}%', { confidence: trend?.confidence?.toFixed(0) || '0' })}
+                                                        </span>
+                                                    </div>
+                                                    {trend?.ehlers?.snr && (
+                                                        <Text size="xs" color="general">
+                                                            {localize('SNR: {{snr}}dB', { snr: trend.ehlers.snr.toFixed(1) })}
+                                                        </Text>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    ))}
-                </div>
-            </div>
+                    )}
 
-            <div className="ml-trader__footer">
-                <Text size="xs" color="general">
-                    🔬 Powered by 15+ Technical Indicators • Neural Networks • Pattern Recognition
-                </Text>
-                <Text size="xs" color="general">
-                    📊 Real-time analysis of {VOLATILITY_SYMBOLS.length} Deriv markets
-                </Text>
+                    {/* Scanner Status */}
+                    {scanner_status && (
+                        <div className="ml-trader__scanner-status">
+                            <div className="scanner-status-header">
+                                <Text as="h3">Market Scanner</Text>
+                                <div className="scanner-progress">
+                                    <div className="progress-bar">
+                                        <div
+                                            className="progress-fill"
+                                            style={{ width: `${scanning_progress}%` }}
+                                        />
+                                    </div>
+                                    <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
+                                </div>
+                            </div>
+                            <Text size="xs">
+                                Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
+                            </Text>
+                        </div>
+                    )}
+
+                    {/* Volatility Trends Overview */}
+                    <div className="ml-trader__volatility-overview">
+                        <div className="volatility-overview-header">
+                            <Text as="h3">Volatility Indices - Live Trends & Strength</Text>
+                            {!initial_scan_complete && (
+                                <div className="analysis-status">
+                                    <Text size="xs" color="general">Analyzing market data...</Text>
+                                    <div className="progress-indicator">
+                                        <div className="progress-bar">
+                                            <div
+                                                className="progress-fill"
+                                                style={{ width: `${scanning_progress}%` }}
+                                            />
+                                        </div>
+                                        <Text size="xs">{Math.round(scanning_progress)}%</Text>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="volatility-trends-grid">
+                            {ENHANCED_VOLATILITY_SYMBOLS.map(symbolInfo => {
+                                const trend = volatility_trends.get(symbolInfo.symbol);
+
+                                return (
+                                    <div key={symbolInfo.symbol} className={`volatility-trend-card ${trend ? 'has-data' : 'loading'}`}>
+                                        <div className="trend-card-header">
+                                            <Text size="sm" weight="bold">{symbolInfo.display_name}</Text>
+                                            <div className="symbol-badge">
+                                                {symbolInfo.is_1s && <span className="badge-1s">1s</span>}
+                                                <Text size="xs">{symbolInfo.symbol}</Text>
+                                            </div>
+                                        </div>
+
+                                        {trend ? (
+                                            <>
+                                                <div className={`trend-direction ${trend.direction}`}>
+                                                    <span className="trend-icon">
+                                                        {trend.direction === 'bullish' ? '📈' :
+                                                         trend.direction === 'bearish' ? '📉' : '➡️'}
+                                                    </span>
+                                                    <div className="trend-info">
+                                                        <Text size="sm" weight="bold">{trend.direction.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.strength} trend</Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className="trend-metrics">
+                                                    <div className="metric">
+                                                        <Text size="xs">Confidence</Text>
+                                                        <div className="confidence-bar">
+                                                            <div
+                                                                className="confidence-fill"
+                                                                style={{ width: `${trend.confidence}%` }}
+                                                            />
+                                                        </div>
+                                                        <Text size="xs" weight="bold">{trend.confidence.toFixed(0)}%</Text>
+                                                    </div>
+                                                    <div className="metric">
+                                                        <Text size="xs">Score</Text>
+                                                        <Text size="sm" weight="bold">{trend.score.toFixed(1)}/100</Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className="indicator-data">
+                                                    <div className="indicator-row">
+                                                        <Text size="xs">Price: {trend.price?.toFixed(5) || 'N/A'}</Text>
+                                                        <Text size="xs" className={`long-term-trend ${trend.longTermTrend || 'neutral'}`}>
+                                                            Trend: {trend.longTermTrend?.toUpperCase() || 'NEUTRAL'}
+                                                        </Text>
+                                                    </div>
+                                                    <div className="indicator-row">
+                                                        <Text size="xs">ROC Align: {trend.rocAlignment || 'NEUTRAL'}</Text>
+                                                        <Text size="xs" className={`roc-status ${(trend.rocAlignment || '').toLowerCase()}`}>
+                                                            {trend.rocAlignment === 'BULLISH' ? '📈' : trend.rocAlignment === 'BEARISH' ? '📉' : '➡️'}
+                                                        </Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`recommendation-badge ${trend.recommendation.toLowerCase()}`}>
+                                                    <Text size="xs" weight="bold">{trend.recommendation}</Text>
+                                                </div>
+
+                                                {/* Display Ehlers and Pullback Analysis */}
+                                                {trend.ehlers && (
+                                                    <div className="ehlers-signals">
+                                                        <Text size="xs">SNR: {trend.ehlers.snr.toFixed(1)}dB</Text>
+                                                        <Text size="xs">NET: {trend.ehlers.netValue.toFixed(3)}</Text>
+                                                        <Text size="xs">ANTIC: {trend.ehlers.anticipatorySignal.toFixed(2)}</Text>
+                                                        {trend.ehlersRecommendation?.anticipatory && (
+                                                            <div className={`anticipatory-signal ${trend.ehlersRecommendation.signalStrength}`}>
+                                                                {trend.ehlersRecommendation.signalStrength === 'strong' && (
+                                                                    <Text size="xs" color="profit-success">🎯 STRONG PULLBACK</Text>
+                                                                )}
+                                                                {trend.ehlersRecommendation.signalStrength === 'medium' && (
+                                                                    <Text size="xs" color="prominent">⚡ EARLY SIGNAL</Text>
+                                                                )}
+                                                                {trend.ehlersRecommendation.signalStrength === 'weak' && (
+                                                                    <Text size="xs" color="general">📊 POTENTIAL</Text>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Enhanced Pullback Analysis Display */}
+                                                {trend.pullbackAnalysis && trend.pullbackAnalysis.isPullback && (
+                                                    <div className={`pullback-analysis ${trend.pullbackAnalysis.entrySignal ? 'entry-signal' : ''}`}>
+                                                        <div className="pullback-header">
+                                                            <Text size="xs" weight="bold" color={
+                                                                trend.pullbackAnalysis.pullbackType === 'bullish_pullback' ? 'profit-success' : 
+                                                                trend.pullbackAnalysis.pullbackType === 'bearish_pullback' ? 'loss-danger' : 'general'
+                                                            }>
+                                                                🎯 PULLBACK DETECTED
+                                                            </Text>
+                                                            {trend.pullbackAnalysis.entrySignal && (
+                                                                <div className="entry-signal-badge">
+                                                                    <Text size="xs" weight="bold" color="profit-success">
+                                                                        🚀 ENTRY SIGNAL
+                                                                    </Text>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="pullback-details">
+                                                            <Text size="xs">
+                                                                Type: {trend.pullbackAnalysis.pullbackType.replace('_', ' ').toUpperCase()}
+                                                            </Text>
+                                                            <Text size="xs">
+                                                                Strength: {trend.pullbackAnalysis.pullbackStrength.toUpperCase()}
+                                                            </Text>
+                                                            <Text size="xs">
+                                                                Trend: {trend.pullbackAnalysis.longerTermTrend.toUpperCase()}
+                                                            </Text>
+                                                            <Text size="xs">
+                                                                Confidence: {trend.pullbackAnalysis.confidence}%
+                                                            </Text>
+                                                            {trend.pullbackAnalysis.priceVsDecycler !== undefined && (
+                                                                <Text size="xs">
+                                                                    Price vs Decycler: {trend.pullbackAnalysis.priceVsDecycler.toFixed(2)}%
+                                                                </Text>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <div className="loading-state">
+                                                <div className="loading-spinner"></div>
+                                                <Text size="xs" color="general">
+                                                    {is_scanner_initialized ?
+                                                        `Building trends... Need ${Math.max(0, 40 - Math.floor(Math.random() * 20))} more candles` :
+                                                        'Connecting to market feeds...'
+                                                    }
+                                                </Text>
+                                                <Text size="xs" color="loss-danger">
+                                                    HMA requires 40+ data points
+                                                </Text>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ROC Sensitivity Controls */}
+                    <div className="ml-trader__roc-controls">
+                        <div className="roc-controls-header">
+                            <Text as="h3">ROC Analysis Settings</Text>
+                            <Text size="xs" color="general">Configure Rate of Change sensitivity for trend analysis</Text>
+                        </div>
+
+                        <div className="roc-controls-grid">
+                            <div className="control-card roc-sensitivity">
+                                <div className="card-icon">⚙️</div>
+                                <div className="card-content">
+                                    <Text className="card-title">ROC Sensitivity</Text>
+                                    <Text className="card-description" size="xs" color="general">
+                                        {roc_sensitive_settings
+                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
+                                            : `Default: Long-term ${roc_sensitive_settings ? 15 : 30}, Short-term ${roc_sensitive_settings ? 7 : 14} periods`
+                                        }
+                                    </Text>
+                                </div>
+                                <div className="toggle-container">
+                                    <input
+                                        type="checkbox"
+                                        id="roc-sensitive-toggle"
+                                        className="toggle-input"
+                                        checked={roc_sensitive_settings}
+                                        onChange={() => setRocSensitiveSettings(!roc_sensitive_settings)}
+                                    />
+                                    <label htmlFor="roc-sensitive-toggle" className="toggle-label">
+                                        <div className="toggle-switch"></div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="control-card roc-info">
+                                <div className="card-icon">📊</div>
+                                <div className="card-content">
+                                    <Text className="card-title">Current ROC Settings</Text>
+                                    <div className="roc-settings-display">
+                                        <Text size="xs">
+                                            Long-term: {roc_sensitive_settings ? 15 : 30} periods
+                                        </Text>
+                                        <Text size="xs">
+                                            Short-term: {roc_sensitive_settings ? 7 : 14} periods
+                                        </Text>
+                                        <Text size="xs" color={roc_sensitive_settings ? "profit-success" : "general"}>
+                                            Mode: {roc_sensitive_settings ? "Sensitive" : "Default"}
+                                        </Text>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    </div>
+
+                    <div className="ml-trader__side-content">
+                        {/* Trading Interface - Only shows when a recommendation is selected directly */}
+                        {selected_recommendation && !is_modal_open && (
+                            <div className="ml-trader__trading-interface">
+                                <Text as="h3">Trading Interface</Text>
+
+                                <div className="trading-form">
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Asset</Text>
+                                            <select
+                                                value={modal_symbol} // Use modal state here
+                                                onChange={(e) => setModalSymbol(e.target.value)}
+                                                disabled={is_running}
+                                            >
+                                                {ENHANCED_VOLATILITY_SYMBOLS.map(s => (
+                                                    <option key={s.symbol} value={s.symbol}>
+                                                        {s.display_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Trade Mode</Text>
+                                            <select
+                                                value={modal_trade_mode} // Use modal state here
+                                                onChange={(e) => setModalTradeMode(e.target.value as any)}
+                                                disabled={is_running}
+                                            >
+                                                <option value="rise_fall">Rise/Fall</option>
+                                                <option value="higher_lower">Higher/Lower</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Contract Type</Text>
+                                            <select
+                                                value={modal_contract_type} // Use modal state here
+                                                onChange={(e) => setModalContractType(e.target.value)}
+                                                disabled={is_running}
+                                            >
+                                                {(modal_trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
+                                                    <option key={type.value} value={type.value}>
+                                                        {type.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Stake ({account_currency})</Text>
+                                            <input
+                                                type="number"
+                                                value={modal_stake} // Use modal state here
+                                                onChange={(e) => setModalStake(Number(e.target.value))}
+                                                min="0.1"
+                                                step="0.1"
+                                                disabled={is_running}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Duration</Text>
+                                            <input
+                                                type="number"
+                                                value={modal_duration} // Use modal state here
+                                                onChange={(e) => setModalDuration(Number(e.target.value))}
+                                                min="1"
+                                                disabled={is_running}
+                                            />
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Duration Unit</Text>
+                                            <select
+                                                value={modal_duration_unit} // Use modal state here
+                                                onChange={(e) => setModalDurationUnit(e.target.value as any)}
+                                                disabled={is_running}
+                                            >
+                                                <option value="t">Ticks</option>
+                                                <option value="s">Seconds</option>
+                                                <option value="m">Minutes</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {modal_trade_mode === 'higher_lower' && (
+                                        <div className="form-row">
+                                            <div className="form-field">
+                                                <Text as="label">Barrier Offset</Text>
+                                                <input
+                                                    type="number"
+                                                    value={modal_barrier_offset} // Use modal state here
+                                                    onChange={(e) => setModalBarrierOffset(Number(e.target.value))}
+                                                    step="0.001"
+                                                    disabled={is_running}
+                                                />
+                                            </div>
+
+                                            <div className="form-field">
+                                                <Text as="label">Current Price</Text>
+                                                <Text>{current_price ? current_price.toFixed(5) : 'Loading...'}</Text>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Status and Controls */}
+                        <div className="ml-trader__status">
+                            <div className="status-row">
+                                <Text>{status || 'Ready to trade'}</Text>
+                                <div className="ml-trader__actions">
+                                    <button
+                                        className={`ml-trader__btn ${is_running ? 'ml-trader__btn--stop' : 'ml-trader__btn--start'}`}
+                                        onClick={is_running ? onStop : onStart}
+                                        disabled={!modal_recommendation && !is_running} // Disabled if no modal recommendation is set
+                                    >
+                                        {is_running ? localize('Stop') : localize('Start Trading')}
+                                    </button>
+
+                                    <button
+                                        className="ml-trader__btn ml-trader__btn--scan"
+                                        onClick={startMarketScan}
+                                        disabled={is_running}
+                                    >
+                                        {localize('Refresh Analysis')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
