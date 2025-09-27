@@ -74,7 +74,7 @@ export class TrendAnalysisEngine {
     
     // Tick tracking constants
     private readonly REQUIRED_TICKS = 30; // Reduced from 60 to 30 ticks
-    private readonly CONSISTENCY_THRESHOLD = 55; // Reduced from 65% to 55% consistency
+    private readonly CONSISTENCY_THRESHOLD = 80; // Changed from 55% to 80% consistency
 
     constructor() {
         // Update trend analysis periodically
@@ -649,7 +649,7 @@ export class TrendAnalysisEngine {
 
         if (recommendation === 'HOLD') {
             if (tickTrend.direction === 'NEUTRAL') {
-                reasons.push('No clear 30-tick trend direction (requires ≥55% consistency)');
+                reasons.push('No clear 30-tick trend direction (requires ≥80% consistency)');
             } else {
                 reasons.push('ROC signals not strong enough for confirmed trend direction');
             }
