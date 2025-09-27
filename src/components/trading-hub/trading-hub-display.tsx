@@ -832,7 +832,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     if (isAiAutoTrading) {
                                         // Reduced wait time between trades for faster execution
                                         setTimeout(() => {
-                                            // Double-check AI Auto Trade is still active before executing
+                                            // Double check that AI Auto Trade is still active before executing
                                             if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
@@ -1640,7 +1640,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''}`}>
                             <div className="recommendation-content">
                                 <div className="strategy-badge">
-                                    <span className={`strategy-label strategy-label--${rec.strategy}`}>
+                                    <span className={`strategy-label ${rec.strategy}`}>
                                         {rec.strategy === 'call' ? 'BUY NOW' :
                                          rec.strategy === 'put' ? 'SELL NOW' :
                                          rec.strategy === 'hold' ? 'PLEASE WAIT' :
@@ -1704,6 +1704,13 @@ const TradingHubDisplay: React.FC = observer(() => {
     const handleCloseModal = () => {
         setIsSmartTraderModalOpen(false);
         setSelectedTradeSettings(null);
+    };
+
+    const applyRecommendation = (recommendation: TradeRecommendation) => {
+        // Placeholder for applying recommendation - could involve directly executing a trade or adjusting parameters
+        console.log('Applying recommendation:', recommendation);
+        // For now, we'll just open the Smart Trader modal with these settings
+        loadTradeSettings(recommendation);
     };
 
     return (

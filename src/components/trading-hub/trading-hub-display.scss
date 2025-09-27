@@ -482,3 +482,91 @@
         }
     }
 }
+
+.rec-score {
+    font-weight: bold;
+    color: #8884d8;
+    margin-top: 5px;
+}
+
+.ml-prediction {
+    margin-top: 15px;
+    padding: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    color: white;
+    font-size: 13px;
+
+    .ml-header {
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #fff;
+        text-align: center;
+    }
+
+    .ml-direction {
+        margin-bottom: 5px;
+
+        .ml-dir {
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 5px;
+
+            &.rise {
+                background: #4caf50;
+                color: white;
+            }
+
+            &.fall {
+                background: #f44336;
+                color: white;
+            }
+
+            &.neutral {
+                background: #ff9800;
+                color: white;
+            }
+        }
+    }
+
+    .ml-confidence, .ml-strength, .ml-score, .ml-weight {
+        margin-bottom: 5px;
+
+        .strength-strong {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .strength-moderate {
+            color: #ff9800;
+            font-weight: bold;
+        }
+
+        .strength-weak {
+            color: #f44336;
+            font-weight: bold;
+        }
+    }
+
+    .ml-features {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.3);
+
+        .feature {
+            margin-bottom: 3px;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+    }
+
+    .ml-weight {
+        margin-top: 5px;
+        padding-top: 5px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        font-weight: bold;
+        text-align: center;
+        color: #ffeb3b;
+    }
+}
