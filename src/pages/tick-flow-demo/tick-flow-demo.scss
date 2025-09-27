@@ -1,0 +1,293 @@
+
+.tick-flow-demo {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  
+  .demo-header {
+    text-align: center;
+    margin-bottom: 32px;
+    
+    h2 {
+      color: var(--text-prominent);
+      margin-bottom: 8px;
+    }
+    
+    p {
+      color: var(--text-general);
+      font-size: 16px;
+    }
+  }
+  
+  .demo-controls {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 32px;
+    justify-content: center;
+    
+    .demo-button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      
+      &.start {
+        background: var(--status-success);
+        color: white;
+        
+        &:hover {
+          background: var(--status-success-transparent);
+        }
+      }
+      
+      &.stop {
+        background: var(--status-danger);
+        color: white;
+        
+        &:hover {
+          background: var(--status-danger-transparent);
+        }
+      }
+    }
+    
+    .config-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      label {
+        color: var(--text-general);
+        font-weight: 500;
+      }
+      
+      select {
+        padding: 8px 12px;
+        border: 1px solid var(--border-normal);
+        border-radius: 4px;
+        background: var(--fill-normal);
+        color: var(--text-general);
+      }
+    }
+  }
+  
+  .demo-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+    
+    .stat-card {
+      background: var(--fill-normal);
+      border: 1px solid var(--border-normal);
+      border-radius: 8px;
+      padding: 20px;
+      
+      h4 {
+        color: var(--text-prominent);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .stat-grid, .trend-grid {
+        display: grid;
+        gap: 12px;
+      }
+      
+      .stat-item, .trend-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        .stat-label, .trend-label {
+          color: var(--text-general);
+          font-size: 14px;
+        }
+        
+        .stat-value, .trend-value {
+          color: var(--text-prominent);
+          font-weight: 600;
+          
+          &.bullish {
+            color: var(--status-success);
+          }
+          
+          &.bearish {
+            color: var(--status-danger);
+          }
+          
+          &.neutral {
+            color: var(--text-general);
+          }
+          
+          &.recommendation {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            
+            &.buy {
+              background: var(--status-success-transparent);
+              color: var(--status-success);
+            }
+            
+            &.sell {
+              background: var(--status-danger-transparent);
+              color: var(--status-danger);
+            }
+            
+            &.hold {
+              background: var(--general-section-1);
+              color: var(--text-general);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .demo-flow-diagram {
+    background: var(--fill-normal);
+    border: 1px solid var(--border-normal);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 32px;
+    
+    h4 {
+      color: var(--text-prominent);
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      
+      .flow-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px;
+        border-radius: 8px;
+        border: 2px solid var(--border-normal);
+        background: var(--general-main-1);
+        transition: all 0.3s ease;
+        min-width: 120px;
+        
+        &.active {
+          border-color: var(--status-success);
+          background: var(--status-success-transparent);
+          
+          .step-icon {
+            animation: pulse 1.5s infinite;
+          }
+        }
+        
+        .step-icon {
+          font-size: 24px;
+          margin-bottom: 8px;
+        }
+        
+        .step-content {
+          text-align: center;
+          
+          h5 {
+            color: var(--text-prominent);
+            margin-bottom: 4px;
+            font-size: 14px;
+          }
+          
+          p {
+            color: var(--text-general);
+            font-size: 12px;
+            margin-bottom: 4px;
+          }
+          
+          small {
+            color: var(--text-less-prominent);
+            font-size: 11px;
+          }
+        }
+      }
+      
+      .flow-arrow {
+        font-size: 20px;
+        color: var(--text-general);
+        font-weight: bold;
+      }
+    }
+  }
+  
+  .demo-logs {
+    background: var(--fill-normal);
+    border: 1px solid var(--border-normal);
+    border-radius: 8px;
+    padding: 24px;
+    
+    h4 {
+      color: var(--text-prominent);
+      margin-bottom: 16px;
+    }
+    
+    .logs-container {
+      max-height: 300px;
+      overflow-y: auto;
+      background: var(--general-main-1);
+      border: 1px solid var(--border-normal);
+      border-radius: 4px;
+      padding: 12px;
+      
+      .no-logs {
+        text-align: center;
+        color: var(--text-general);
+        padding: 20px;
+        font-style: italic;
+      }
+      
+      .log-entry {
+        color: var(--text-general);
+        font-family: monospace;
+        font-size: 13px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--border-disabled);
+        
+        &:last-child {
+          border-bottom: none;
+        }
+      }
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    padding: 16px;
+    
+    .demo-controls {
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .flow-steps {
+      flex-direction: column;
+      
+      .flow-arrow {
+        transform: rotate(90deg);
+      }
+    }
+  }
+}

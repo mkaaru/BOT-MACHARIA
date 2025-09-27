@@ -26,6 +26,7 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
+import { TickFlowDemo } from '../tick-flow-demo/tick-flow-demo';
 
 
 const Chart = lazy(() => import('../chart'));
@@ -104,7 +105,7 @@ const AppWrapper = observer(() => {
     const {
         active_tab,
         is_chart_modal_visible,
-        is_trading_view_modal_visible,
+        is_is_trading_view_modal_visible,
         setActiveTab,
     } = dashboard;
     const { onEntered } = load_modal;
@@ -837,7 +838,7 @@ const AppWrapper = observer(() => {
         over: ((overCount / total) * 100).toFixed(1)
       }
     } else if (contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') {
-      // For match/differs, show probability for each digit
+      // For match/differs contracts, show probability for each digit
       const digitCounts = new Array(10).fill(0)
       lastDigits.forEach(d => digitCounts[d]++)
       const total = lastDigits.length
@@ -1540,6 +1541,9 @@ if __name__ == "__main__":
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
                             <button onClick={handleOpen}>Load Bot</button>
+                        </div>
+                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Tick Flow Demo' /></>} id='id-tick-flow-demo'>
+                            <TickFlowDemo />
                         </div>
                     </Tabs>
                 </div>
