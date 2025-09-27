@@ -1,0 +1,102 @@
+OFF
+
+Risk Disclaimer
+Compilation failed
+
+File: /home/runner/workspace/src/services/trend-analysis-engine.ts:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `rocAlignment` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/services/trend-analysis-engine.ts:169:1]
+        │  166 │         }
+        │  167 │
+        │  168 │         // Determine ROC alignment and trend direction
+        │  169 │         const rocAlignment = this.determineROCAlignment(longTermROC, shortTermROC);
+        │      ·               ──────┬─────
+        │      ·                     ╰── previous definition of `rocAlignment` here
+        │  170 │         const direction = this.determineTrendDirectionByROC(rocAlignment);
+        │  171 │
+        │  172 │         // Calculate trend strength based on ROC magnitude
+        │  173 │         const strength = this.calculateTrendStrengthByROC(longTermROC, shortTermROC);
+        │  174 │
+        │  175 │         // Calculate confidence based on ROC alignment and strength
+        │  176 │         const confidence = this.calculateConfidenceByROC(longTermROC, shortTermROC, rocAlignment);
+        │  177 │
+        │  178 │         // Get ROC-based signal validation with persistence
+        │  179 │         const rawROCSignal = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
+        │  180 │         const persistentROCSignal = this.getPersistedSignal(symbol, rawROCSignal, confidence);
+        │  181 │
+        │  182 │         // Override direction based on persistent ROC signal validation
+        │  183 │         let finalDirection = direction;
+        │  184 │         if (persistentROCSignal === 'BULLISH') {
+        │  185 │             finalDirection = 'bullish';
+        │  186 │         } else if (persistentROCSignal === 'BEARISH') {
+        │  187 │             finalDirection = 'bearish';
+        │  188 │         } else {
+        │  189 │             finalDirection = 'neutral'; // No valid signal
+        │  190 │         }
+        │  191 │
+        │  192 │         // Generate recommendation based on persistent ROC signal validation
+        │  193 │         const recommendation = this.generateRecommendationByROC(finalDirection, strength, confidence, persistentROCSignal);
+        │  194 │
+        │  195 │         // Calculate overall score based on ROC alignment and validation
+        │  196 │         let score = this.calculateTradingScoreByROC(finalDirection, strength, confidence, rocAlignment);
+        │  197 │
+        │  198 │         // Boost score significantly for valid ROC signals - INCREASED WEIGHT
+        │  199 │         if (persistentROCSignal === 'BULLISH' || persistentROCSignal === 'BEARISH') {
+        │  200 │             score = Math.min(98, score + 45); // Increased from 30 to 45 points for valid ROC signal
+        │  201 │         }
+        │  202 │
+        │  203 │         // Additional ROC alignment bonus - NEW ENHANCEMENT
+        │  204 │         if (rocAlignment !== 'NEUTRAL') {
+        │  205 │             score = Math.min(98, score + 15); // Extra 15 points for any ROC alignment
+        │  206 │         }
+        │  207 │
+        │  208 │         // Get Ehlers-based recommendations with Deriv market optimization
+        │  209 │         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
+        │  210 │         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
+        │  211 │
+        │  212 │         // Generate Deriv-specific market signals
+        │  213 │         const riseFallConfig: DerivMarketConfig = {
+        │  214 │             market: 'rise_fall',
+        │  215 │             duration: 5, // 5 ticks
+        │  216 │             contractType: 'RISE',
+        │  217 │             minConfidence: 70,
+        │  218 │             maxDrawdown: 20
+        │  219 │         };
+        │  220 │
+        │  221 │         const higherLowerConfig: DerivMarketConfig = {
+        │  222 │             market: 'higher_lower',
+        │  223 │             duration: 60, // 60 seconds
+        │  224 │             contractType: 'HIGHER',
+        │  225 │             minConfidence: 65,
+        │  226 │             maxDrawdown: 15
+        │  227 │         };
+        │  228 │
+        │  229 │         const riseFallSignal = ehlersProcessor.generateDerivSignal(symbol, riseFallConfig);
+        │  230 │         const higherLowerSignal = ehlersProcessor.generateDerivSignal(symbol, higherLowerConfig);
+        │  231 │
+        │  232 │         const derivSignals = {
+        │  233 │             riseFall: {
+        │  234 │                 action: riseFallSignal.action as 'RISE' | 'FALL' | 'WAIT',
+        │  235 │                 confidence: riseFallSignal.confidence,
+        │  236 │                 reasoning: riseFallSignal.reasoning
+        │  237 │             },
+        │  238 │             higherLower: {
+        │  239 │                 action: higherLowerSignal.action as 'HIGHER' | 'LOWER' | 'WAIT',
+        │  240 │                 confidence: higherLowerSignal.confidence,
+        │  241 │                 reasoning: higherLowerSignal.reasoning
+        │  242 │             }
+        │  243 │         };
+        │  244 │
+        │  245 │         // Enhanced ROC analysis with mismatch detection
+        │  246 │         const rocAlignment = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
+        │      ·               ──────┬─────
+        │      ·                     ╰── `rocAlignment` redefined here
+        │  247 │         const rocMismatch = this.detectROCMismatch(longTermROC, shortTermROC, recommendation);
+        │  248 │
+        │  249 │         // Adjust recommendation based on ROC mismatch analysis
+        │      ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
