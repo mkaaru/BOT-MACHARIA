@@ -214,66 +214,36 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
-                    // Enhanced AI scanning phases - Load interface after 5 markets
+                    // Simplified analysis phase detection
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
 
                     if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
-                        setCurrentAiMessage(aiScanningMessages.initializing[0]);
+                        setCurrentAiMessage('🤖 Initializing market analysis...');
                         setStatusMessage('🤖 AI initializing market analysis...');
-                    } else if (readySymbolsCount < 5) {
-                        // Keep scanning state until 5 markets are analyzed
-                        setAiScanningPhase('analyzing');
-                        const msgIndex = Math.floor((readySymbolsCount / 5) * aiScanningMessages.analyzing.length);
-                        setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
-                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/5 markets ready`);
                         setConnectionStatus('scanning');
-
-                        // Show which symbol is being processed
-                        const symbols = Object.keys(currentStats);
-                        if (symbols[readySymbolsCount - 1]) {
-                            const currentSymbol = symbols[readySymbolsCount - 1];
-                            const displayName = symbolMap[currentSymbol] || currentSymbol;
-                            setProcessingSymbol(displayName);
-                        }
-                    } else if (readySymbolsCount === 5) {
-                        // Switch to ready state after 5 markets are analyzed
+                    } else if (readySymbolsCount >= 3) {
+                        // Switch to ready state after 3 markets are analyzed (faster)
                         setAiScanningPhase('complete');
-                        setCurrentAiMessage('✅ AI analysis ready - 5 markets analyzed, loading interface...');
-                        setStatusMessage('🚀 AI has identified trading opportunities - Interface loading...');
+                        setCurrentAiMessage('✅ AI analysis ready - Markets analyzed successfully!');
+                        setStatusMessage('🚀 AI analysis complete - Ready to trade!');
                         setConnectionStatus('ready');
                         setIsScanning(false);
                         setProcessingSymbol('');
-                    } else if (progressPercentage < 40) {
-                        setAiScanningPhase('analyzing');
-                        const msgIndex = Math.floor((progressPercentage / 40) * aiScanningMessages.analyzing.length);
-                        setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
-                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/${totalSymbols} markets`);
-                        setConnectionStatus('scanning');
-
-                        // Show which symbol is being processed
-                        const symbols = Object.keys(currentStats);
-                        if (symbols[readySymbolsCount - 1]) {
-                            const currentSymbol = symbols[readySymbolsCount - 1];
-                            const displayName = symbolMap[currentSymbol] || currentSymbol;
-                            setProcessingSymbol(displayName);
-                        }
-                    } else if (progressPercentage < 80) {
-                        setAiScanningPhase('evaluating');
-                        const msgIndex = Math.floor(((progressPercentage - 40) / 40) * aiScanningMessages.evaluating.length);
-                        setCurrentAiMessage(aiScanningMessages.evaluating[Math.min(msgIndex, aiScanningMessages.evaluating.length - 1)]);
-                        setStatusMessage(`🤖 AI evaluating opportunities... ${readySymbolsCount}/${totalSymbols} complete`);
-                    } else if (progressPercentage < 100) {
-                        setAiScanningPhase('recommending');
-                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
-                        setStatusMessage(`🎯 AI preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
                     } else {
-                        setAiScanningPhase('complete');
-                        setCurrentAiMessage('✅ AI analysis complete - Ready to trade!');
-                        setStatusMessage('🚀 AI has identified the best trading opportunities');
-                        setConnectionStatus('ready');
-                        setIsScanning(false);
-                        setProcessingSymbol('');
+                        // Show progress for 1-2 markets
+                        setAiScanningPhase('analyzing');
+                        setCurrentAiMessage(`🧠 Analyzing market patterns... ${readySymbolsCount}/12 markets ready`);
+                        setStatusMessage(`🧠 Processing ${readySymbolsCount} of 12 markets...`);
+                        setConnectionStatus('scanning');
+
+                        // Show which symbol is being processed
+                        const symbols = Object.keys(currentStats);
+                        if (symbols.length > 0) {
+                            const currentSymbol = symbols[symbols.length - 1];
+                            const displayName = symbolMap[currentSymbol] || currentSymbol;
+                            setProcessingSymbol(displayName);
+                        }
                     }
                 });
 
@@ -310,79 +280,45 @@ const TradingHubDisplay: React.FC = observer(() => {
         };
     }, []);
 
-    // Centralized WebSocket connection and tick handling
+    // Simplified WebSocket connection and analysis initialization
     useEffect(() => {
         let isSubscribed = true;
-        const connectAndSubscribe = async () => {
+        
+        const initializeAnalysis = async () => {
             try {
                 setConnectionStatus('connecting');
+                console.log('🚀 Initializing Trading Hub analysis...');
 
-                // Connect to centralized WebSocket manager
-                await centralizedWebSocketManager.connect();
-
-                if (!isSubscribed) return;
-
-                console.log('✅ Connected to centralized WebSocket manager');
-                setConnectionStatus('connected');
-
-                // Subscribe to symbols we're tracking
-                const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
-                const subscriptionPromises = symbols.map(async (symbol) => {
-                    try {
-                        await centralizedWebSocketManager.subscribe(symbol);
-                        console.log(`✅ Subscribed to ${symbol}`);
-                        return symbol;
-                    } catch (error) {
-                        console.error(`❌ Failed to subscribe to ${symbol}:`, error);
-                        return null;
-                    }
-                });
-
-                await Promise.all(subscriptionPromises);
-
-                // Add tick callback with proper error handling
-                const tickUnsubscribe = centralizedWebSocketManager.addMessageCallback(
-                    'tick',
-                    'trading-hub-ticks',
-                    (data: any) => {
-                        try {
-                            if (data.tick && data.tick.symbol && data.tick.quote) {
-                                console.log(`📊 Received tick for ${data.tick.symbol}: ${data.tick.quote}`);
-                                // Update market analyzer with new tick
-                                if (marketAnalyzer && typeof marketAnalyzer.processTick === 'function') {
-                                    marketAnalyzer.processTick(data.tick.symbol, data.tick.quote, data.tick.epoch);
-                                }
-                            }
-                        } catch (error) {
-                            console.error('Error processing tick data:', error);
-                        }
-                    }
-                );
-
-                if (isSubscribed) {
-                    setCleanupFunction(() => tickUnsubscribe);
+                // Direct market analyzer initialization - bypass centralized manager
+                if (marketAnalyzer && typeof marketAnalyzer.start === 'function') {
+                    console.log('📊 Starting market analyzer directly...');
+                    marketAnalyzer.start();
+                    setConnectionStatus('connected');
+                } else {
+                    console.error('❌ Market analyzer not available');
+                    setConnectionStatus('error');
                 }
 
             } catch (error) {
-                console.error('❌ Failed to connect to WebSocket:', error);
+                console.error('❌ Failed to initialize analysis:', error);
                 if (isSubscribed) {
                     setConnectionStatus('error');
-                    // Retry connection after 5 seconds
+                    // Retry after 3 seconds
                     setTimeout(() => {
                         if (isSubscribed) {
-                            connectAndSubscribe();
+                            initializeAnalysis();
                         }
-                    }, 5000);
+                    }, 3000);
                 }
             }
         };
 
-        connectAndSubscribe();
+        initializeAnalysis();
 
         return () => {
             isSubscribed = false;
-            if (cleanupFunction) {
-                cleanupFunction();
+            if (marketAnalyzer && typeof marketAnalyzer.stop === 'function') {
+                marketAnalyzer.stop();
             }
         };
     }, []);

@@ -110,16 +110,21 @@ class MarketAnalyzer {
 
     private connectToDerivAPI() {
         if (this.ws && [WebSocket.CONNECTING, WebSocket.OPEN].includes(this.ws.readyState)) {
+            console.log('🔄 WebSocket already connecting/connected, skipping...');
             return;
         }
 
         try {
+            console.log('🚀 Connecting to Deriv WebSocket API...');
             this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
 
             this.ws.onopen = () => {
                 console.log('✅ Connected to Deriv WebSocket API');
                 this.reconnectAttempts = 0;
-                this.subscribeToSymbols();
+                // Add small delay before subscribing
+                setTimeout(() => {
+                    this.subscribeToSymbols();
+                }, 500);
             };
 
             this.ws.onmessage = (event) => {
@@ -138,14 +143,14 @@ class MarketAnalyzer {
                 }
             };
 
-            // Connection timeout
+            // Reduced connection timeout for faster feedback
             setTimeout(() => {
                 if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-                    console.log('⌛ WebSocket connection timeout');
+                    console.log('⌛ WebSocket connection timeout - retrying...');
                     this.ws.close();
                     this.scheduleReconnect();
                 }
-            }, 10000);
+            }, 5000); // Reduced from 10s to 5s
 
         } catch (error) {
             console.error('Failed to create WebSocket connection:', error);
@@ -243,10 +248,10 @@ class MarketAnalyzer {
         }
 
         // Trigger analysis if we have enough data
-        if (data.ticks.length >= 10) {  // Reduced threshold for faster analysis
+        if (data.ticks.length >= 5) {  // Further reduced threshold for faster startup
             this.analyzeSymbol(symbol);
         } else {
-            console.log(`📊 ${symbol}: Need ${10 - data.ticks.length} more ticks for analysis`);
+            console.log(`📊 ${symbol}: Need ${5 - data.ticks.length} more ticks for analysis`);
         }
     }
 
@@ -261,9 +266,15 @@ class MarketAnalyzer {
             clearInterval(this.analysisInterval);
         }
 
+        console.log('📊 Starting market analysis engine...');
         this.analysisInterval = setInterval(() => {
             this.performAnalysis();
-        }, 1500); // Every 1.5 seconds
+        }, 2000); // Every 2 seconds for better stability
+
+        // Run initial analysis immediately
+        setTimeout(() => {
+            this.performAnalysis();
+        }, 1000);
     }
 
     private performAnalysis() {
@@ -276,7 +287,7 @@ class MarketAnalyzer {
                 const data = this.symbolData.get(symbol);
                 const ticks = data?.ticks;
 
-                if (!ticks || ticks.length < 10) { // Use the same threshold as in processTick
+                if (!ticks || ticks.length < 5) { // Use the same threshold as in processTick
                     marketStats[symbol] = {
                         symbol,
                         tickCount: ticks?.length || 0,
