@@ -43,7 +43,7 @@ export class TickBasedCandleEngine {
     private readonly TICKS_PER_CANDLE: number;
     private readonly MAX_CANDLES_PER_SYMBOL = 1000;
 
-    constructor(ticksPerCandle: number = 5) {
+    constructor(ticksPerCandle: number = 20) {
         this.TICKS_PER_CANDLE = ticksPerCandle;
         console.log(`🎯 TickBasedCandleEngine initialized with ${ticksPerCandle} ticks per candle`);
     }
@@ -339,5 +339,6 @@ export class TickBasedCandleEngine {
 }
 
 // Create configurable instances
+export const tickBasedCandleEngine20 = new TickBasedCandleEngine(20);
 export const tickBasedCandleEngine5 = new TickBasedCandleEngine(5);
 export const tickBasedCandleEngine1 = new TickBasedCandleEngine(1);

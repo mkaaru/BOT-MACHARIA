@@ -364,7 +364,7 @@ const MLTrader = observer(() => {
 
             // Mark initial scan as complete when we have trends for at least 2 symbols (reasonable with 5000 ticks)
             if (trendsMap.size >= 2 && !initial_scan_complete) {
-                console.log(`✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols using historical data`);
+                console.log('✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols using historical data');
                 setInitialScanComplete(true);
                 setStatus(`Market analysis ready - ${trendsMap.size} symbols analyzed with historical trends`);
             }
@@ -1163,7 +1163,7 @@ const MLTrader = observer(() => {
     const is_modal_open = !!modal_recommendation; 
 
     // State for the tick-based candle engine (assuming it's accessible globally or passed in)
-    const tickBasedCandleEngine5 = (window as any).tickBasedCandleEngine5; // Example: accessing a global instance
+    const tickBasedCandleEngine20 = (window as any).tickBasedCandleEngine20; // Example: accessing a global instance
 
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
@@ -1417,9 +1417,9 @@ const MLTrader = observer(() => {
                                 <Text size="xs" color="general">
                                     Raw Ticks → 5-Tick Candles → ROC Analysis → Recommendations
                                 </Text>
-                                {tickBasedCandleEngine5 && (
+                                {tickBasedCandleEngine20 && (
                                     <Text size="xs" color="general">
-                                        System: {tickBasedCandleEngine5.getSystemStats().symbolsWithData} symbols processing
+                                        System: {tickBasedCandleEngine20.getSystemStats().symbolsWithData} symbols processing
                                     </Text>
                                 )}
                             </div>

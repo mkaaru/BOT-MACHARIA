@@ -242,7 +242,7 @@ export class IntegratedCandleManager {
 export const defaultConfig: CandleManagerConfig = {
     useTimeBased: true,
     useTickBased: true,
-    ticksPerCandle: 5,
+    ticksPerCandle: 20,
     enableROCAnalysis: true,
     rocPeriods: {
         fast: 1,
