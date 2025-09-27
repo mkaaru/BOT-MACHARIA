@@ -1,0 +1,605 @@
+import { CandleData } from './candle-reconstruction-engine';
+import { TickBasedCandleEngine, TickCandleData } from './tick-based-candle-engine';
+import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
+import { DerivMarketConfig } from './ehlers-signal-processing';
+
+export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
+export type TrendStrength = 'strong' | 'moderate' | 'weak';
+export type MarketPhase = 'rising' | 'falling' | 'ranging' | 'transition';
+
+export interface TrendAnalysis {
+    symbol: string;
+    timestamp: number;
+    direction: TrendDirection;
+    strength: TrendStrength;
+    confidence: number;
+    score: number;
+    price: number;
+    recommendation: 'BUY' | 'SELL' | 'HOLD';
+    reason: string;
+    lastUpdate: Date;
+
+    // Market phase identification
+    marketPhase: MarketPhase;
+    phaseStrength: number;
+    isTrending: boolean;
+
+    // Multi-timeframe analysis
+    shortTermTrend: TrendDirection;
+    mediumTermTrend: TrendDirection;
+    longTermTrend: TrendDirection;
+
+    // ROC indicators
+    fastROC: number;
+    slowROC: number;
+    rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE';
+
+    // 60-tick trend validation
+    tickTrend: {
+        direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+        consistency: number;
+        bullishCount: number;
+        bearishCount: number;
+        totalTicks: number;
+    };
+
+    // Long-term trend indicators
+    longTermEMA: number;
+    mediumTermEMA: number;
+    trendSlope: number;
+    trendDuration: number; // in ticks
+
+    // Ehlers preprocessed data
+    ehlersSmoothed?: number[];
+    roofingFiltered?: number[];
+}
+
+export interface MarketScanResult {
+    symbol: string;
+    displayName: string;
+    trend: TrendAnalysis;
+    rank: number;
+    isRecommended: boolean;
+}
+
+export class TrendAnalysisEngine {
+    private trendData: Map<string, TrendAnalysis> = new Map();
+    private updateTimer: NodeJS.Timeout;
+    
+    // True tick price tracking (60 consecutive ticks)
+    private tickPrices: Map<string, number[]> = new Map();
+    private priceHistory: Map<string, number[]> = new Map();
+    private ehlersHistory: Map<string, number[]> = new Map();
+    
+    // Long-term trend tracking
+    private longTermTrends: Map<string, {
+        direction: TrendDirection;
+        startTime: number;
+        duration: number;
+        slope: number;
+        emaValues: number[];
+        highLowRange: { high: number; low: number }[];
+    }> = new Map();
+
+    private signalCache: Map<string, {
+        signal: 'BULLISH' | 'BEARISH' | null;
+        timestamp: number;
+        confirmationCount: number;
+        strength: number;
+        lastUpdate: number;
+    }> = new Map();
+
+    private readonly SIGNAL_PERSISTENCE_MS = 15 * 60 * 1000; // 15 minutes
+    private readonly MIN_CONFIRMATION_COUNT = 3;
+    private readonly SIGNAL_STRENGTH_THRESHOLD = 60;
+    private readonly MAX_HISTORY = 500; // Increased for long-term analysis
+
+    // ROC periods (tick-based)
+    private readonly FAST_ROC_PERIOD = 5;
+    private readonly SLOW_ROC_PERIOD = 20;
+    
+    // Long-term trend periods
+    private readonly SHORT_TERM_PERIOD = 50;  // ticks
+    private readonly MEDIUM_TERM_PERIOD = 100; // ticks
+    private readonly LONG_TERM_PERIOD = 200;   // ticks
+    
+    // Tick tracking constants
+    private readonly REQUIRED_TICKS = 30;
+    private readonly CONSISTENCY_THRESHOLD = 55;
+
+    // Market phase detection
+    private readonly TREND_STRENGTH_THRESHOLD = 0.001; // Minimum slope for trending market
+    private readonly RANGING_THRESHOLD = 0.0005; // Maximum slope for ranging market
+
+    constructor() {
+        this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000);
+        console.log('🚀 Enhanced TrendAnalysisEngine with Long-term Trend Analysis');
+    }
+
+    /**
+     * Add candle data and update trend analysis
+     */
+    addCandleData(candle: CandleData): void {
+        const { symbol, close, timestamp } = candle;
+        this.storePriceHistory(symbol, close);
+        this.processWithEhlers(symbol, close, timestamp.getTime());
+        console.log(`📊 Added candle data for ${symbol}: ${close.toFixed(5)}`);
+    }
+
+    /**
+     * Add tick-based candle data and update trend analysis
+     */
+    addTickCandleData(candle: TickCandleData): void {
+        const { symbol, close, endTimestamp } = candle;
+        this.storePriceHistory(symbol, close);
+        this.processWithEhlers(symbol, close, endTimestamp.getTime());
+        console.log(`🎯 Added tick-candle data for ${symbol}: ${close.toFixed(5)} (${candle.tickCount} ticks)`);
+    }
+
+    /**
+     * Process individual tick data for true 60-tick validation
+     */
+    processTick(tick: { symbol: string; quote: number; epoch: number }): void {
+        const { symbol, quote, epoch } = tick;
+        
+        this.storeTickPrice(symbol, quote);
+        this.storePriceHistory(symbol, quote);
+        
+        if (this.hasSufficientTickData(symbol)) {
+            this.updateTrendAnalysis(symbol, quote);
+        }
+    }
+
+    /**
+     * Store individual tick prices for 60-tick trend validation
+     */
+    private storeTickPrice(symbol: string, price: number): void {
+        if (!this.tickPrices.has(symbol)) {
+            this.tickPrices.set(symbol, []);
+        }
+
+        const ticks = this.tickPrices.get(symbol)!;
+        ticks.push(price);
+
+        if (ticks.length > this.REQUIRED_TICKS) {
+            ticks.shift();
+        }
+    }
+
+    /**
+     * Store price history for long-term analysis
+     */
+    private storePriceHistory(symbol: string, price: number): void {
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+            this.longTermTrends.set(symbol, {
+                direction: 'neutral',
+                startTime: Date.now(),
+                duration: 0,
+                slope: 0,
+                emaValues: [],
+                highLowRange: []
+            });
+        }
+
+        const prices = this.priceHistory.get(symbol)!;
+        prices.push(price);
+
+        if (prices.length > this.MAX_HISTORY) {
+            prices.shift();
+        }
+    }
+
+    /**
+     * Calculate long-term trend components
+     */
+    private calculateLongTermTrend(symbol: string, currentPrice: number): {
+        longTermEMA: number;
+        mediumTermEMA: number;
+        trendSlope: number;
+        trendDuration: number;
+        marketPhase: MarketPhase;
+        phaseStrength: number;
+        shortTermTrend: TrendDirection;
+        mediumTermTrend: TrendDirection;
+        longTermTrend: TrendDirection;
+    } {
+        const prices = this.priceHistory.get(symbol);
+        if (!prices || prices.length < this.LONG_TERM_PERIOD) {
+            return {
+                longTermEMA: currentPrice,
+                mediumTermEMA: currentPrice,
+                trendSlope: 0,
+                trendDuration: 0,
+                marketPhase: 'ranging',
+                phaseStrength: 0,
+                shortTermTrend: 'neutral',
+                mediumTermTrend: 'neutral',
+                longTermTrend: 'neutral'
+            };
+        }
+
+        // Calculate EMAs for different timeframes
+        const shortEMA = this.calculateEMA(prices, this.SHORT_TERM_PERIOD);
+        const mediumEMA = this.calculateEMA(prices, this.MEDIUM_TERM_PERIOD);
+        const longEMA = this.calculateEMA(prices, this.LONG_TERM_PERIOD);
+
+        // Calculate trend slope (rate of change over longer period)
+        const trendSlope = this.calculateTrendSlope(prices, 50);
+
+        // Determine market phase
+        const marketPhase = this.determineMarketPhase(shortEMA, mediumEMA, longEMA, trendSlope);
+        const phaseStrength = Math.abs(trendSlope);
+
+        // Multi-timeframe trend analysis
+        const shortTermTrend = this.getEMATrendDirection(prices, shortEMA, this.SHORT_TERM_PERIOD);
+        const mediumTermTrend = this.getEMATrendDirection(prices, mediumEMA, this.MEDIUM_TERM_PERIOD);
+        const longTermTrend = this.getEMATrendDirection(prices, longEMA, this.LONG_TERM_PERIOD);
+
+        // Update long-term trend tracking
+        this.updateTrendTracking(symbol, longTermTrend, trendSlope, currentPrice);
+
+        return {
+            longTermEMA: longEMA,
+            mediumTermEMA: mediumEMA,
+            trendSlope,
+            trendDuration: this.getTrendDuration(symbol),
+            marketPhase,
+            phaseStrength,
+            shortTermTrend,
+            mediumTermTrend,
+            longTermTrend
+        };
+    }
+
+    /**
+     * Calculate Exponential Moving Average
+     */
+    private calculateEMA(prices: number[], period: number): number {
+        if (prices.length < period) return prices[prices.length - 1];
+        
+        const multiplier = 2 / (period + 1);
+        let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        
+        for (let i = period; i < prices.length; i++) {
+            ema = (prices[i] - ema) * multiplier + ema;
+        }
+        
+        return ema;
+    }
+
+    /**
+     * Calculate trend slope using linear regression
+     */
+    private calculateTrendSlope(prices: number[], lookback: number): number {
+        if (prices.length < lookback) return 0;
+        
+        const recentPrices = prices.slice(-lookback);
+        const n = recentPrices.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        
+        for (let i = 0; i < n; i++) {
+            sumX += i;
+            sumY += recentPrices[i];
+            sumXY += i * recentPrices[i];
+            sumX2 += i * i;
+        }
+        
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        return slope / recentPrices[0]; // Normalize by initial price
+    }
+
+    /**
+     * Determine market phase based on EMAs and slope
+     */
+    private determineMarketPhase(shortEMA: number, mediumEMA: number, longEMA: number, slope: number): MarketPhase {
+        const isUptrend = shortEMA > mediumEMA && mediumEMA > longEMA;
+        const isDowntrend = shortEMA < mediumEMA && mediumEMA < longEMA;
+        
+        const absSlope = Math.abs(slope);
+        
+        if (absSlope < this.RANGING_THRESHOLD) {
+            return 'ranging';
+        } else if (absSlope > this.TREND_STRENGTH_THRESHOLD) {
+            if (isUptrend && slope > 0) return 'rising';
+            if (isDowntrend && slope < 0) return 'falling';
+        }
+        
+        return 'transition';
+    }
+
+    /**
+     * Get trend direction based on EMA position
+     */
+    private getEMATrendDirection(prices: number[], ema: number, period: number): TrendDirection {
+        if (prices.length < period) return 'neutral';
+        
+        const recentPrices = prices.slice(-period);
+        const aboveEMA = recentPrices.filter(p => p > ema).length;
+        const belowEMA = recentPrices.filter(p => p < ema).length;
+        
+        if (aboveEMA > belowEMA * 1.5) return 'bullish';
+        if (belowEMA > aboveEMA * 1.5) return 'bearish';
+        return 'neutral';
+    }
+
+    /**
+     * Update long-term trend tracking
+     */
+    private updateTrendTracking(symbol: string, direction: TrendDirection, slope: number, currentPrice: number): void {
+        const trend = this.longTermTrends.get(symbol)!;
+        const now = Date.now();
+        
+        if (trend.direction !== direction) {
+            // Trend change detected
+            trend.direction = direction;
+            trend.startTime = now;
+            trend.duration = 0;
+        } else {
+            trend.duration = now - trend.startTime;
+        }
+        
+        trend.slope = slope;
+        trend.emaValues.push(currentPrice);
+        if (trend.emaValues.length > 100) trend.emaValues.shift();
+        
+        // Update high/low range
+        trend.highLowRange.push({ high: currentPrice, low: currentPrice });
+        if (trend.highLowRange.length > 50) trend.highLowRange.shift();
+    }
+
+    /**
+     * Get current trend duration in ticks
+     */
+    private getTrendDuration(symbol: string): number {
+        const trend = this.longTermTrends.get(symbol);
+        return trend ? Math.floor(trend.duration / 1000) : 0; // Convert to seconds
+    }
+
+    /**
+     * Enhanced trend analysis with long-term context
+     */
+    private updateTrendAnalysis(symbol: string, currentPrice: number): void {
+        const prices = this.priceHistory.get(symbol);
+        if (!prices || prices.length < this.SLOW_ROC_PERIOD + 10) {
+            console.log(`${symbol}: Insufficient price data for analysis`);
+            return;
+        }
+
+        // Step 1: Calculate long-term trend components
+        const longTermAnalysis = this.calculateLongTermTrend(symbol, currentPrice);
+
+        // Step 2: Validate 30-tick trend
+        const tickTrend = this.validate30TickTrend(symbol);
+        
+        // Step 3: Apply Ehlers preprocessing
+        const preprocessedPrices = this.applyEhlersPreprocessing(prices);
+        this.ehlersHistory.set(symbol, preprocessedPrices);
+
+        // Step 4: Calculate ROC indicators
+        const fastROC = this.calculateROC(preprocessedPrices, this.FAST_ROC_PERIOD);
+        const slowROC = this.calculateROC(preprocessedPrices, this.SLOW_ROC_PERIOD);
+
+        if (fastROC === null || slowROC === null) return;
+
+        // Step 5: Determine ROC alignment and crossovers
+        const rocAlignment = this.determineROCAlignment(fastROC, slowROC);
+        const rocCrossover = this.detectROCCrossover(symbol, fastROC, slowROC, preprocessedPrices);
+
+        // Step 6: Generate signals with long-term context
+        const direction = this.determineTrendDirectionWithContext(
+            fastROC, slowROC, rocAlignment, longTermAnalysis
+        );
+        const strength = this.calculateTrendStrengthWithContext(
+            fastROC, slowROC, longTermAnalysis.phaseStrength
+        );
+        const confidence = this.calculateConfidenceWithContext(
+            fastROC, slowROC, rocAlignment, rocCrossover, longTermAnalysis
+        );
+
+        // Step 7: Generate recommendation considering market phase
+        const recommendation = this.generateMarketPhaseRecommendation(
+            fastROC, slowROC, rocAlignment, rocCrossover, 
+            confidence, tickTrend, longTermAnalysis
+        );
+
+        // Step 8: Calculate comprehensive trading score
+        const score = this.calculateComprehensiveScore(
+            direction, strength, confidence, rocAlignment, 
+            rocCrossover, longTermAnalysis
+        );
+
+        const analysis: TrendAnalysis = {
+            symbol,
+            timestamp: Date.now(),
+            direction,
+            strength,
+            confidence,
+            price: currentPrice,
+            lastUpdate: new Date(),
+            recommendation,
+            reason: this.generateEnhancedReason(
+                recommendation, fastROC, slowROC, rocAlignment, 
+                rocCrossover, tickTrend, longTermAnalysis
+            ),
+            score,
+            fastROC,
+            slowROC,
+            rocAlignment,
+            rocCrossover,
+            tickTrend,
+            marketPhase: longTermAnalysis.marketPhase,
+            phaseStrength: longTermAnalysis.phaseStrength,
+            isTrending: longTermAnalysis.marketPhase === 'rising' || longTermAnalysis.marketPhase === 'falling',
+            shortTermTrend: longTermAnalysis.shortTermTrend,
+            mediumTermTrend: longTermAnalysis.mediumTermTrend,
+            longTermTrend: longTermAnalysis.longTermTrend,
+            longTermEMA: longTermAnalysis.longTermEMA,
+            mediumTermEMA: longTermAnalysis.mediumTermEMA,
+            trendSlope: longTermAnalysis.trendSlope,
+            trendDuration: longTermAnalysis.trendDuration,
+            ehlersSmoothed: preprocessedPrices.slice(-20),
+            roofingFiltered: this.applyRoofingFilter(prices).slice(-20)
+        };
+
+        this.trendData.set(symbol, analysis);
+
+        console.log(`🎯 ${symbol}: ${recommendation} | Phase: ${longTermAnalysis.marketPhase.toUpperCase()} | ` +
+                   `Fast ROC: ${fastROC.toFixed(3)}% | Slow ROC: ${slowROC.toFixed(3)}% | ` +
+                   `30-Tick: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}%)`);
+    }
+
+    /**
+     * Determine trend direction with long-term context
+     */
+    private determineTrendDirectionWithContext(
+        fastROC: number, 
+        slowROC: number, 
+        rocAlignment: string,
+        longTermAnalysis: any
+    ): TrendDirection {
+        // Weight long-term trend more heavily
+        const longTermWeight = 0.6;
+        const shortTermWeight = 0.4;
+
+        let longTermScore = 0;
+        if (longTermAnalysis.longTermTrend === 'bullish') longTermScore = 1;
+        else if (longTermAnalysis.longTermTrend === 'bearish') longTermScore = -1;
+
+        let shortTermScore = 0;
+        if (rocAlignment === 'BULLISH') shortTermScore = 1;
+        else if (rocAlignment === 'BEARISH') shortTermScore = -1;
+
+        const combinedScore = (longTermScore * longTermWeight) + (shortTermScore * shortTermWeight);
+
+        if (combinedScore > 0.3) return 'bullish';
+        if (combinedScore < -0.3) return 'bearish';
+        return 'neutral';
+    }
+
+    /**
+     * Generate recommendations based on market phase
+     */
+    private generateMarketPhaseRecommendation(
+        fastROC: number, 
+        slowROC: number, 
+        rocAlignment: string,
+        rocCrossover: string,
+        confidence: number,
+        tickTrend: any,
+        longTermAnalysis: any
+    ): 'BUY' | 'SELL' | 'HOLD' {
+        const { marketPhase, longTermTrend } = longTermAnalysis;
+
+        // Different strategies for different market phases
+        switch (marketPhase) {
+            case 'rising':
+                // Buy dips in rising markets
+                if (rocCrossover === 'BULLISH_CROSS' && longTermTrend === 'bullish') {
+                    return 'BUY';
+                }
+                if (rocAlignment === 'BEARISH' && confidence < 50) {
+                    return 'SELL'; // Take profits or short-term reversal
+                }
+                break;
+
+            case 'falling':
+                // Sell rallies in falling markets
+                if (rocCrossover === 'BEARISH_CROSS' && longTermTrend === 'bearish') {
+                    return 'SELL';
+                }
+                if (rocAlignment === 'BULLISH' && confidence < 50) {
+                    return 'BUY'; // Bounce play
+                }
+                break;
+
+            case 'ranging':
+                // Range-bound strategy
+                if (rocCrossover === 'BULLISH_CROSS' && tickTrend.direction === 'BULLISH') {
+                    return 'BUY';
+                }
+                if (rocCrossover === 'BEARISH_CROSS' && tickTrend.direction === 'BEARISH') {
+                    return 'SELL';
+                }
+                break;
+
+            case 'transition':
+                // Be cautious during transitions
+                if (confidence > 70) {
+                    if (rocAlignment === 'BULLISH' && tickTrend.consistency > 60) {
+                        return 'BUY';
+                    }
+                    if (rocAlignment === 'BEARISH' && tickTrend.consistency > 60) {
+                        return 'SELL';
+                    }
+                }
+                break;
+        }
+
+        return 'HOLD';
+    }
+
+    // ... (keep your existing methods like validate30TickTrend, calculateROC, etc.)
+    // Add the missing method implementations as needed
+
+    private validate30TickTrend(symbol: string): any {
+        // Your existing implementation
+        return {
+            direction: 'NEUTRAL',
+            consistency: 0,
+            bullishCount: 0,
+            bearishCount: 0,
+            totalTicks: 0
+        };
+    }
+
+    private applyEhlersPreprocessing(prices: number[]): number[] {
+        // Your existing implementation
+        return prices;
+    }
+
+    private calculateROC(prices: number[], period: number): number {
+        // Your existing implementation
+        return 0;
+    }
+
+    private determineROCAlignment(fastROC: number, slowROC: number): any {
+        // Your existing implementation
+        return 'NEUTRAL';
+    }
+
+    private detectROCCrossover(symbol: string, fastROC: number, slowROC: number, prices: number[]): any {
+        // Your existing implementation
+        return 'NONE';
+    }
+
+    private calculateTrendStrengthWithContext(fastROC: number, slowROC: number, phaseStrength: number): TrendStrength {
+        // Your existing implementation with phase strength consideration
+        return 'moderate';
+    }
+
+    private calculateConfidenceWithContext(fastROC: number, slowROC: number, rocAlignment: any, rocCrossover: any, longTermAnalysis: any): number {
+        // Your existing implementation with long-term context
+        return 50;
+    }
+
+    private calculateComprehensiveScore(direction: TrendDirection, strength: TrendStrength, confidence: number, rocAlignment: any, rocCrossover: any, longTermAnalysis: any): number {
+        // Your existing implementation enhanced with long-term factors
+        return 50;
+    }
+
+    private generateEnhancedReason(recommendation: any, fastROC: number, slowROC: number, rocAlignment: any, rocCrossover: any, tickTrend: any, longTermAnalysis: any): string {
+        // Your existing implementation with long-term context
+        return "Enhanced analysis with long-term trend";
+    }
+
+    private applyRoofingFilter(prices: number[]): number[] {
+        // Your existing implementation
+        return prices;
+    }
+
+    private updateAllTrends(): void {
+        // Your existing implementation
+    }
+}
