@@ -43,8 +43,6 @@ export interface TrendAnalysis {
         snr: number;
         netValue: number;
         anticipatorySignal: number;
-        decycler200?: number; // Added for 200-period decycler
-        decycler200Slope?: number; // Added for 200-period decycler slope
     };
 
     ehlersRecommendation?: {
@@ -179,27 +177,14 @@ export class TrendAnalysisEngine {
         const rawROCSignal = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
         const persistentROCSignal = this.getPersistedSignal(symbol, rawROCSignal, confidence);
 
-        // Enhanced trend and ROC alignment using 200-period decycler slope
-        const decycler200Slope = ehlersSignals?.decycler200Slope || 0;
-        
-        // STRICT ALIGNMENT ENFORCEMENT: Only allow directions that align with ROC
-        let finalDirection: TrendDirection = 'neutral';
-        
-        // Primary rule: ROC alignment must match final direction
-        if (rocAlignment === 'BULLISH' && persistentROCSignal === 'BULLISH' && decycler200Slope > 0.0001) {
+        // Override direction based on persistent ROC signal validation
+        let finalDirection = direction;
+        if (persistentROCSignal === 'BULLISH') {
             finalDirection = 'bullish';
-        } else if (rocAlignment === 'BEARISH' && persistentROCSignal === 'BEARISH' && decycler200Slope < -0.0001) {
-            finalDirection = 'bearish';
-        } else if (rocAlignment === 'BULLISH' && decycler200Slope > 0.0001) {
-            // ROC bullish but no persistent signal - allow if decycler confirms
-            finalDirection = 'bullish';
-        } else if (rocAlignment === 'BEARISH' && decycler200Slope < -0.0001) {
-            // ROC bearish but no persistent signal - allow if decycler confirms
+        } else if (persistentROCSignal === 'BEARISH') {
             finalDirection = 'bearish';
         } else {
-            // All other cases: use neutral to prevent mismatches
-            finalDirection = 'neutral';
-            console.log(`⚠️ ${symbol}: ROC-Trend alignment enforced - setting to NEUTRAL due to mismatch. ROC: ${rocAlignment}, Signal: ${persistentROCSignal}, Decycler: ${decycler200Slope.toFixed(6)}`);
+            finalDirection = 'neutral'; // No valid signal
         }
 
         // Generate recommendation based on persistent ROC signal validation
@@ -255,69 +240,41 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // STRICT ROC-ALIGNED ANALYSIS: Prevent mismatches
-        let finalRecommendation = 'HOLD';
+        // ROC-focused analysis (removed mean reversion priorities)
+        let finalRecommendation = recommendation;
         let enhancedScore = score;
 
-        // Only generate trading signals when ROC alignment is consistent
-        if (finalDirection === 'bullish' && rocAlignment === 'BULLISH') {
-            // Priority 1: Strong ROC signals with alignment
-            if (persistentROCSignal === 'BULLISH' && confidence >= 60) {
-                finalRecommendation = 'BUY';
-                enhancedScore = Math.min(98, confidence + 30);
-                console.log(`🎯 ALIGNED ROC BULLISH: ${persistentROCSignal} signal (${enhancedScore.toFixed(1)}%)`);
-            }
-            // Priority 2: Strong Ehlers trending signals (aligned)
-            else if (ehlersSignals && ehlersRecommendation.signalStrength === 'strong' && ehlersRecommendation.action === 'BUY') {
-                finalRecommendation = 'BUY';
-                enhancedScore = Math.min(95, score + 20);
-                console.log(`⚡ ALIGNED EHLERS BULLISH: Strong signal (${enhancedScore.toFixed(1)}%)`);
-            }
-        } else if (finalDirection === 'bearish' && rocAlignment === 'BEARISH') {
-            // Priority 1: Strong ROC signals with alignment
-            if (persistentROCSignal === 'BEARISH' && confidence >= 60) {
-                finalRecommendation = 'SELL';
-                enhancedScore = Math.min(98, confidence + 30);
-                console.log(`🎯 ALIGNED ROC BEARISH: ${persistentROCSignal} signal (${enhancedScore.toFixed(1)}%)`);
-            }
-            // Priority 2: Strong Ehlers trending signals (aligned)
-            else if (ehlersSignals && ehlersRecommendation.signalStrength === 'strong' && ehlersRecommendation.action === 'SELL') {
-                finalRecommendation = 'SELL';
-                enhancedScore = Math.min(95, score + 20);
-                console.log(`⚡ ALIGNED EHLERS BEARISH: Strong signal (${enhancedScore.toFixed(1)}%)`);
-            }
-        } else {
-            // No alignment or neutral trend - always HOLD to prevent mismatches
-            finalRecommendation = 'HOLD';
-            console.log(`🛑 ${symbol}: HOLDING due to ROC-Trend misalignment. Direction: ${finalDirection}, ROC: ${rocAlignment}`);
+        // Priority 1: ROC signals with increased sensitivity
+        if (persistentROCSignal && confidence >= 60) { // Lowered from 75 to 60 for higher sensitivity
+            finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
+            enhancedScore = Math.min(98, confidence + 30); // Increased bonus for ROC signals
+            console.log(`🎯 HIGH-SENSITIVITY ROC: ${persistentROCSignal} signal (${enhancedScore.toFixed(1)}%)`);
         }
-
-        // Validate alignment consistency before finalizing analysis
-        const isAligned = this.validateTrendROCAlignment(finalDirection, rocAlignment, ehlersSignals?.decycler200Slope || 0);
-        
-        // Adjust confidence if alignment is poor
-        let finalConfidence = confidence;
-        if (!isAligned) {
-            finalConfidence = Math.max(30, confidence * 0.7); // Reduce confidence for misaligned signals
-            console.log(`⚠️ ${symbol}: Trend-ROC misalignment detected, reducing confidence to ${finalConfidence.toFixed(1)}%`);
+        // Priority 2: Strong Ehlers trending signals (removed anticipatory focus)
+        else if (ehlersSignals && ehlersRecommendation.signalStrength === 'strong' && !ehlersRecommendation.anticipatory) {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.min(95, score + 20);
+            console.log(`⚡ EHLERS TRENDING: Strong signal (${enhancedScore.toFixed(1)}%)`);
         }
-
-        // Final consistency check - ensure recommendation aligns with direction and ROC
-        let consistentRecommendation = finalRecommendation;
-        if ((finalRecommendation === 'BUY' && (finalDirection !== 'bullish' || rocAlignment !== 'BULLISH')) ||
-            (finalRecommendation === 'SELL' && (finalDirection !== 'bearish' || rocAlignment !== 'BEARISH'))) {
-            consistentRecommendation = 'HOLD';
-            console.log(`🔧 ${symbol}: Forced recommendation to HOLD for consistency. Original: ${finalRecommendation}, Direction: ${finalDirection}, ROC: ${rocAlignment}`);
+        // Priority 3: Medium Ehlers trending signals
+        else if (ehlersSignals && ehlersRecommendation.signalStrength === 'medium' && !ehlersRecommendation.anticipatory) {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.min(90, score + 15);
+        }
+        // Priority 4: Basic momentum from pullback analysis
+        else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 60) {
+            finalRecommendation = pullbackAnalysis.recommendation;
+            enhancedScore = Math.min(85, pullbackAnalysis.confidence);
         }
 
         const analysis: TrendAnalysis = {
             symbol,
             direction: finalDirection,
             strength,
-            confidence: finalConfidence,
+            confidence,
             price: currentPrice,
             lastUpdate: new Date(),
-            recommendation: consistentRecommendation,
+            recommendation: finalRecommendation,
             score: enhancedScore,
             longTermROC,
             shortTermROC,
@@ -751,13 +708,13 @@ export class TrendAnalysisEngine {
         const recentCloses = last5Candles.map(c => c.close);
         const currentPrice = recentCloses[recentCloses.length - 1];
         const firstPrice = recentCloses[0];
-
+        
         // Simple momentum calculation
         const momentum = (currentPrice - firstPrice) / firstPrice;
-
+        
         let pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback' = 'none';
         let confidence = 0;
-
+        
         // Basic trend following (removed mean reversion)
         if (momentum > 0.001) {
             pullbackType = 'bullish_pullback';
@@ -766,11 +723,11 @@ export class TrendAnalysisEngine {
             pullbackType = 'bearish_pullback';
             confidence = Math.min(80, Math.abs(momentum) * 10000);
         }
-
-        const recommendation: 'BUY' | 'SELL' | 'HOLD' =
+        
+        const recommendation: 'BUY' | 'SELL' | 'HOLD' = 
             pullbackType === 'bullish_pullback' && confidence >= 60 ? 'BUY' :
             pullbackType === 'bearish_pullback' && confidence >= 60 ? 'SELL' : 'HOLD';
-
+        
         return {
             isPullback: pullbackType !== 'none',
             pullbackStrength: confidence > 70 ? 'strong' : confidence > 50 ? 'medium' : 'weak',
@@ -780,75 +737,6 @@ export class TrendAnalysisEngine {
             entrySignal: confidence >= 60,
             recommendation
         };
-    }
-
-    /**
-     * Validate that trend direction aligns with ROC and decycler slope
-     */
-    private validateTrendROCAlignment(
-        trendDirection: TrendDirection,
-        rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
-        decycler200Slope: number
-    ): boolean {
-        // Perfect alignment cases
-        if (trendDirection === 'bullish' && rocAlignment === 'BULLISH' && decycler200Slope > 0) {
-            return true;
-        }
-        
-        if (trendDirection === 'bearish' && rocAlignment === 'BEARISH' && decycler200Slope < 0) {
-            return true;
-        }
-        
-        if (trendDirection === 'neutral' && rocAlignment === 'NEUTRAL') {
-            return true;
-        }
-        
-        // Acceptable alignment (2 out of 3 agree)
-        if (trendDirection === 'bullish' && (rocAlignment === 'BULLISH' || decycler200Slope > 0.0001)) {
-            return true;
-        }
-        
-        if (trendDirection === 'bearish' && (rocAlignment === 'BEARISH' || decycler200Slope < -0.0001)) {
-            return true;
-        }
-        
-        // Misalignment detected
-        return false;
-    }
-
-    /**
-     * Determine overall trend direction ensuring alignment between ROC and 200-period decycler
-     */
-    private determineOverallTrendDirection(
-        decycler200Slope: number,
-        rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
-        rocSignal: 'BULLISH' | 'BEARISH' | null
-    ): TrendDirection {
-        // Strong alignment check
-        if (rocSignal === 'BULLISH' && rocAlignment === 'BULLISH' && decycler200Slope > 0.0001) {
-            return 'bullish';
-        }
-        
-        if (rocSignal === 'BEARISH' && rocAlignment === 'BEARISH' && decycler200Slope < -0.0001) {
-            return 'bearish';
-        }
-        
-        // Medium alignment - ROC and decycler agree, but no strong ROC signal
-        if (rocAlignment === 'BULLISH' && decycler200Slope > 0.0001) {
-            return 'bullish';
-        }
-        
-        if (rocAlignment === 'BEARISH' && decycler200Slope < -0.0001) {
-            return 'bearish';
-        }
-        
-        // Weak alignment - only decycler slope
-        if (Math.abs(decycler200Slope) > 0.0002) {
-            return decycler200Slope > 0 ? 'bullish' : 'bearish';
-        }
-        
-        // No clear alignment or conflicting signals
-        return 'neutral';
     }
 
     /**

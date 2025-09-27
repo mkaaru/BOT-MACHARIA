@@ -1,6 +1,5 @@
 
 import { symbolAnalyzer, SymbolAnalysis } from './symbol-analyzer';
-import { mlTickPredictor, MLPrediction } from './ml-tick-predictor';
 
 export interface TradeRecommendation {
     symbol: string;
@@ -12,8 +11,6 @@ export interface TradeRecommendation {
     reason: string;
     timestamp: number;
     score?: number;
-    mlPrediction?: MLPrediction;
-    mlWeight?: number; // Weight given to ML prediction (0-1)
 }
 
 export interface MarketStats {
@@ -217,16 +214,6 @@ class MarketAnalyzer {
             return;
         }
 
-        const tickData = {
-            symbol,
-            epoch: epoch,
-            quote: parseFloat(quote),
-            timestamp: new Date(epoch * 1000)
-        };
-
-        // Process through ML predictor first for pattern learning
-        mlTickPredictor.addTick(tickData);
-
         // Store tick in symbol analyzer
         symbolAnalyzer.addTick(symbol, {
             time: epoch * 1000,
@@ -321,21 +308,9 @@ class MarketAnalyzer {
                 recommendations.push(...symbolRecs);
             });
 
-            // Find best recommendation with ML-enhanced scoring
-            const bestRecommendation = recommendations.reduce((best, current) => {
-                const currentScore = current.score || current.confidence;
-                const bestScore = best?.score || best?.confidence || 0;
-                return currentScore > bestScore ? current : best;
-            }, null);
-
-            // Log ML enhancement details
-            if (bestRecommendation?.mlPrediction) {
-                console.log(`🤖 ML-Enhanced Recommendation for ${bestRecommendation.symbol}:`);
-                console.log(`   Traditional: ${bestRecommendation.strategy.toUpperCase()} ${bestRecommendation.barrier}`);
-                console.log(`   ML Direction: ${bestRecommendation.mlPrediction.direction} (${bestRecommendation.mlPrediction.confidence.toFixed(1)}%)`);
-                console.log(`   Combined Score: ${bestRecommendation.score?.toFixed(1)} (ML Weight: ${((bestRecommendation.mlWeight || 0) * 100).toFixed(0)}%)`);
-                console.log(`   ML Features: Momentum=${(bestRecommendation.mlPrediction.features.momentum * 100).toFixed(1)}%, Volatility=${(bestRecommendation.mlPrediction.features.volatility * 100).toFixed(1)}%`);
-            }
+            // Find best recommendation
+            const bestRecommendation = recommendations.reduce((best, current) => 
+                current.confidence > (best?.confidence || 0) ? current : best, null);
 
             // Notify all callbacks
             this.analysisCallbacks.forEach(callback => {
@@ -354,10 +329,7 @@ class MarketAnalyzer {
 
         if (totalTicks < 50) return recommendations;
 
-        // Get ML prediction for this symbol
-        const mlPrediction = mlTickPredictor.getPrediction(symbol);
-        
-        // Over/Under analysis with ML enhancement
+        // Over/Under analysis
         const barriers = [3, 4, 5, 6, 7];
         barriers.forEach(barrier => {
             let overCount = 0;
@@ -375,101 +347,53 @@ class MarketAnalyzer {
             const overPercent = (overCount / totalTicks) * 100;
             const underPercent = (underCount / totalTicks) * 100;
 
-            // Apply ML weighting - ML predictions get 70% weight, traditional analysis 30%
-            const mlWeight = mlPrediction ? 0.7 : 0;
-            const traditionalWeight = 1 - mlWeight;
-
             if (overPercent > 55) {
-                let enhancedConfidence = overPercent * traditionalWeight;
-                let enhancedReason = `OVER ${barrier} dominance: ${overPercent.toFixed(1)}%`;
-                
-                if (mlPrediction && mlPrediction.direction === 'RISE') {
-                    enhancedConfidence += mlPrediction.confidence * mlWeight;
-                    enhancedReason += ` + ML ${mlPrediction.direction} (${mlPrediction.confidence.toFixed(1)}%)`;
-                }
-
                 recommendations.push({
                     symbol,
                     strategy: 'over',
                     barrier: barrier.toString(),
-                    confidence: Math.min(95, enhancedConfidence),
+                    confidence: overPercent,
                     overPercentage: overPercent,
                     underPercentage: underPercent,
-                    reason: enhancedReason,
-                    timestamp: Date.now(),
-                    mlPrediction,
-                    mlWeight,
-                    score: this.calculateMLEnhancedScore('over', overPercent, mlPrediction)
+                    reason: `OVER ${barrier} dominance: ${overPercent.toFixed(1)}%`,
+                    timestamp: Date.now()
                 });
             }
 
             if (underPercent > 55) {
-                let enhancedConfidence = underPercent * traditionalWeight;
-                let enhancedReason = `UNDER ${barrier} dominance: ${underPercent.toFixed(1)}%`;
-                
-                if (mlPrediction && mlPrediction.direction === 'FALL') {
-                    enhancedConfidence += mlPrediction.confidence * mlWeight;
-                    enhancedReason += ` + ML ${mlPrediction.direction} (${mlPrediction.confidence.toFixed(1)}%)`;
-                }
-
                 recommendations.push({
                     symbol,
                     strategy: 'under',
                     barrier: barrier.toString(),
-                    confidence: Math.min(95, enhancedConfidence),
+                    confidence: underPercent,
                     overPercentage: overPercent,
                     underPercentage: underPercent,
-                    reason: enhancedReason,
-                    timestamp: Date.now(),
-                    mlPrediction,
-                    mlWeight,
-                    score: this.calculateMLEnhancedScore('under', underPercent, mlPrediction)
+                    reason: `UNDER ${barrier} dominance: ${underPercent.toFixed(1)}%`,
+                    timestamp: Date.now()
                 });
             }
         });
 
-        // Even/Odd analysis with ML enhancement
+        // Even/Odd analysis - Higher threshold for better accuracy
         const evenCount = [0, 2, 4, 6, 8].reduce((sum, digit) => sum + (digitFreq[digit] || 0), 0);
         const oddCount = [1, 3, 5, 7, 9].reduce((sum, digit) => sum + (digitFreq[digit] || 0), 0);
         const evenPercent = (evenCount / totalTicks) * 100;
         const oddPercent = (oddCount / totalTicks) * 100;
 
-        const mlWeight = mlPrediction ? 0.7 : 0;
-        const traditionalWeight = 1 - mlWeight;
-
         if (evenPercent > 60) {
-            let enhancedConfidence = evenPercent * traditionalWeight;
-            let enhancedReason = `STRONG EVEN dominance: ${evenPercent.toFixed(1)}% vs ${oddPercent.toFixed(1)}%`;
-            
-            if (mlPrediction && this.predictsFavorableForEven(mlPrediction)) {
-                enhancedConfidence += mlPrediction.confidence * mlWeight;
-                enhancedReason += ` + ML supports EVEN (${mlPrediction.confidence.toFixed(1)}%)`;
-            }
-
             recommendations.push({
                 symbol,
                 strategy: 'even',
                 barrier: 'even',
-                confidence: Math.min(95, enhancedConfidence),
+                confidence: evenPercent,
                 overPercentage: evenPercent,
                 underPercentage: oddPercent,
-                reason: enhancedReason,
-                timestamp: Date.now(),
-                mlPrediction,
-                mlWeight,
-                score: this.calculateMLEnhancedScore('even', evenPercent, mlPrediction)
+                reason: `STRONG EVEN dominance: ${evenPercent.toFixed(1)}% vs ${oddPercent.toFixed(1)}%`,
+                timestamp: Date.now()
             });
         }
 
         if (oddPercent > 60) {
-            let enhancedConfidence = oddPercent * traditionalWeight;
-            let enhancedReason = `STRONG ODD dominance: ${oddPercent.toFixed(1)}% vs ${evenPercent.toFixed(1)}%`;
-            
-            if (mlPrediction && this.predictsFavorableForOdd(mlPrediction)) {
-                enhancedConfidence += mlPrediction.confidence * mlWeight;
-                enhancedReason += ` + ML supports ODD (${mlPrediction.confidence.toFixed(1)}%)`;
-            }
-
             recommendations.push({
                 symbol,
                 strategy: 'odd',
@@ -477,51 +401,12 @@ class MarketAnalyzer {
                 confidence: oddPercent,
                 overPercentage: evenPercent,
                 underPercentage: oddPercent,
-                reason: enhancedReason,
-                timestamp: Date.now(),
-                mlPrediction,
-                mlWeight,
-                score: this.calculateMLEnhancedScore('odd', oddPercent, mlPrediction)
+                reason: `STRONG ODD dominance: ${oddPercent.toFixed(1)}% vs ${evenPercent.toFixed(1)}%`,
+                timestamp: Date.now()
             });
         }
 
         return recommendations;
-    }
-
-    private calculateMLEnhancedScore(strategy: string, traditionalConfidence: number, mlPrediction: MLPrediction | null): number {
-        let score = traditionalConfidence * 0.3; // Traditional analysis gets 30% weight
-        
-        if (mlPrediction) {
-            // ML prediction gets 70% weight
-            let mlContribution = mlPrediction.prediction_score * 0.7;
-            
-            // Bonus for directional alignment
-            if ((strategy === 'over' && mlPrediction.direction === 'RISE') ||
-                (strategy === 'under' && mlPrediction.direction === 'FALL')) {
-                mlContribution += 10; // 10 point bonus for alignment
-            }
-            
-            // Strength bonus
-            if (mlPrediction.strength === 'strong') {
-                mlContribution += 5;
-            } else if (mlPrediction.strength === 'moderate') {
-                mlContribution += 2;
-            }
-            
-            score += mlContribution;
-        }
-        
-        return Math.min(98, Math.max(0, score));
-    }
-
-    private predictsFavorableForEven(mlPrediction: MLPrediction): boolean {
-        // ML predictions that favor even outcomes
-        return mlPrediction.features.cyclical > 0.5 && mlPrediction.features.volatility < 0.6;
-    }
-
-    private predictsFavorableForOdd(mlPrediction: MLPrediction): boolean {
-        // ML predictions that favor odd outcomes  
-        return mlPrediction.features.momentum > 0.3 && mlPrediction.features.volatility > 0.4;
     }
 
     private handleError(message: string) {
