@@ -245,8 +245,8 @@ export const defaultConfig: CandleManagerConfig = {
     ticksPerCandle: 20,
     enableROCAnalysis: true,
     rocPeriods: {
-        fast: 1,
-        slow: 5
+        fast: 5,
+        slow: 50
     }
 };
 
