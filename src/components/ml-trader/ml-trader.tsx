@@ -150,11 +150,6 @@ const MLTrader = observer(() => {
     const [trend_filter_mode, setTrendFilterMode] = useState<'strict' | 'moderate' | 'relaxed'>('moderate'); // Default filter mode
     const [roc_sensitive_settings, setRocSensitiveSettings] = useState(false); // ROC sensitivity toggle
 
-    // ROC Configuration
-    const [roc_fast_period, setRocFastPeriod] = useState(8); // Fast ROC period
-    const [roc_slow_period, setRocSlowPeriod] = useState(50); // Slow ROC period
-    const [validation_ticks, setValidationTicks] = useState(600); // Validation ticks count
-
 
 
     // Remove modal state - we bypass the modal completely
@@ -256,23 +251,6 @@ const MLTrader = observer(() => {
             }
         };
     }, []);
-
-    // Update trend analysis engine when settings change
-    useEffect(() => {
-        // Import and configure the trend analysis engine
-        const configureTrendEngine = async () => {
-            try {
-                const { trendAnalysisEngine } = await import('@/services/trend-analysis-engine');
-                trendAnalysisEngine.setROCPeriods(roc_fast_period, roc_slow_period);
-                trendAnalysisEngine.setValidationTicks(validation_ticks);
-                console.log(`🔧 Updated trend engine: Fast ROC=${roc_fast_period}, Slow ROC=${roc_slow_period}, Validation=${validation_ticks}`);
-            } catch (error) {
-                console.error('Failed to configure trend analysis engine:', error);
-            }
-        };
-
-        configureTrendEngine();
-    }, [roc_fast_period, roc_slow_period, validation_ticks]);
 
     // Initialize market scanner
     const initializeMarketScanner = useCallback(async () => {
@@ -518,12 +496,13 @@ const MLTrader = observer(() => {
             const defaultDuration = 5;
             const defaultDurationUnit = 't'; // ticks
 
-            // ROC sensitivity settings - use toggle state and user-defined periods
+            // ROC sensitivity settings - use toggle state
             const rocSensitive = roc_sensitive_settings;
-            // Use user-configurable periods with sensitivity toggle option
-            const longTermROCPeriod = rocSensitive ? Math.floor(roc_slow_period / 2) : roc_slow_period;
-            const shortTermROCPeriod = rocSensitive ? Math.floor(roc_fast_period / 2) : roc_fast_period;
-            const actualShortTermROC = shortTermROCPeriod;
+            // These periods are derived from the user's request: ROC(9) and ROC(50)
+            // and the sensitivity toggle halving them.
+            const longTermROCPeriod = rocSensitive ? 25 : 50; // Half of 50 is 25
+            const shortTermROCPeriod = rocSensitive ? 5 : 9;  // Half of 9 is ~4.5, let's use 5 for simplicity or stick to user's 9/50 base
+            const actualShortTermROC = shortTermROCPeriod; // Use the calculated value directly
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -1046,71 +1025,30 @@ const MLTrader = observer(() => {
 
         await authorizeIfNeeded();
 
-        // For Rise/Fall contracts, we use proposal + buy flow
-        console.log(`📊 ML Trader: Purchasing ${modal_contract_type} (${modal_contract_type === 'CALL' ? 'Rise' : 'Fall'}) contract`);
+        if (!current_price && modal_trade_mode === 'higher_lower') {
+            throw new Error('Current price not available');
+        }
 
-        // Get proposal first for Rise/Fall contract
-        const proposalRequest = {
-            proposal: 1,
+        const trade_option: any = {
             amount: Number(modal_stake),
             basis: 'stake',
-            contract_type: modal_contract_type,
             currency: account_currency,
             duration: Number(modal_duration),
             duration_unit: modal_duration_unit,
             symbol: modal_symbol,
         };
 
-        // Add barrier only for Higher/Lower trades, not Rise/Fall
+        // Add barrier for Higher/Lower trades
         if (modal_trade_mode === 'higher_lower' && current_price) {
             const barrier_value = modal_contract_type === 'CALL'
                 ? current_price + modal_barrier_offset
                 : current_price - modal_barrier_offset;
-            proposalRequest.barrier = barrier_value.toFixed(5);
+            trade_option.barrier = barrier_value.toFixed(5);
         }
 
-        console.log('📝 Getting proposal for contract:', proposalRequest);
-
-        const proposalResponse = await apiRef.current.send(proposalRequest);
-        if (proposalResponse.error) {
-            throw new Error(`Proposal failed: ${proposalResponse.error.message || proposalResponse.error.code}`);
-        }
-
-        const proposal = proposalResponse.proposal;
-        if (!proposal || !proposal.id) {
-            throw new Error('No proposal ID received');
-        }
-
-        console.log('✅ Proposal received:', proposal);
-
-        // Buy the contract using the proposal ID
-        const buyRequest = {
-            buy: proposal.id,
-            price: proposal.ask_price,
-        };
-
-        console.log('💰 Buying contract:', buyRequest);
-
-        const buyResponse = await apiRef.current.send(buyRequest);
-        
-        if (buyResponse.error) {
-            throw new Error(`Purchase failed: ${buyResponse.error.message || buyResponse.error.code}`);
-        }
-
-        const buy = buyResponse.buy;
-        if (!buy || !buy.contract_id) {
-            throw new Error('No contract returned from purchase');
-        }
-
-        console.log(`✅ Contract purchased successfully:`, {
-            contractId: buy.contract_id,
-            contractType: modal_contract_type,
-            direction: modal_contract_type === 'CALL' ? 'Rise' : 'Fall',
-            longcode: buy.longcode,
-            amount: modal_stake,
-            payout: buy.payout,
-            purchasePrice: buy.buy_price
-        });
+        const buy_req = tradeOptionToBuy(modal_contract_type, trade_option);
+        const { buy, error } = await apiRef.current.buy(buy_req);
+        if (error) throw error;
 
         contractInProgressRef.current = true;
         return buy;
@@ -1227,279 +1165,6 @@ const MLTrader = observer(() => {
     // State for the tick-based candle engine (assuming it's accessible globally or passed in)
     const tickBasedCandleEngine5 = (window as any).tickBasedCandleEngine5; // Example: accessing a global instance
 
-    // Smart Trader Manual Controls
-    const [showSmartTrader, setShowSmartTrader] = useState(false);
-    const [smartTraderSettings, setSmartTraderSettings] = useState({
-        stopLoss: 0,
-        takeProfit: 0,
-        martingaleMultiplier: 1,
-        stake: 1.0
-    });
-    const [isSmartTraderActive, setIsSmartTraderActive] = useState(false);
-    const [smartTraderProfit, setSmartTraderProfit] = useState(0);
-    const [smartTraderBalance, setSmartTraderBalance] = useState(0);
-    const [currentSmartTrade, setCurrentSmartTrade] = useState<TradingRecommendation | null>(null);
-
-    // Smart Trader Trading Logic with Rise/Fall contracts
-    const startSmartTrader = useCallback(async () => {
-        if (!recommendations.length) {
-            setStatus('No recommendations available. Please wait for market analysis.');
-            return;
-        }
-
-        // Get the top recommendation
-        const topRecommendation = recommendations[0];
-        if (!topRecommendation) {
-            setStatus('No valid recommendation found.');
-            return;
-        }
-
-        if (!apiRef.current) {
-            try {
-                const { generateDerivApiInstance } = await import('@/external/bot-skeleton/services/api/appId');
-                apiRef.current = generateDerivApiInstance();
-                console.log('🔌 Smart Trader: API initialized');
-            } catch (error) {
-                console.error('Failed to initialize API for Smart Trader:', error);
-                setStatus('Error: Failed to initialize trading API');
-                return;
-            }
-        }
-
-        setIsSmartTraderActive(true);
-        setCurrentSmartTrade(topRecommendation);
-        setStatus(`🚀 Smart Trader started: ${topRecommendation.displayName} ${topRecommendation.direction}`);
-
-        // Execute the trade
-        executeSmartTrade(topRecommendation);
-    }, [recommendations]);
-
-    const executeSmartTrade = async (recommendation: TradingRecommendation) => {
-        if (!apiRef.current || !isSmartTraderActive) return;
-
-        try {
-            await authorizeIfNeeded();
-
-            // Map recommendation direction to Rise/Fall contract types
-            // For Rise/Fall: CALL = Rise, PUT = Fall
-            // For Rise/Fall with equals: CALLE = Rise with equals, PUTE = Fall with equals
-            let contractType = 'CALL'; // Default to Rise
-            
-            if (recommendation.direction === 'BUY' || recommendation.direction === 'CALL') {
-                contractType = 'CALL'; // Rise
-            } else if (recommendation.direction === 'SELL' || recommendation.direction === 'PUT') {
-                contractType = 'PUT'; // Fall
-            }
-
-            console.log(`📊 ML Smart Trader: Executing ${contractType} (${contractType === 'CALL' ? 'Rise' : 'Fall'}) contract`);
-
-            // Get proposal first for Rise/Fall contract
-            const proposalRequest = {
-                proposal: 1,
-                amount: Number(smartTraderSettings.stake),
-                basis: 'stake',
-                contract_type: contractType,
-                currency: account_currency,
-                duration: recommendation.suggestedDuration || 20,
-                duration_unit: (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 's',
-                symbol: recommendation.symbol,
-            };
-
-            console.log('📝 Getting proposal for Rise/Fall contract:', proposalRequest);
-
-            const proposalResponse = await apiRef.current.send(proposalRequest);
-            if (proposalResponse.error) {
-                console.error('❌ Proposal failed:', proposalResponse.error);
-                setStatus(`Proposal error: ${proposalResponse.error.message || proposalResponse.error.code}`);
-                setIsSmartTraderActive(false);
-                return;
-            }
-
-            const proposal = proposalResponse.proposal;
-            if (!proposal || !proposal.id) {
-                console.error('❌ No proposal ID received');
-                setStatus('Error: No proposal ID received');
-                setIsSmartTraderActive(false);
-                return;
-            }
-
-            console.log('✅ Proposal received:', proposal);
-
-            // Buy the contract using the proposal ID
-            const buyRequest = {
-                buy: proposal.id,
-                price: proposal.ask_price,
-            };
-
-            console.log('💰 Buying Rise/Fall contract:', buyRequest);
-
-            const buyResponse = await apiRef.current.send(buyRequest);
-            
-            if (buyResponse.error) {
-                console.error('❌ Purchase failed:', buyResponse.error);
-                setStatus(`Purchase error: ${buyResponse.error.message || buyResponse.error.code}`);
-                setIsSmartTraderActive(false);
-                return;
-            }
-
-            const buy = buyResponse.buy;
-            if (!buy || !buy.contract_id) {
-                console.error('❌ No contract returned from purchase');
-                setStatus('Error: No contract returned from purchase');
-                setIsSmartTraderActive(false);
-                return;
-            }
-
-            console.log(`✅ Rise/Fall contract purchased successfully:`, {
-                contractId: buy.contract_id,
-                contractType: contractType,
-                direction: contractType === 'CALL' ? 'Rise' : 'Fall',
-                longcode: buy.longcode,
-                amount: smartTraderSettings.stake,
-                payout: buy.payout,
-                purchasePrice: buy.buy_price
-            });
-
-            setStatus(`✅ ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract placed: ${buy.longcode || 'Contract'} (ID: ${buy.contract_id})`);
-
-            // Monitor contract
-            monitorSmartTradeContract(buy.contract_id);
-
-        } catch (error) {
-            console.error('Smart Trade execution error:', error);
-            setStatus(`Error: ${error?.message || 'Unknown error'}`);
-            setIsSmartTraderActive(false);
-        }
-    };
-
-    const monitorSmartTradeContract = async (contractId: string) => {
-        try {
-            console.log(`📡 Subscribing to Rise/Fall contract updates: ${contractId}`);
-            
-            const subscriptionResponse = await apiRef.current.send({
-                proposal_open_contract: 1,
-                contract_id: contractId,
-                subscribe: 1,
-            });
-
-            if (subscriptionResponse.error) {
-                console.error('Error subscribing to Rise/Fall contract:', subscriptionResponse.error);
-                setIsSmartTraderActive(false);
-                return;
-            }
-
-            console.log('✅ Subscribed to contract updates:', subscriptionResponse);
-
-            const onContractUpdate = (evt: MessageEvent) => {
-                try {
-                    if (!isSmartTraderActive) {
-                        apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
-                        return;
-                    }
-
-                    const data = JSON.parse(evt.data);
-                    if (data?.msg_type === 'proposal_open_contract') {
-                        const poc = data.proposal_open_contract;
-                        
-                        if (String(poc?.contract_id || '') === String(contractId)) {
-                            console.log('📊 Rise/Fall contract update:', poc);
-                            
-                            // Update status while contract is running
-                            if (!poc?.is_sold && poc?.status !== 'sold') {
-                                const profit = Number(poc?.profit || 0);
-                                const entrySpot = Number(poc?.entry_spot || 0);
-                                const currentSpot = Number(poc?.current_spot || 0);
-                                const contractType = poc?.contract_type || '';
-                                
-                                setSmartTraderProfit(profit);
-                                
-                                const direction = contractType === 'CALL' ? 'Rise' : 'Fall';
-                                const spotDiff = currentSpot - entrySpot;
-                                const spotDirection = spotDiff > 0 ? '📈' : spotDiff < 0 ? '📉' : '➡️';
-                                
-                                setStatus(`${direction} contract running ${spotDirection}: Entry: ${entrySpot.toFixed(5)}, Current: ${currentSpot.toFixed(5)}, P&L: ${profit.toFixed(2)} ${account_currency}`);
-                            }
-
-                            // Handle contract completion
-                            if (poc?.is_sold || poc?.status === 'sold') {
-                                const profit = Number(poc?.profit || 0);
-                                const entrySpot = Number(poc?.entry_spot || 0);
-                                const exitSpot = Number(poc?.exit_spot || 0);
-                                const contractType = poc?.contract_type || '';
-                                
-                                setSmartTraderProfit(profit);
-
-                                const direction = contractType === 'CALL' ? 'Rise' : 'Fall';
-                                const spotDiff = exitSpot - entrySpot;
-                                const predictionCorrect = 
-                                    (contractType === 'CALL' && exitSpot > entrySpot) || 
-                                    (contractType === 'PUT' && exitSpot < entrySpot);
-
-                                if (profit > 0) {
-                                    console.log(`✅ ${direction} contract WIN: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)}, Diff: ${spotDiff.toFixed(5)}, Profit: +${profit.toFixed(2)} ${account_currency}`);
-                                    setStatus(`✅ ${direction} WIN: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)} (+${profit.toFixed(2)} ${account_currency})`);
-                                    
-                                    // Check take profit
-                                    if (smartTraderSettings.takeProfit > 0 && profit >= smartTraderSettings.takeProfit) {
-                                        setStatus(`🎯 Take Profit reached: +${profit.toFixed(2)} ${account_currency}`);
-                                        setIsSmartTraderActive(false);
-                                        return;
-                                    }
-                                } else {
-                                    console.log(`❌ ${direction} contract LOSS: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)}, Diff: ${spotDiff.toFixed(5)}, Loss: ${profit.toFixed(2)} ${account_currency}`);
-                                    setStatus(`❌ ${direction} LOSS: Entry: ${entrySpot.toFixed(5)}, Exit: ${exitSpot.toFixed(5)} (${profit.toFixed(2)} ${account_currency})`);
-                                    
-                                    // Check stop loss
-                                    if (smartTraderSettings.stopLoss > 0 && Math.abs(profit) >= smartTraderSettings.stopLoss) {
-                                        setStatus(`🛑 Stop Loss reached: ${profit.toFixed(2)} ${account_currency}`);
-                                        setIsSmartTraderActive(false);
-                                        return;
-                                    }
-
-                                    // Apply martingale multiplier for next trade
-                                    if (smartTraderSettings.martingaleMultiplier > 1) {
-                                        const newStake = smartTraderSettings.stake * smartTraderSettings.martingaleMultiplier;
-                                        setSmartTraderSettings(prev => ({ ...prev, stake: newStake }));
-                                        setStatus(`📈 Martingale applied: Next stake: ${newStake.toFixed(2)}`);
-                                    }
-                                }
-
-                                // Clean up subscription
-                                apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
-
-                                // Schedule next trade if still active
-                                if (isSmartTraderActive && recommendations.length > 0) {
-                                    setTimeout(() => {
-                                        if (isSmartTraderActive && recommendations.length > 0) {
-                                            executeSmartTrade(recommendations[0]);
-                                        }
-                                    }, 3000); // Wait 3 seconds between trades
-                                }
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error('Error processing Rise/Fall contract update:', e);
-                }
-            };
-
-            apiRef.current?.connection?.addEventListener('message', onContractUpdate);
-
-        } catch (subError) {
-            console.error('Rise/Fall contract subscription error:', subError);
-            setIsSmartTraderActive(false);
-        }
-    };
-
-    const stopSmartTrader = () => {
-        setIsSmartTraderActive(false);
-        setCurrentSmartTrade(null);
-        setStatus('🛑 Smart Trader stopped');
-        
-        // Reset stake to original value if martingale was applied
-        setSmartTraderSettings(prev => ({ ...prev, stake: 1.0 }));
-    };
-
     return (
         <div className="ml-trader" onContextMenu={(e) => e.preventDefault()}>
             <div className="ml-trader__container">
@@ -1514,144 +1179,6 @@ const MLTrader = observer(() => {
 
                 <div className="ml-trader__content">
                     <div className="ml-trader__main-content">
-                        {/* Smart Trader Manual Controls */}
-                        <div className="ml-trader__smart-controls">
-                            <div className="smart-controls-header">
-                                <Text as="h3">Smart Trader Controls</Text>
-                                <div className="smart-controls-toggle">
-                                    <button 
-                                        className={`toggle-btn ${showSmartTrader ? 'active' : ''}`}
-                                        onClick={() => setShowSmartTrader(!showSmartTrader)}
-                                    >
-                                        {showSmartTrader ? 'Hide Controls' : 'Show Controls'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {showSmartTrader && (
-                                <div className="smart-controls-panel">
-                                    <div className="controls-grid">
-                                        <div className="control-group">
-                                            <Text size="sm" weight="bold">Stop Loss (USD):</Text>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={smartTraderSettings.stopLoss}
-                                                onChange={(e) => setSmartTraderSettings(prev => ({
-                                                    ...prev,
-                                                    stopLoss: Number(e.target.value)
-                                                }))}
-                                                className="control-input"
-                                                disabled={isSmartTraderActive}
-                                            />
-                                        </div>
-
-                                        <div className="control-group">
-                                            <Text size="sm" weight="bold">Take Profit (USD):</Text>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={smartTraderSettings.takeProfit}
-                                                onChange={(e) => setSmartTraderSettings(prev => ({
-                                                    ...prev,
-                                                    takeProfit: Number(e.target.value)
-                                                }))}
-                                                className="control-input"
-                                                disabled={isSmartTraderActive}
-                                            />
-                                        </div>
-
-                                        <div className="control-group">
-                                            <Text size="sm" weight="bold">Martingale Multiplier:</Text>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="5"
-                                                step="0.1"
-                                                value={smartTraderSettings.martingaleMultiplier}
-                                                onChange={(e) => setSmartTraderSettings(prev => ({
-                                                    ...prev,
-                                                    martingaleMultiplier: Number(e.target.value)
-                                                }))}
-                                                className="control-input"
-                                                disabled={isSmartTraderActive}
-                                            />
-                                        </div>
-
-                                        <div className="control-group">
-                                            <Text size="sm" weight="bold">Stake:</Text>
-                                            <input
-                                                type="number"
-                                                min="0.5"
-                                                step="0.1"
-                                                value={smartTraderSettings.stake}
-                                                onChange={(e) => setSmartTraderSettings(prev => ({
-                                                    ...prev,
-                                                    stake: Number(e.target.value)
-                                                }))}
-                                                className="control-input"
-                                                disabled={isSmartTraderActive}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="smart-controls-actions">
-                                        {!isSmartTraderActive ? (
-                                            <button 
-                                                className="smart-trader-btn start"
-                                                onClick={startSmartTrader}
-                                                disabled={!recommendations.length}
-                                            >
-                                                🚀 Start Smart Trader
-                                            </button>
-                                        ) : (
-                                            <button 
-                                                className="smart-trader-btn stop"
-                                                onClick={stopSmartTrader}
-                                            >
-                                                🛑 Stop Smart Trader
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {isSmartTraderActive && currentSmartTrade && (
-                                        <div className="smart-trader-status">
-                                            <div className="status-row">
-                                                <Text size="sm">
-                                                    <strong>Trading:</strong> {currentSmartTrade.displayName} - {currentSmartTrade.direction}
-                                                </Text>
-                                            </div>
-                                            <div className="status-row">
-                                                <Text size="sm">
-                                                    <strong>Confidence:</strong> {currentSmartTrade.confidence.toFixed(1)}%
-                                                </Text>
-                                            </div>
-                                            <div className="status-row">
-                                                <Text size="sm">
-                                                    <strong>Current Profit:</strong> 
-                                                    <span className={smartTraderProfit >= 0 ? 'profit' : 'loss'}>
-                                                        {smartTraderProfit >= 0 ? '+' : ''}{smartTraderProfit.toFixed(2)} {account_currency}
-                                                    </span>
-                                                </Text>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {recommendations.length > 0 && (
-                                        <div className="next-trade-info">
-                                            <Text size="sm" weight="bold">Next Trade:</Text>
-                                            <Text size="sm">
-                                                {recommendations[0].displayName} - {recommendations[0].direction} 
-                                                ({recommendations[0].confidence.toFixed(1)}% confidence)
-                                            </Text>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
                         {/* Market Recommendations */}
                         {recommendations.length > 0 ? (
                         <div className="ml-trader__recommendations">
@@ -2072,94 +1599,23 @@ const MLTrader = observer(() => {
                         </div>
                     </div>
 
-                    {/* ROC Analysis Configuration */}
+                    {/* ROC Sensitivity Controls */}
                     <div className="ml-trader__roc-controls">
                         <div className="roc-controls-header">
-                            <Text as="h3">ROC Analysis Configuration</Text>
-                            <Text size="xs" color="general">Configure Rate of Change periods and validation settings</Text>
+                            <Text as="h3">ROC Analysis Settings</Text>
+                            <Text size="xs" color="general">Configure Rate of Change sensitivity for trend analysis</Text>
                         </div>
 
                         <div className="roc-controls-grid">
-                            <div className="control-card roc-periods">
-                                <div className="card-icon">📈</div>
-                                <div className="card-content">
-                                    <Text className="card-title">ROC Periods</Text>
-                                    <div className="roc-period-inputs">
-                                        <div className="period-input-group">
-                                            <Text size="xs" color="general">Fast ROC Period:</Text>
-                                            <input
-                                                type="number"
-                                                min="3"
-                                                max="20"
-                                                value={roc_fast_period}
-                                                onChange={(e) => setRocFastPeriod(Number(e.target.value))}
-                                                className="period-input"
-                                            />
-                                        </div>
-                                        <div className="period-input-group">
-                                            <Text size="xs" color="general">Slow ROC Period:</Text>
-                                            <input
-                                                type="number"
-                                                min="20"
-                                                max="100"
-                                                value={roc_slow_period}
-                                                onChange={(e) => setRocSlowPeriod(Number(e.target.value))}
-                                                className="period-input"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="control-card validation-settings">
-                                <div className="card-icon">🔍</div>
-                                <div className="card-content">
-                                    <Text className="card-title">Validation Settings</Text>
-                                    <div className="validation-input-group">
-                                        <Text size="xs" color="general">Validation Ticks:</Text>
-                                        <input
-                                            type="number"
-                                            min="60"
-                                            max="1000"
-                                            step="10"
-                                            value={validation_ticks}
-                                            onChange={(e) => setValidationTicks(Number(e.target.value))}
-                                            className="period-input"
-                                        />
-                                        <Text size="xs" color="general">
-                                            Higher values = more reliable signals but slower response
-                                        </Text>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="control-card roc-info">
-                                <div className="card-icon">📊</div>
-                                <div className="card-content">
-                                    <Text className="card-title">Current Settings</Text>
-                                    <div className="roc-settings-display">
-                                        <Text size="xs">
-                                            Fast ROC: {roc_fast_period} periods
-                                        </Text>
-                                        <Text size="xs">
-                                            Slow ROC: {roc_slow_period} periods
-                                        </Text>
-                                        <Text size="xs">
-                                            Validation: {validation_ticks} ticks
-                                        </Text>
-                                        <Text size="xs" color="profit-success">
-                                            Status: {validation_ticks >= 600 ? 'High Reliability' : validation_ticks >= 300 ? 'Medium Reliability' : 'Fast Response'}
-                                        </Text>
-                                    </div>
-                                </div>
-                            </div>
-
                             <div className="control-card roc-sensitivity">
                                 <div className="card-icon">⚙️</div>
                                 <div className="card-content">
                                     <Text className="card-title">ROC Sensitivity</Text>
                                     <Text className="card-description" size="xs" color="general">
-                                        Use half periods for faster signals
+                                        {roc_sensitive_settings
+                                            ? `Sensitive: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
+                                            : `Default: Long-term ${roc_sensitive_settings ? 25 : 50}, Short-term ${roc_sensitive_settings ? 5 : 9} periods`
+                                        }
                                     </Text>
                                 </div>
                                 <div className="toggle-container">
@@ -2173,6 +1629,24 @@ const MLTrader = observer(() => {
                                     <label htmlFor="roc-sensitive-toggle" className="toggle-label">
                                         <div className="toggle-switch"></div>
                                     </label>
+                                </div>
+                            </div>
+
+                            <div className="control-card roc-info">
+                                <div className="card-icon">📊</div>
+                                <div className="card-content">
+                                    <Text className="card-title">Current ROC Settings</Text>
+                                    <div className="roc-settings-display">
+                                        <Text size="xs">
+                                            Long-term: {roc_sensitive_settings ? 25 : 50} periods
+                                        </Text>
+                                        <Text size="xs">
+                                            Short-term: {roc_sensitive_settings ? 5 : 9} periods
+                                        </Text>
+                                        <Text size="xs" color={roc_sensitive_settings ? "profit-success" : "general"}>
+                                            Mode: {roc_sensitive_settings ? "Sensitive" : "Default"}
+                                        </Text>
+                                    </div>
                                 </div>
                             </div>
                         </div>
