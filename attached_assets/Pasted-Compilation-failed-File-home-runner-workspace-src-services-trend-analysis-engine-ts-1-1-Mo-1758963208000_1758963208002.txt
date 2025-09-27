@@ -1,0 +1,43 @@
+Compilation failed
+
+File: /home/runner/workspace/src/services/trend-analysis-engine.ts:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `is1sVolatility` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/services/trend-analysis-engine.ts:168:1]
+        │  165 │         const recentCandles = candleReconstructionEngine.getCandles(symbol, 30);
+        │  166 │
+        │  167 │         // Reduce requirement for 1-second volatility symbols
+        │  168 │         const is1sVolatility = symbol.match(/\d+\s*1s/i);
+        │      ·               ───────┬──────
+        │      ·                      ╰── previous definition of `is1sVolatility` here
+        │  169 │         const minCandles = is1sVolatility ? 8 : 10; // Lower requirement for 1s volatilities
+        │  170 │
+        │  171 │         if (!recentCandles || recentCandles.length < minCandles) {
+        │  172 │             console.log(`${symbol}: Insufficient candle data for analysis (need ${minCandles}, have ${recentCandles?.length || 0})`);
+        │  173 │             return;
+        │  174 │         }
+        │  175 │
+        │  176 │         const prices = recentCandles.map((candle: any) => candle.close);
+        │  177 │         const highs = recentCandles.map((candle: any) => candle.high);
+        │  178 │         const lows = recentCandles.map((candle: any) => candle.low);
+        │  179 │
+        │  180 │
+        │  181 │
+        │  182 │         // Detect sustained momentum for Higher/Lower trades
+        │  183 │         const sustainedMomentum = this.detectSustainedMomentum(symbol, recentCandles);
+        │  184 │
+        │  185 │         // Detect momentum breakout patterns for 1-minute candles
+        │  186 │         const momentumBreakout = this.detectMomentumBreakout(recentCandles, symbol);
+        │  187 │
+        │  188 │         // Use sensitive ROC periods for 1-second volatility symbols
+        │  189 │         const is1sVolatility = symbol.match(/\d+\s*1s/i);
+        │      ·               ───────┬──────
+        │      ·                      ╰── `is1sVolatility` redefined here
+        │  190 │         const rocPeriods = this.getROCPeriods(is1sVolatility); // Use sensitive for 1s volatilities
+        │  191 │         const longTermROC = this.calculateROC(prices, rocPeriods.longTerm);
+        │  192 │         const shortTermROC = this.calculateROC(prices, rocPeriods.shortTerm);
+        │      ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
