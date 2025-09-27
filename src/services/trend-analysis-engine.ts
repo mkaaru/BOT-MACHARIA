@@ -67,6 +67,15 @@ export interface TrendAnalysis {
         factors: string[];
     };
 
+    // Momentum breakout analysis for strong 1-minute trends
+    momentumBreakout?: {
+        hasBreakout: boolean;
+        breakoutType: 'BULLISH_BREAKOUT' | 'BEARISH_BREAKOUT' | 'NONE';
+        strength: number;
+        confidence: number;
+        factors: string[];
+    };
+
     // Cycle trading assessment
     cycleTrading?: {
         suitable: boolean;
@@ -166,6 +175,9 @@ export class TrendAnalysisEngine {
         // Detect sustained momentum for Higher/Lower trades
         const sustainedMomentum = this.detectSustainedMomentum(symbol, recentCandles, ehlersSignals);
 
+        // Detect momentum breakout patterns for 1-minute candles
+        const momentumBreakout = this.detectMomentumBreakout(recentCandles, symbol);
+
         // Use default ROC periods (can be made configurable later)
         const rocPeriods = this.getROCPeriods(false); // Default to non-sensitive
         const longTermROC = this.calculateROC(prices, rocPeriods.longTerm);
@@ -257,8 +269,14 @@ export class TrendAnalysisEngine {
         let finalRecommendation = recommendation;
         let enhancedScore = score;
 
+        // Priority 0: Momentum Breakout (HIGHEST PRIORITY for 1-minute trends)
+        if (momentumBreakout.hasBreakout && momentumBreakout.confidence >= 80) {
+            finalRecommendation = momentumBreakout.breakoutType === 'BULLISH_BREAKOUT' ? 'BUY' : 'SELL';
+            enhancedScore = Math.min(98, momentumBreakout.confidence + 20);
+            console.log(`🚀 MOMENTUM BREAKOUT PRIORITY: ${momentumBreakout.breakoutType} - Strength: ${momentumBreakout.strength}% (${enhancedScore.toFixed(1)}%)`);
+        }
         // Priority 1: Strong ROC signals (MOVED UP IN PRIORITY)
-        if (persistentROCSignal && confidence >= 75) {
+        else if (persistentROCSignal && confidence >= 75) {
             finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
             enhancedScore = Math.min(98, confidence + 25); // High bonus for strong ROC
             console.log(`🎯 ROC PRIORITY: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
@@ -314,6 +332,7 @@ export class TrendAnalysisEngine {
             derivSignals,
             pullbackAnalysis, // Add pullback analysis results
             sustainedMomentum, // Add sustained momentum analysis
+            momentumBreakout, // Add momentum breakout analysis
         };
 
         this.trendData.set(symbol, analysis);
@@ -542,16 +561,18 @@ export class TrendAnalysisEngine {
     /**
      * Get ROC periods based on sensitivity setting
      */
-    private getROCPeriods(sensitive: boolean = false): { longTerm: number; shortTerm: number } {
+    private getROCPeriods(sensitive: boolean = false): { longTerm: number; shortTerm: number; ultraShort: number } {
         if (sensitive) {
             return {
                 longTerm: 10, // Half of default 20
-                shortTerm: 3   // Half of default 5 (rounded)
+                shortTerm: 3,   // Half of default 5 (rounded)
+                ultraShort: 1   // For 1-minute trend momentum
             };
         }
         return {
             longTerm: 20, // Default long-term period
-            shortTerm: 5   // Default short-term period
+            shortTerm: 5,   // Default short-term period
+            ultraShort: 2   // For capturing immediate momentum
         };
     }
 
@@ -1275,6 +1296,152 @@ export class TrendAnalysisEngine {
 
         // Require minimum volatility for clear signals (0.1% to 1%)
         return avgRange >= 0.001 && avgRange <= 0.01;
+    }
+
+    /**
+     * Detect momentum breakout patterns for 1-minute candles
+     */
+    private detectMomentumBreakout(candles: any[], symbol: string): {
+        hasBreakout: boolean;
+        breakoutType: 'BULLISH_BREAKOUT' | 'BEARISH_BREAKOUT' | 'NONE';
+        strength: number;
+        confidence: number;
+        factors: string[];
+    } {
+        if (candles.length < 20) {
+            return {
+                hasBreakout: false,
+                breakoutType: 'NONE',
+                strength: 0,
+                confidence: 0,
+                factors: []
+            };
+        }
+
+        const factors: string[] = [];
+        let strength = 0;
+        let confidence = 0;
+        let breakoutType: 'BULLISH_BREAKOUT' | 'BEARISH_BREAKOUT' | 'NONE' = 'NONE';
+
+        const prices = candles.map(c => c.close);
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+        const volumes = candles.map(c => c.tickCount || 1);
+
+        // 1. Consecutive higher highs/lower lows pattern (like in your chart)
+        const last10Highs = highs.slice(-10);
+        const last10Lows = lows.slice(-10);
+        const last10Prices = prices.slice(-10);
+
+        // Count consecutive higher highs
+        let consecutiveHigherHighs = 0;
+        for (let i = 1; i < last10Highs.length; i++) {
+            if (last10Highs[i] > last10Highs[i-1]) {
+                consecutiveHigherHighs++;
+            } else {
+                break;
+            }
+        }
+
+        // Count consecutive higher lows
+        let consecutiveHigherLows = 0;
+        for (let i = 1; i < last10Lows.length; i++) {
+            if (last10Lows[i] > last10Lows[i-1]) {
+                consecutiveHigherLows++;
+            } else {
+                break;
+            }
+        }
+
+        // Count consecutive lower highs
+        let consecutiveLowerHighs = 0;
+        for (let i = 1; i < last10Highs.length; i++) {
+            if (last10Highs[i] < last10Highs[i-1]) {
+                consecutiveLowerHighs++;
+            } else {
+                break;
+            }
+        }
+
+        // Count consecutive lower lows
+        let consecutiveLowerLows = 0;
+        for (let i = 1; i < last10Lows.length; i++) {
+            if (last10Lows[i] < last10Lows[i-1]) {
+                consecutiveLowerLows++;
+            } else {
+                break;
+            }
+        }
+
+        // 2. Strong bullish breakout pattern (like your chart)
+        if (consecutiveHigherHighs >= 4 && consecutiveHigherLows >= 3) {
+            breakoutType = 'BULLISH_BREAKOUT';
+            strength += 30;
+            confidence += 25;
+            factors.push('consecutive_higher_highs_lows');
+
+            // Additional strength for longer sequences
+            if (consecutiveHigherHighs >= 6) {
+                strength += 20;
+                confidence += 15;
+                factors.push('extended_bullish_sequence');
+            }
+        }
+
+        // 3. Strong bearish breakout pattern
+        if (consecutiveLowerHighs >= 4 && consecutiveLowerLows >= 3) {
+            breakoutType = 'BEARISH_BREAKOUT';
+            strength += 30;
+            confidence += 25;
+            factors.push('consecutive_lower_highs_lows');
+
+            if (consecutiveLowerHighs >= 6) {
+                strength += 20;
+                confidence += 15;
+                factors.push('extended_bearish_sequence');
+            }
+        }
+
+        // 4. Volume confirmation
+        const recentVolume = volumes.slice(-5).reduce((a, b) => a + b, 0);
+        const olderVolume = volumes.slice(-15, -5).reduce((a, b) => a + b, 0);
+        if (recentVolume > olderVolume * 1.2) {
+            strength += 15;
+            confidence += 10;
+            factors.push('volume_confirmation');
+        }
+
+        // 5. Price acceleration
+        const ultraShortROC = this.calculateROC(last10Prices, 2);
+        const shortROC = this.calculateROC(last10Prices, 5);
+        
+        if (ultraShortROC && shortROC && Math.abs(ultraShortROC) > Math.abs(shortROC) * 1.5) {
+            strength += 20;
+            confidence += 15;
+            factors.push('price_acceleration');
+        }
+
+        // 6. Range expansion
+        const recentRange = Math.max(...last10Highs) - Math.min(...last10Lows);
+        const olderRange = Math.max(...highs.slice(-20, -10)) - Math.min(...lows.slice(-20, -10));
+        
+        if (recentRange > olderRange * 1.3) {
+            strength += 15;
+            confidence += 10;
+            factors.push('range_expansion');
+        }
+
+        const hasBreakout = strength >= 40 && confidence >= 30 && factors.length >= 2;
+
+        console.log(`${symbol}: Momentum Breakout Analysis - Type: ${breakoutType}, Strength: ${strength}, Confidence: ${confidence}, Factors: ${factors.join(', ')}`);
+
+        return {
+            hasBreakout,
+            breakoutType: hasBreakout ? breakoutType : 'NONE',
+            strength: Math.min(100, strength),
+            confidence: Math.min(100, confidence),
+            factors
+        };
     }
 
     /**
