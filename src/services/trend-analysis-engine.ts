@@ -558,13 +558,28 @@ export class TrendAnalysisEngine {
         tickTrend: { direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; consistency: number }
     ): 'BUY' | 'SELL' | 'HOLD' {
         
-        // TEMPORARY: Bypass strict tick validation for immediate signals
-        // if (tickTrend.direction === 'NEUTRAL') {
-        //     return 'HOLD'; // No clear 60-tick trend
-        // }
+        // High confidence signals (90%+) can override tick validation
+        if (confidence >= 90) {
+            if (rocCrossover === 'BULLISH_CROSS' || (rocAlignment === 'BULLISH' && fastROC > 0.5)) {
+                return 'BUY';
+            }
+            if (rocCrossover === 'BEARISH_CROSS' || (rocAlignment === 'BEARISH' && fastROC < -0.5)) {
+                return 'SELL';
+            }
+        }
 
-        // BUY signals require bullish 30-tick trend confirmation
-        if (tickTrend.direction === 'BULLISH') {
+        // Very high confidence signals (95%+) with strong ROC momentum
+        if (confidence >= 95 && Math.abs(fastROC) > 1.0) {
+            if (fastROC > 0 && slowROC > 0) {
+                return 'BUY';
+            }
+            if (fastROC < 0 && slowROC < 0) {
+                return 'SELL';
+            }
+        }
+
+        // BUY signals require bullish 30-tick trend confirmation OR very high confidence
+        if (tickTrend.direction === 'BULLISH' || confidence >= 85) {
             if (confidence > 60 && rocCrossover === 'BULLISH_CROSS') {
                 return 'BUY';
             }
@@ -573,8 +588,8 @@ export class TrendAnalysisEngine {
             }
         }
 
-        // SELL signals require bearish 30-tick trend confirmation
-        if (tickTrend.direction === 'BEARISH') {
+        // SELL signals require bearish 30-tick trend confirmation OR very high confidence
+        if (tickTrend.direction === 'BEARISH' || confidence >= 85) {
             if (confidence > 60 && rocCrossover === 'BEARISH_CROSS') {
                 return 'SELL';
             }
@@ -648,13 +663,17 @@ export class TrendAnalysisEngine {
         reasons.push(`Tick Movements: ${tickTrend.bullishCount} bullish, ${tickTrend.bearishCount} bearish`);
 
         if (recommendation === 'HOLD') {
-            if (tickTrend.direction === 'NEUTRAL') {
-                reasons.push('No clear 30-tick trend direction (requires ≥80% consistency)');
+            if (tickTrend.direction === 'NEUTRAL' && confidence < 85) {
+                reasons.push('No clear 30-tick trend direction (requires ≥80% consistency or 85%+ confidence)');
             } else {
                 reasons.push('ROC signals not strong enough for confirmed trend direction');
             }
         } else {
-            reasons.push(`Strong ${recommendation} signal confirmed by 30-tick trend validation`);
+            if (confidence >= 90) {
+                reasons.push(`High confidence ${recommendation} signal (${confidence.toFixed(1)}%) overrides tick validation`);
+            } else {
+                reasons.push(`Strong ${recommendation} signal confirmed by trend analysis`);
+            }
         }
 
         return reasons.join(' | ');
