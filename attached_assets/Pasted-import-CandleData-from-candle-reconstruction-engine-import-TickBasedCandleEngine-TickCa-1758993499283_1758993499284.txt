@@ -1,0 +1,575 @@
+import { CandleData } from './candle-reconstruction-engine';
+import { TickBasedCandleEngine, TickCandleData } from './tick-based-candle-engine';
+import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
+import { DerivMarketConfig } from './ehlers-signal-processing';
+
+export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
+export type TrendStrength = 'strong' | 'moderate' | 'weak';
+export type SignalState = 'STABLE' | 'PENDING_CHANGE' | 'LOCKED';
+
+export interface StableTrendAnalysis {
+    symbol: string;
+    timestamp: number;
+    direction: TrendDirection;
+    strength: TrendStrength;
+    confidence: number;
+    price: number;
+    recommendation: 'RISE' | 'FALL' | 'NO_TRADE';
+    reason: string;
+    lastUpdate: Date;
+
+    // Signal stability management
+    signalState: SignalState;
+    signalAge: number; // minutes since signal started
+    timeUntilNextChange: number; // minutes until signal can change
+    confirmationStreak: number; // consecutive confirmations of current signal
+    
+    // Long-term trend indicators (key for stability)
+    longTermROC: number;      // 200-tick ROC
+    mediumTermROC: number;    // 100-tick ROC
+    shortTermROC: number;     // 50-tick ROC
+    
+    // Trend consistency over time
+    trendConsistency: {
+        last5Minutes: TrendDirection;
+        last10Minutes: TrendDirection;
+        last15Minutes: TrendDirection;
+        alignmentScore: number; // 0-100, how aligned all timeframes are
+    };
+    
+    // Market momentum (helps filter noise)
+    momentum: {
+        current: number;
+        smoothed: number;    // EMA smoothed momentum
+        direction: 'INCREASING' | 'DECREASING' | 'STABLE';
+        strength: number;    // 0-100
+    };
+
+    // Signal lock mechanism
+    signalLock: {
+        isLocked: boolean;
+        lockUntil: number;   // timestamp
+        lockReason: string;
+        minHoldTime: number; // minutes
+    };
+}
+
+export interface DerivTradingSignal {
+    symbol: string;
+    action: 'RISE' | 'FALL' | 'WAIT';
+    confidence: number;
+    timeframe: '3m' | '5m';
+    entryPrice: number;
+    signalStrength: number;
+    holdUntil: Date;         // When this signal expires
+    nextCheckTime: Date;     // When to check for next signal
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+export class StableDerivTrendEngine {
+    private trendData: Map<string, StableTrendAnalysis> = new Map();
+    private priceHistory: Map<string, number[]> = new Map();
+    private momentumHistory: Map<string, number[]> = new Map();
+    private signalLocks: Map<string, number> = new Map(); // symbol -> unlock timestamp
+    private updateTimer: NodeJS.Timeout;
+
+    // Conservative parameters for stable signals
+    private readonly MIN_SIGNAL_HOLD_TIME = 5 * 60 * 1000;      // 5 minutes minimum hold
+    private readonly SIGNAL_COOL_DOWN = 3 * 60 * 1000;          // 3 minutes between changes  
+    private readonly TREND_CONFIRMATION_PERIOD = 2 * 60 * 1000; // 2 minutes to confirm new trend
+    private readonly MAX_HISTORY_SIZE = 1000;                   // Large history for stability
+
+    // Long-term ROC periods (much longer than original)
+    private readonly SHORT_ROC_PERIOD = 50;   // ~5-7 minutes of ticks
+    private readonly MEDIUM_ROC_PERIOD = 100; // ~10-12 minutes of ticks  
+    private readonly LONG_ROC_PERIOD = 200;   // ~20-25 minutes of ticks
+
+    // Strict thresholds for signal changes
+    private readonly MIN_CONFIDENCE_FOR_TRADE = 75;        // High confidence required
+    private readonly MIN_ALIGNMENT_SCORE = 70;             // All timeframes must align
+    private readonly MIN_MOMENTUM_STRENGTH = 60;           // Strong momentum required
+    private readonly MIN_CONFIRMATION_STREAK = 3;          // 3 consecutive confirmations needed
+
+    // Update frequency (much less frequent)
+    private readonly UPDATE_INTERVAL = 2 * 60 * 1000;      // Every 2 minutes
+
+    constructor() {
+        // Much less frequent updates for stability
+        this.updateTimer = setInterval(() => this.updateAllSignals(), this.UPDATE_INTERVAL);
+        
+        console.log('🚀 Stable Deriv Trend Engine Initialized');
+        console.log('⏱️  Signal Hold Time: 5 minutes minimum');
+        console.log('🔒 Cool Down Period: 3 minutes between changes');
+        console.log('📊 Update Frequency: Every 2 minutes');
+    }
+
+    /**
+     * Process tick data with stability focus
+     */
+    processTick(tick: { symbol: string; quote: number; epoch: number }): void {
+        const { symbol, quote, epoch } = tick;
+        
+        // Store price with timestamp for long-term analysis
+        this.storePriceData(symbol, quote, epoch);
+        
+        // Only update if not in cool-down period
+        if (this.canUpdateSignal(symbol)) {
+            this.evaluateTrendStability(symbol, quote, epoch);
+        }
+    }
+
+    /**
+     * Store price data for long-term analysis
+     */
+    private storePriceData(symbol: string, price: number, timestamp: number): void {
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+            this.momentumHistory.set(symbol, []);
+        }
+
+        const prices = this.priceHistory.get(symbol)!;
+        prices.push(price);
+
+        // Calculate and store momentum
+        if (prices.length > 1) {
+            const momentum = ((price - prices[prices.length - 2]) / prices[prices.length - 2]) * 10000;
+            const momentumData = this.momentumHistory.get(symbol)!;
+            momentumData.push(momentum);
+            
+            // Maintain history size
+            if (momentumData.length > this.MAX_HISTORY_SIZE) {
+                momentumData.shift();
+            }
+        }
+
+        // Maintain price history size
+        if (prices.length > this.MAX_HISTORY_SIZE) {
+            prices.shift();
+        }
+    }
+
+    /**
+     * Check if signal can be updated (respects cool-down)
+     */
+    private canUpdateSignal(symbol: string): boolean {
+        const lockUntil = this.signalLocks.get(symbol);
+        if (!lockUntil) return true;
+        
+        return Date.now() >= lockUntil;
+    }
+
+    /**
+     * Evaluate trend stability with conservative approach
+     */
+    private evaluateTrendStability(symbol: string, currentPrice: number, timestamp: number): void {
+        const prices = this.priceHistory.get(symbol);
+        if (!prices || prices.length < this.LONG_ROC_PERIOD + 50) {
+            console.log(`${symbol}: Insufficient data for stable analysis`);
+            return;
+        }
+
+        // Calculate long-term ROC indicators
+        const longROC = this.calculateStableROC(prices, this.LONG_ROC_PERIOD);
+        const mediumROC = this.calculateStableROC(prices, this.MEDIUM_ROC_PERIOD);
+        const shortROC = this.calculateStableROC(prices, this.SHORT_ROC_PERIOD);
+
+        if (longROC === null || mediumROC === null || shortROC === null) {
+            return;
+        }
+
+        // Calculate smoothed momentum
+        const momentum = this.calculateSmoothedMomentum(symbol);
+        
+        // Analyze trend consistency across multiple timeframes
+        const trendConsistency = this.analyzeTrendConsistency(symbol, prices);
+        
+        // Determine stable trend direction (requires alignment)
+        const stableTrend = this.determineStableTrend(longROC, mediumROC, shortROC, trendConsistency);
+        
+        // Calculate confidence with conservative bias
+        const confidence = this.calculateConservativeConfidence(
+            stableTrend, longROC, mediumROC, shortROC, trendConsistency, momentum
+        );
+
+        // Get current analysis or create new one
+        const currentAnalysis = this.trendData.get(symbol);
+        const signalAge = currentAnalysis ? 
+            (Date.now() - currentAnalysis.timestamp) / (1000 * 60) : 0;
+
+        // Check if we should change the signal
+        const shouldChange = this.shouldChangeSignal(
+            currentAnalysis, stableTrend, confidence, trendConsistency
+        );
+
+        if (!shouldChange && currentAnalysis) {
+            // Update existing analysis without changing recommendation
+            this.updateExistingAnalysis(currentAnalysis, currentPrice, confidence, momentum);
+            return;
+        }
+
+        // Generate new stable recommendation
+        const recommendation = this.generateStableRecommendation(
+            stableTrend, confidence, trendConsistency, momentum
+        );
+
+        // Create comprehensive analysis
+        const analysis: StableTrendAnalysis = {
+            symbol,
+            timestamp: Date.now(),
+            direction: stableTrend,
+            strength: this.calculateTrendStrength(longROC, mediumROC, shortROC),
+            confidence,
+            price: currentPrice,
+            lastUpdate: new Date(),
+            recommendation,
+            reason: this.generateDetailedReason(recommendation, longROC, mediumROC, shortROC, trendConsistency),
+            
+            signalState: 'STABLE',
+            signalAge: 0, // New signal
+            timeUntilNextChange: this.MIN_SIGNAL_HOLD_TIME / (1000 * 60), // minutes
+            confirmationStreak: 1,
+            
+            longTermROC: longROC,
+            mediumTermROC: mediumROC,
+            shortTermROC: shortROC,
+            
+            trendConsistency,
+            momentum,
+            
+            signalLock: {
+                isLocked: true,
+                lockUntil: Date.now() + this.MIN_SIGNAL_HOLD_TIME,
+                lockReason: 'New signal hold period',
+                minHoldTime: this.MIN_SIGNAL_HOLD_TIME / (1000 * 60)
+            }
+        };
+
+        // Lock the signal to prevent immediate changes
+        this.signalLocks.set(symbol, Date.now() + this.MIN_SIGNAL_HOLD_TIME);
+        
+        this.trendData.set(symbol, analysis);
+
+        console.log(`🔄 ${symbol}: NEW SIGNAL - ${recommendation} | Confidence: ${confidence.toFixed(1)}% | Hold for: ${(this.MIN_SIGNAL_HOLD_TIME / 60000).toFixed(1)}m | Alignment: ${trendConsistency.alignmentScore.toFixed(1)}%`);
+    }
+
+    /**
+     * Calculate stable ROC with smoothing
+     */
+    private calculateStableROC(prices: number[], period: number): number | null {
+        if (prices.length < period + 10) return null;
+
+        // Apply light smoothing before ROC calculation
+        const smoothedPrices = this.applySmoothingFilter(prices.slice(-period - 10));
+        
+        const currentPrice = smoothedPrices[smoothedPrices.length - 1];
+        const pastPrice = smoothedPrices[smoothedPrices.length - period - 1];
+        
+        return ((currentPrice - pastPrice) / pastPrice) * 100;
+    }
+
+    /**
+     * Apply light smoothing to reduce noise
+     */
+    private applySmoothingFilter(prices: number[]): number[] {
+        const smoothed: number[] = [];
+        const smoothingPeriod = 5;
+
+        for (let i = 0; i < prices.length; i++) {
+            if (i < smoothingPeriod - 1) {
+                smoothed.push(prices[i]);
+            } else {
+                const sum = prices.slice(i - smoothingPeriod + 1, i + 1).reduce((a, b) => a + b, 0);
+                smoothed.push(sum / smoothingPeriod);
+            }
+        }
+
+        return smoothed;
+    }
+
+    /**
+     * Calculate smoothed momentum
+     */
+    private calculateSmoothedMomentum(symbol: string): StableTrendAnalysis['momentum'] {
+        const momentumData = this.momentumHistory.get(symbol);
+        if (!momentumData || momentumData.length < 20) {
+            return {
+                current: 0,
+                smoothed: 0,
+                direction: 'STABLE',
+                strength: 0
+            };
+        }
+
+        const recent = momentumData.slice(-20);
+        const current = recent[recent.length - 1];
+        const smoothed = recent.reduce((a, b) => a + b, 0) / recent.length;
+        
+        let direction: 'INCREASING' | 'DECREASING' | 'STABLE' = 'STABLE';
+        if (smoothed > 0.1) direction = 'INCREASING';
+        else if (smoothed < -0.1) direction = 'DECREASING';
+        
+        const strength = Math.min(100, Math.abs(smoothed) * 50);
+
+        return { current, smoothed, direction, strength };
+    }
+
+    /**
+     * Analyze trend consistency across multiple timeframes
+     */
+    private analyzeTrendConsistency(symbol: string, prices: number[]): StableTrendAnalysis['trendConsistency'] {
+        const last5MinROC = this.calculateStableROC(prices, 40);   // ~5 min
+        const last10MinROC = this.calculateStableROC(prices, 80);  // ~10 min
+        const last15MinROC = this.calculateStableROC(prices, 120); // ~15 min
+
+        const getTrendFromROC = (roc: number | null): TrendDirection => {
+            if (roc === null) return 'neutral';
+            if (roc > 0.05) return 'bullish';
+            if (roc < -0.05) return 'bearish';
+            return 'neutral';
+        };
+
+        const last5Minutes = getTrendFromROC(last5MinROC);
+        const last10Minutes = getTrendFromROC(last10MinROC);
+        const last15Minutes = getTrendFromROC(last15MinROC);
+
+        // Calculate alignment score
+        let alignmentScore = 0;
+        if (last5Minutes === last10Minutes) alignmentScore += 33;
+        if (last10Minutes === last15Minutes) alignmentScore += 33;
+        if (last5Minutes === last15Minutes) alignmentScore += 34;
+
+        return {
+            last5Minutes,
+            last10Minutes,
+            last15Minutes,
+            alignmentScore
+        };
+    }
+
+    /**
+     * Determine stable trend direction (requires strong alignment)
+     */
+    private determineStableTrend(
+        longROC: number,
+        mediumROC: number, 
+        shortROC: number,
+        consistency: StableTrendAnalysis['trendConsistency']
+    ): TrendDirection {
+        // Require high alignment score for directional bias
+        if (consistency.alignmentScore < this.MIN_ALIGNMENT_SCORE) {
+            return 'neutral';
+        }
+
+        // All ROC periods must generally agree
+        const bullishCount = [longROC, mediumROC, shortROC].filter(roc => roc > 0.03).length;
+        const bearishCount = [longROC, mediumROC, shortROC].filter(roc => roc < -0.03).length;
+
+        if (bullishCount >= 2 && bearishCount === 0) return 'bullish';
+        if (bearishCount >= 2 && bullishCount === 0) return 'bearish';
+        
+        return 'neutral';
+    }
+
+    /**
+     * Calculate conservative confidence score
+     */
+    private calculateConservativeConfidence(
+        trend: TrendDirection,
+        longROC: number,
+        mediumROC: number,
+        shortROC: number,
+        consistency: StableTrendAnalysis['trendConsistency'],
+        momentum: StableTrendAnalysis['momentum']
+    ): number {
+        if (trend === 'neutral') return 30;
+
+        let confidence = 40; // Conservative base
+
+        // Alignment bonus
+        confidence += consistency.alignmentScore * 0.4;
+
+        // ROC strength bonus
+        const avgROC = Math.abs((longROC + mediumROC + shortROC) / 3);
+        confidence += Math.min(avgROC * 200, 20);
+
+        // Momentum confirmation bonus
+        if ((trend === 'bullish' && momentum.direction === 'INCREASING') ||
+            (trend === 'bearish' && momentum.direction === 'DECREASING')) {
+            confidence += momentum.strength * 0.3;
+        }
+
+        return Math.min(100, Math.max(30, confidence));
+    }
+
+    /**
+     * Determine if signal should change (very conservative)
+     */
+    private shouldChangeSignal(
+        current: StableTrendAnalysis | undefined,
+        newTrend: TrendDirection,
+        newConfidence: number,
+        consistency: StableTrendAnalysis['trendConsistency']
+    ): boolean {
+        if (!current) return true;
+
+        // Never change during lock period
+        if (current.signalLock.isLocked && Date.now() < current.signalLock.lockUntil) {
+            return false;
+        }
+
+        // Only change with very high confidence in new direction
+        if (newConfidence < this.MIN_CONFIDENCE_FOR_TRADE) {
+            return false;
+        }
+
+        // Only change if new trend is significantly different
+        const currentDirection = current.direction;
+        if (currentDirection === newTrend) {
+            return false; // Same direction, just update confidence
+        }
+
+        // Require strong alignment for direction change
+        if (consistency.alignmentScore < this.MIN_ALIGNMENT_SCORE) {
+            return false;
+        }
+
+        // Must wait minimum hold time since last signal
+        const timeSinceSignal = Date.now() - current.timestamp;
+        if (timeSinceSignal < this.MIN_SIGNAL_HOLD_TIME) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Generate stable recommendation (very conservative)
+     */
+    private generateStableRecommendation(
+        trend: TrendDirection,
+        confidence: number,
+        consistency: StableTrendAnalysis['trendConsistency'],
+        momentum: StableTrendAnalysis['momentum']
+    ): 'RISE' | 'FALL' | 'NO_TRADE' {
+        // Require very high confidence
+        if (confidence < this.MIN_CONFIDENCE_FOR_TRADE) {
+            return 'NO_TRADE';
+        }
+
+        // Require high alignment
+        if (consistency.alignmentScore < this.MIN_ALIGNMENT_SCORE) {
+            return 'NO_TRADE';
+        }
+
+        // Require strong momentum confirmation
+        if (momentum.strength < this.MIN_MOMENTUM_STRENGTH) {
+            return 'NO_TRADE';
+        }
+
+        // Generate recommendation with momentum confirmation
+        if (trend === 'bullish' && momentum.direction === 'INCREASING') {
+            return 'RISE';
+        } else if (trend === 'bearish' && momentum.direction === 'DECREASING') {
+            return 'FALL';
+        }
+
+        return 'NO_TRADE';
+    }
+
+    /**
+     * Get current trading signal for Deriv bot
+     */
+    getDerivSignal(symbol: string): DerivTradingSignal | null {
+        const analysis = this.trendData.get(symbol);
+        if (!analysis || analysis.recommendation === 'NO_TRADE') {
+            return null;
+        }
+
+        // Don't trade if signal is too new or too old
+        const signalAge = Date.now() - analysis.timestamp;
+        if (signalAge < 60000 || signalAge > this.SIGNAL_COOL_DOWN * 3) { // 1 minute minimum, 9 minutes maximum
+            return null;
+        }
+
+        return {
+            symbol,
+            action: analysis.recommendation,
+            confidence: analysis.confidence,
+            timeframe: analysis.confidence >= 85 ? '5m' : '3m',
+            entryPrice: analysis.price,
+            signalStrength: analysis.momentum.strength,
+            holdUntil: new Date(analysis.signalLock.lockUntil),
+            nextCheckTime: new Date(Date.now() + this.UPDATE_INTERVAL),
+            riskLevel: analysis.confidence >= 85 ? 'LOW' : 'MEDIUM'
+        };
+    }
+
+    /**
+     * Update all symbols (called every 2 minutes)
+     */
+    private updateAllSignals(): void {
+        console.log(`🔄 Checking signals for ${this.trendData.size} symbols...`);
+        
+        for (const [symbol, analysis] of this.trendData) {
+            // Update signal age and lock status
+            analysis.signalAge = (Date.now() - analysis.timestamp) / (1000 * 60);
+            analysis.signalLock.isLocked = Date.now() < analysis.signalLock.lockUntil;
+            analysis.timeUntilNextChange = Math.max(0, 
+                (analysis.signalLock.lockUntil - Date.now()) / (1000 * 60)
+            );
+
+            if (analysis.signalLock.isLocked) {
+                console.log(`🔒 ${symbol}: Signal locked for ${analysis.timeUntilNextChange.toFixed(1)} more minutes`);
+            }
+        }
+    }
+
+    // ... Additional helper methods for trend strength, detailed reasons, etc.
+
+    private calculateTrendStrength(longROC: number, mediumROC: number, shortROC: number): TrendStrength {
+        const avgStrength = Math.abs((longROC + mediumROC + shortROC) / 3);
+        if (avgStrength >= 0.15) return 'strong';
+        if (avgStrength >= 0.08) return 'moderate';
+        return 'weak';
+    }
+
+    private generateDetailedReason(
+        recommendation: 'RISE' | 'FALL' | 'NO_TRADE',
+        longROC: number,
+        mediumROC: number,
+        shortROC: number,
+        consistency: StableTrendAnalysis['trendConsistency']
+    ): string {
+        if (recommendation === 'NO_TRADE') {
+            return `Insufficient trend alignment (${consistency.alignmentScore.toFixed(1)}%) - waiting for clearer direction`;
+        }
+
+        const direction = recommendation === 'RISE' ? 'upward' : 'downward';
+        return `Strong ${direction} trend confirmed across all timeframes. Long-term ROC: ${longROC.toFixed(2)}%, Medium-term: ${mediumROC.toFixed(2)}%, Short-term: ${shortROC.toFixed(2)}%. Alignment: ${consistency.alignmentScore.toFixed(1)}%`;
+    }
+
+    private updateExistingAnalysis(
+        analysis: StableTrendAnalysis,
+        currentPrice: number,
+        confidence: number,
+        momentum: StableTrendAnalysis['momentum']
+    ): void {
+        analysis.price = currentPrice;
+        analysis.confidence = confidence;
+        analysis.momentum = momentum;
+        analysis.lastUpdate = new Date();
+    }
+
+    /**
+     * Cleanup resources
+     */
+    destroy(): void {
+        if (this.updateTimer) {
+            clearInterval(this.updateTimer);
+        }
+        this.trendData.clear();
+        this.priceHistory.clear();
+        this.momentumHistory.clear();
+        this.signalLocks.clear();
+    }
+}
