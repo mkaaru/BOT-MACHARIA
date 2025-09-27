@@ -1,4 +1,5 @@
 import { CandleData } from './candle-reconstruction-engine';
+import { TickBasedCandleEngine, TickCandleData } from './tick-based-candle-engine';
 import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
 import { DerivMarketConfig } from './ehlers-signal-processing';
 import { 
@@ -87,6 +88,44 @@ export class TrendAnalysisEngine {
 
         const prices = this.priceHistory.get(symbol)!;
         prices.push(close);
+
+        // Maintain history size
+        if (prices.length > this.MAX_HISTORY) {
+            prices.shift();
+        }
+
+        // Process with Ehlers filters and calculate ROC
+        this.processWithEhlers(symbol, close, timestamp.getTime());
+
+        console.log(`📊 Added candle data for ${symbol}: ${close.toFixed(5)}`);
+    }
+
+    /**
+     * Add tick-based candle data and update trend analysis
+     */
+    addTickCandleData(candle: TickCandleData): void {
+        const { symbol, close, endTimestamp } = candle;
+
+        // Store price history
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+        }
+
+        const prices = this.priceHistory.get(symbol)!;
+        prices.push(close);
+
+        // Maintain history size
+        if (prices.length > this.MAX_HISTORY) {
+            prices.shift();
+        }
+
+        // Process with Ehlers filters and calculate ROC
+        this.processWithEhlers(symbol, close, endTimestamp.getTime());
+
+        console.log(`🎯 Added tick-candle data for ${symbol}: ${close.toFixed(5)} (${candle.tickCount} ticks)`);
+    }
+
+    private processWithEhlers(symbol: string, price: number, timestamp: number): void {e);
 
         // Maintain history size
         if (prices.length > this.MAX_HISTORY) {
