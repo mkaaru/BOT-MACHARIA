@@ -5,6 +5,7 @@ import {
     isTickResponse,
     hasAPIError
 } from '@/types/deriv-api-types';
+import { tenSecondCandleEngine, ehlersTradingBot } from './ehlers-predictive-system';
 
 export interface TickData {
     symbol: string;
@@ -118,6 +119,14 @@ export class TickStreamManager {
     }
 
     private notifyTickCallbacks(tick: TickData): void {
+        // Process tick through Ehlers 10-second candle system
+        try {
+            tenSecondCandleEngine.processTick(tick);
+            ehlersTradingBot.processTick(tick);
+        } catch (error) {
+            console.error(`Error processing tick through Ehlers system for ${tick.symbol}:`, error);
+        }
+
         const callbacks = this.tickCallbacks.get(tick.symbol);
         if (callbacks) {
             callbacks.forEach(callback => {

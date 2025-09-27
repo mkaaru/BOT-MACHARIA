@@ -1,6 +1,15 @@
 import { CandleData } from './candle-reconstruction-engine';
 import { EfficientHMACalculator, EfficientHMAResult, EfficientHMASlopeResult } from './efficient-hma-calculator';
 import { ehlersProcessor, EhlersSignals, DerivMarketConfig } from './ehlers-signal-processing';
+import { 
+    EhlersPredictiveSystem, 
+    EhlersTradingBot, 
+    TenSecondCandleEngine,
+    EhlersAnalysis,
+    TrendSignal as EhlersTrendSignal,
+    tenSecondCandleEngine,
+    ehlersTradingBot
+} from './ehlers-predictive-system';
 
 export type TrendDirection = 'bullish' | 'bearish' | 'neutral';
 export type TrendStrength = 'strong' | 'moderate' | 'weak';
@@ -96,6 +105,16 @@ export interface TrendAnalysis {
             reasoning: string;
         };
     };
+
+    // Enhanced Ehlers Predictive System (10-second candles)
+    ehlersPredict?: {
+        analysis: EhlersAnalysis;
+        signal: EhlersTrendSignal;
+        marketPhase: 'trending' | 'cycling' | 'transitioning';
+        recommendation: 'BUY' | 'SELL' | 'HOLD';
+        strength: 'weak' | 'medium' | 'strong';
+        timeframe: '10s' | '1m';
+    };
 }
 
 export interface MarketScanResult {
@@ -126,6 +145,8 @@ export class TrendAnalysisEngine {
 
         // Update trend analysis periodically
         this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000); // Every 30 seconds
+        
+        console.log('🚀 TrendAnalysisEngine initialized with Ehlers Predictive System (10s candles)');
     }
 
     /**
@@ -133,6 +154,9 @@ export class TrendAnalysisEngine {
      */
     addCandleData(candle: CandleData): void {
         const { symbol, close, timestamp } = candle;
+
+        // Initialize Ehlers system for this symbol if not already done
+        ehlersTradingBot.initializeSymbol(symbol);
 
         // Use multiple HMA periods that divide evenly into 210 candles
         // 210 = 2×3×5×7, so we use periods: 5, 6, 7, 10, 14, 15, 21, 30, 35, 42, 70, 105
@@ -232,6 +256,35 @@ export class TrendAnalysisEngine {
         const ehlersRecommendation = ehlersProcessor.generateEhlersRecommendation(symbol);
         const cycleTrading = ehlersProcessor.isGoodForCycleTrading(symbol);
 
+        // Get Enhanced Ehlers Predictive Analysis (10-second candles)
+        const ehlersAnalysis = ehlersTradingBot.getLatestAnalysis(symbol);
+        let ehlersPredict: any = null;
+
+        if (ehlersAnalysis) {
+            // Determine recommendation based on Ehlers predictive signals
+            let ehlersRecommendation = 'HOLD';
+            let ehlersStrength: 'weak' | 'medium' | 'strong' = 'weak';
+
+            if (ehlersAnalysis.signal.entry && ehlersAnalysis.signal.confidence > 70) {
+                ehlersRecommendation = ehlersAnalysis.signal.direction === 'bullish' ? 'BUY' : 
+                                     ehlersAnalysis.signal.direction === 'bearish' ? 'SELL' : 'HOLD';
+                
+                if (ehlersAnalysis.signal.strength > 80) ehlersStrength = 'strong';
+                else if (ehlersAnalysis.signal.strength > 60) ehlersStrength = 'medium';
+            }
+
+            ehlersPredict = {
+                analysis: ehlersAnalysis,
+                signal: ehlersAnalysis.signal,
+                marketPhase: ehlersAnalysis.marketPhase,
+                recommendation: ehlersRecommendation,
+                strength: ehlersStrength,
+                timeframe: '10s'
+            };
+
+            console.log(`📈 ${symbol} Ehlers Predictive: ${ehlersRecommendation} (${ehlersStrength}) - Phase: ${ehlersAnalysis.marketPhase}`);
+        }
+
         // Generate Deriv-specific market signals
         const riseFallConfig: DerivMarketConfig = {
             market: 'rise_fall',
@@ -265,23 +318,29 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // Integrate pullback analysis with recommendations - ROC GETS HIGHER PRIORITY
+        // Integrate pullback analysis with recommendations - EHLERS PREDICTIVE GETS HIGHEST PRIORITY
         let finalRecommendation = recommendation;
         let enhancedScore = score;
 
-        // Priority 0: Momentum Breakout (HIGHEST PRIORITY for 1-minute trends)
-        if (momentumBreakout.hasBreakout && momentumBreakout.confidence >= 80) {
+        // Priority 0: Ehlers Predictive System (HIGHEST PRIORITY for 10-second analysis)
+        if (ehlersPredict && ehlersPredict.signal.entry && ehlersPredict.signal.confidence >= 75 && ehlersPredict.strength !== 'weak') {
+            finalRecommendation = ehlersPredict.recommendation;
+            enhancedScore = Math.min(98, ehlersPredict.signal.confidence + 25);
+            console.log(`🎯 EHLERS PREDICTIVE PRIORITY: ${ehlersPredict.recommendation} (${ehlersPredict.strength}) - Phase: ${ehlersPredict.marketPhase} (${enhancedScore.toFixed(1)}%)`);
+        }
+        // Priority 1: Momentum Breakout (SECOND PRIORITY for 1-minute trends)
+        else if (momentumBreakout.hasBreakout && momentumBreakout.confidence >= 80) {
             finalRecommendation = momentumBreakout.breakoutType === 'BULLISH_BREAKOUT' ? 'BUY' : 'SELL';
             enhancedScore = Math.min(98, momentumBreakout.confidence + 20);
             console.log(`🚀 MOMENTUM BREAKOUT PRIORITY: ${momentumBreakout.breakoutType} - Strength: ${momentumBreakout.strength}% (${enhancedScore.toFixed(1)}%)`);
         }
-        // Priority 1: Strong ROC signals (MOVED UP IN PRIORITY)
+        // Priority 2: Strong ROC signals
         else if (persistentROCSignal && confidence >= 75) {
             finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
             enhancedScore = Math.min(98, confidence + 25); // High bonus for strong ROC
             console.log(`🎯 ROC PRIORITY: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
         }
-        // Priority 2: Pullback analysis with Ehlers Decycler (MOVED DOWN)
+        // Priority 3: Pullback analysis with Ehlers Decycler
         else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
             finalRecommendation = pullbackAnalysis.recommendation;
             enhancedScore = Math.min(98, pullbackAnalysis.confidence);
@@ -292,7 +351,7 @@ export class TrendAnalysisEngine {
                 console.log(`🚀 PULLBACK PRIORITY: ${pullbackAnalysis.pullbackType.toUpperCase()} - ${pullbackAnalysis.pullbackStrength.toUpperCase()} (${enhancedScore.toFixed(1)}%)`);
             }
         }
-        // Priority 2: Strong Ehlers anticipatory signals
+        // Priority 4: Strong Ehlers anticipatory signals
         else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
             finalRecommendation = ehlersRecommendation.action;
             enhancedScore = Math.min(95, score + 25); // High bonus for strong anticipatory signals
@@ -333,6 +392,7 @@ export class TrendAnalysisEngine {
             pullbackAnalysis, // Add pullback analysis results
             sustainedMomentum, // Add sustained momentum analysis
             momentumBreakout, // Add momentum breakout analysis
+            ehlersPredict, // Add Ehlers Predictive System results
         };
 
         this.trendData.set(symbol, analysis);
