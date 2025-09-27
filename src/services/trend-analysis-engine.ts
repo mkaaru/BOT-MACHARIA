@@ -73,8 +73,8 @@ export class TrendAnalysisEngine {
     private readonly SLOW_ROC_PERIOD = 20;
     
     // Tick tracking constants
-    private readonly REQUIRED_TICKS = 60;
-    private readonly CONSISTENCY_THRESHOLD = 65; // 65% consistency required
+    private readonly REQUIRED_TICKS = 30; // Reduced from 60 to 30 ticks
+    private readonly CONSISTENCY_THRESHOLD = 55; // Reduced from 65% to 55% consistency
 
     constructor() {
         // Update trend analysis periodically
@@ -214,9 +214,9 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Validate 60-tick trend consistency with true tick-by-tick analysis
+     * Validate 30-tick trend consistency with true tick-by-tick analysis
      */
-    private validate60TickTrend(symbol: string): {
+    private validate30TickTrend(symbol: string): {
         direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
         consistency: number;
         bullishCount: number;
@@ -296,8 +296,8 @@ export class TrendAnalysisEngine {
             return;
         }
 
-        // Step 1: Validate 60-tick trend
-        const tickTrend = this.validate60TickTrend(symbol);
+        // Step 1: Validate 30-tick trend
+        const tickTrend = this.validate30TickTrend(symbol);
         
         // Step 2: Apply Ehlers preprocessing to remove noise
         const preprocessedPrices = this.applyEhlersPreprocessing(prices);
@@ -355,7 +355,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
 
-        console.log(`🎯 ${symbol}: ${recommendation} | Fast ROC: ${fastROC.toFixed(3)}% | Slow ROC: ${slowROC.toFixed(3)}% | 60-Tick: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}%) | Bulls: ${tickTrend.bullishCount}, Bears: ${tickTrend.bearishCount}`);
+        console.log(`🎯 ${symbol}: ${recommendation} | Fast ROC: ${fastROC.toFixed(3)}% | Slow ROC: ${slowROC.toFixed(3)}% | 30-Tick: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}%) | Bulls: ${tickTrend.bullishCount}, Bears: ${tickTrend.bearishCount}`);
     }
 
     /**
@@ -558,27 +558,27 @@ export class TrendAnalysisEngine {
         tickTrend: { direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; consistency: number }
     ): 'BUY' | 'SELL' | 'HOLD' {
         
-        // STRICT VALIDATION: Only generate signals if 60-tick trend confirms
-        if (tickTrend.direction === 'NEUTRAL') {
-            return 'HOLD'; // No clear 60-tick trend
-        }
+        // TEMPORARY: Bypass strict tick validation for immediate signals
+        // if (tickTrend.direction === 'NEUTRAL') {
+        //     return 'HOLD'; // No clear 60-tick trend
+        // }
 
-        // BUY signals require bullish 60-tick trend confirmation
+        // BUY signals require bullish 30-tick trend confirmation
         if (tickTrend.direction === 'BULLISH') {
-            if (confidence > 70 && rocCrossover === 'BULLISH_CROSS') {
+            if (confidence > 60 && rocCrossover === 'BULLISH_CROSS') {
                 return 'BUY';
             }
-            if (confidence > 75 && rocAlignment === 'BULLISH') {
+            if (confidence > 65 && rocAlignment === 'BULLISH') {
                 return 'BUY';
             }
         }
 
-        // SELL signals require bearish 60-tick trend confirmation
+        // SELL signals require bearish 30-tick trend confirmation
         if (tickTrend.direction === 'BEARISH') {
-            if (confidence > 70 && rocCrossover === 'BEARISH_CROSS') {
+            if (confidence > 60 && rocCrossover === 'BEARISH_CROSS') {
                 return 'SELL';
             }
-            if (confidence > 75 && rocAlignment === 'BEARISH') {
+            if (confidence > 65 && rocAlignment === 'BEARISH') {
                 return 'SELL';
             }
         }
@@ -644,17 +644,17 @@ export class TrendAnalysisEngine {
 
         reasons.push(`Fast ROC: ${fastROC.toFixed(3)}%, Slow ROC: ${slowROC.toFixed(3)}%`);
         reasons.push(`ROC Alignment: ${rocAlignment}, Crossover: ${rocCrossover}`);
-        reasons.push(`60-Tick Trend: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}% consistency)`);
+        reasons.push(`30-Tick Trend: ${tickTrend.direction} (${tickTrend.consistency.toFixed(1)}% consistency)`);
         reasons.push(`Tick Movements: ${tickTrend.bullishCount} bullish, ${tickTrend.bearishCount} bearish`);
 
         if (recommendation === 'HOLD') {
             if (tickTrend.direction === 'NEUTRAL') {
-                reasons.push('No clear 60-tick trend direction (requires ≥65% consistency)');
+                reasons.push('No clear 30-tick trend direction (requires ≥55% consistency)');
             } else {
                 reasons.push('ROC signals not strong enough for confirmed trend direction');
             }
         } else {
-            reasons.push(`Strong ${recommendation} signal confirmed by 60-tick trend validation`);
+            reasons.push(`Strong ${recommendation} signal confirmed by 30-tick trend validation`);
         }
 
         return reasons.join(' | ');
