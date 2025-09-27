@@ -179,14 +179,33 @@ export class TrendAnalysisEngine {
         const rawROCSignal = this.validateROCAlignment(symbol, longTermROC, shortTermROC);
         const persistentROCSignal = this.getPersistedSignal(symbol, rawROCSignal, confidence);
 
-        // Override direction based on persistent ROC signal validation
-        let finalDirection = direction;
-        if (persistentROCSignal === 'BULLISH') {
+        // Enhanced trend and ROC alignment using 200-period decycler slope
+        const decycler200Slope = ehlersSignals?.decycler200Slope || 0;
+        const overallTrend = this.determineOverallTrendDirection(decycler200Slope, rocAlignment, persistentROCSignal);
+        
+        // Ensure trend direction aligns with ROC and 200-period decycler
+        let finalDirection = overallTrend;
+        
+        // Only allow trend directions that align with both ROC and long-term decycler
+        if (persistentROCSignal === 'BULLISH' && decycler200Slope > 0.0001) {
             finalDirection = 'bullish';
-        } else if (persistentROCSignal === 'BEARISH') {
+        } else if (persistentROCSignal === 'BEARISH' && decycler200Slope < -0.0001) {
             finalDirection = 'bearish';
+        } else if (persistentROCSignal && Math.abs(decycler200Slope) <= 0.0001) {
+            // ROC signal exists but decycler is flat - use neutral to avoid mismatch
+            finalDirection = 'neutral';
+        } else if (!persistentROCSignal) {
+            // No ROC signal - use decycler slope for direction
+            if (decycler200Slope > 0.0001) {
+                finalDirection = 'bullish';
+            } else if (decycler200Slope < -0.0001) {
+                finalDirection = 'bearish';
+            } else {
+                finalDirection = 'neutral';
+            }
         } else {
-            finalDirection = 'neutral'; // No valid signal
+            // ROC and decycler disagree - use neutral to avoid mismatch
+            finalDirection = 'neutral';
         }
 
         // Generate recommendation based on persistent ROC signal validation
@@ -269,11 +288,21 @@ export class TrendAnalysisEngine {
             enhancedScore = Math.min(85, pullbackAnalysis.confidence);
         }
 
+        // Validate alignment consistency before finalizing analysis
+        const isAligned = this.validateTrendROCAlignment(finalDirection, rocAlignment, ehlersSignals?.decycler200Slope || 0);
+        
+        // Adjust confidence if alignment is poor
+        let finalConfidence = confidence;
+        if (!isAligned) {
+            finalConfidence = Math.max(30, confidence * 0.7); // Reduce confidence for misaligned signals
+            console.log(`⚠️ ${symbol}: Trend-ROC misalignment detected, reducing confidence to ${finalConfidence.toFixed(1)}%`);
+        }
+
         const analysis: TrendAnalysis = {
             symbol,
             direction: finalDirection,
             strength,
-            confidence,
+            confidence: finalConfidence,
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
@@ -739,6 +768,75 @@ export class TrendAnalysisEngine {
             entrySignal: confidence >= 60,
             recommendation
         };
+    }
+
+    /**
+     * Validate that trend direction aligns with ROC and decycler slope
+     */
+    private validateTrendROCAlignment(
+        trendDirection: TrendDirection,
+        rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
+        decycler200Slope: number
+    ): boolean {
+        // Perfect alignment cases
+        if (trendDirection === 'bullish' && rocAlignment === 'BULLISH' && decycler200Slope > 0) {
+            return true;
+        }
+        
+        if (trendDirection === 'bearish' && rocAlignment === 'BEARISH' && decycler200Slope < 0) {
+            return true;
+        }
+        
+        if (trendDirection === 'neutral' && rocAlignment === 'NEUTRAL') {
+            return true;
+        }
+        
+        // Acceptable alignment (2 out of 3 agree)
+        if (trendDirection === 'bullish' && (rocAlignment === 'BULLISH' || decycler200Slope > 0.0001)) {
+            return true;
+        }
+        
+        if (trendDirection === 'bearish' && (rocAlignment === 'BEARISH' || decycler200Slope < -0.0001)) {
+            return true;
+        }
+        
+        // Misalignment detected
+        return false;
+    }
+
+    /**
+     * Determine overall trend direction ensuring alignment between ROC and 200-period decycler
+     */
+    private determineOverallTrendDirection(
+        decycler200Slope: number,
+        rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
+        rocSignal: 'BULLISH' | 'BEARISH' | null
+    ): TrendDirection {
+        // Strong alignment check
+        if (rocSignal === 'BULLISH' && rocAlignment === 'BULLISH' && decycler200Slope > 0.0001) {
+            return 'bullish';
+        }
+        
+        if (rocSignal === 'BEARISH' && rocAlignment === 'BEARISH' && decycler200Slope < -0.0001) {
+            return 'bearish';
+        }
+        
+        // Medium alignment - ROC and decycler agree, but no strong ROC signal
+        if (rocAlignment === 'BULLISH' && decycler200Slope > 0.0001) {
+            return 'bullish';
+        }
+        
+        if (rocAlignment === 'BEARISH' && decycler200Slope < -0.0001) {
+            return 'bearish';
+        }
+        
+        // Weak alignment - only decycler slope
+        if (Math.abs(decycler200Slope) > 0.0002) {
+            return decycler200Slope > 0 ? 'bullish' : 'bearish';
+        }
+        
+        // No clear alignment or conflicting signals
+        return 'neutral';
     }
 
     /**
