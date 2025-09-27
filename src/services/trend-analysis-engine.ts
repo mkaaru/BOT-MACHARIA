@@ -64,9 +64,9 @@ export class TrendAnalysisEngine {
     private readonly SIGNAL_STRENGTH_THRESHOLD = 60;
     private readonly MAX_HISTORY = 200;
 
-    // ROC periods
-    private readonly FAST_ROC_PERIOD = 9;
-    private readonly SLOW_ROC_PERIOD = 50;
+    // ROC periods (tick-based)
+    private readonly FAST_ROC_PERIOD = 5;
+    private readonly SLOW_ROC_PERIOD = 20;
 
     constructor() {
         // Update trend analysis periodically
