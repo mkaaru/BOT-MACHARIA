@@ -240,47 +240,31 @@ export class TrendAnalysisEngine {
             }
         };
 
-        // Integrate pullback analysis with recommendations - ROC GETS HIGHER PRIORITY
+        // ROC-focused analysis (removed mean reversion priorities)
         let finalRecommendation = recommendation;
         let enhancedScore = score;
 
-        // Priority 1: Strong ROC signals (MOVED UP IN PRIORITY)
-        if (persistentROCSignal && confidence >= 75) {
+        // Priority 1: ROC signals with increased sensitivity
+        if (persistentROCSignal && confidence >= 60) { // Lowered from 75 to 60 for higher sensitivity
             finalRecommendation = persistentROCSignal === 'BULLISH' ? 'BUY' : 'SELL';
-            enhancedScore = Math.min(98, confidence + 25); // High bonus for strong ROC
-            console.log(`🎯 ROC PRIORITY: ${persistentROCSignal} signal with high confidence (${enhancedScore.toFixed(1)}%)`);
+            enhancedScore = Math.min(98, confidence + 30); // Increased bonus for ROC signals
+            console.log(`🎯 HIGH-SENSITIVITY ROC: ${persistentROCSignal} signal (${enhancedScore.toFixed(1)}%)`);
         }
-        // Priority 2: Pullback analysis with Ehlers Decycler (MOVED DOWN)
-        else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 70) {
+        // Priority 2: Strong Ehlers trending signals (removed anticipatory focus)
+        else if (ehlersSignals && ehlersRecommendation.signalStrength === 'strong' && !ehlersRecommendation.anticipatory) {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.min(95, score + 20);
+            console.log(`⚡ EHLERS TRENDING: Strong signal (${enhancedScore.toFixed(1)}%)`);
+        }
+        // Priority 3: Medium Ehlers trending signals
+        else if (ehlersSignals && ehlersRecommendation.signalStrength === 'medium' && !ehlersRecommendation.anticipatory) {
+            finalRecommendation = ehlersRecommendation.action;
+            enhancedScore = Math.min(90, score + 15);
+        }
+        // Priority 4: Basic momentum from pullback analysis
+        else if (pullbackAnalysis.isPullback && pullbackAnalysis.confidence >= 60) {
             finalRecommendation = pullbackAnalysis.recommendation;
-            enhancedScore = Math.min(98, pullbackAnalysis.confidence);
-
-            // Add bonus for strong pullbacks
-            if (pullbackAnalysis.pullbackStrength === 'strong') {
-                enhancedScore = Math.min(98, enhancedScore + 10);
-                console.log(`🚀 PULLBACK PRIORITY: ${pullbackAnalysis.pullbackType.toUpperCase()} - ${pullbackAnalysis.pullbackStrength.toUpperCase()} (${enhancedScore.toFixed(1)}%)`);
-            }
-        }
-        // Priority 2: Strong Ehlers anticipatory signals
-        else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'strong') {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(95, score + 25); // High bonus for strong anticipatory signals
-            console.log(`⚡ EHLERS PRIORITY: Strong anticipatory signal (${enhancedScore.toFixed(1)}%)`);
-        }
-        // Priority 3: Medium Ehlers anticipatory signals
-        else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'medium') {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(90, score + 18); // Good bonus for medium anticipatory signals
-        }
-        // Priority 4: Weak anticipatory signals only in good cycle conditions
-        else if (ehlersSignals && ehlersRecommendation.anticipatory && ehlersRecommendation.signalStrength === 'weak' && cycleTrading.suitable) {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.min(80, score + 10); // Small bonus for weak anticipatory signals
-        }
-        // Priority 5: Standard Ehlers signals as backup
-        else if (ehlersSignals && cycleTrading.suitable && ehlersRecommendation.confidence > confidence) {
-            finalRecommendation = ehlersRecommendation.action;
-            enhancedScore = Math.max(score, ehlersRecommendation.confidence);
+            enhancedScore = Math.min(85, pullbackAnalysis.confidence);
         }
 
         const analysis: TrendAnalysis = {
@@ -526,27 +510,27 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Get ROC periods based on sensitivity setting
+     * Get ROC periods based on sensitivity setting (increased sensitivity)
      */
-    private getROCPeriods(sensitive: boolean = false): { longTerm: number; shortTerm: number } {
+    private getROCPeriods(sensitive: boolean = true): { longTerm: number; shortTerm: number } {
         if (sensitive) {
             return {
-                longTerm: 10, // Half of default 20
-                shortTerm: 3   // Half of default 5 (rounded)
+                longTerm: 8,  // Increased sensitivity: reduced from 10
+                shortTerm: 2  // Increased sensitivity: reduced from 3
             };
         }
         return {
-            longTerm: 20, // Default long-term period
-            shortTerm: 5   // Default short-term period
+            longTerm: 15, // Increased sensitivity: reduced from 20
+            shortTerm: 4   // Increased sensitivity: reduced from 5
         };
     }
 
     /**
-     * Determine ROC alignment status
+     * Determine ROC alignment status (increased sensitivity)
      */
     private determineROCAlignment(longTermROC: number, shortTermROC: number): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
-        const longTermThreshold = 0.05; // 0.05%
-        const shortTermThreshold = 0.1;  // 0.1%
+        const longTermThreshold = 0.02; // Increased sensitivity: reduced from 0.05% to 0.02%
+        const shortTermThreshold = 0.05; // Increased sensitivity: reduced from 0.1% to 0.05%
 
         // Both ROC positive and short-term accelerating upward
         if (longTermROC > longTermThreshold && shortTermROC > shortTermThreshold && shortTermROC > longTermROC) {
@@ -630,38 +614,38 @@ export class TrendAnalysisEngine {
         const isLastCandleGreen = lastCandle.close > lastCandle.open;
         const isLastCandleRed = lastCandle.close < lastCandle.open;
 
-        // BULLISHSIGNAL CONDITIONS:
+        // BULLISH SIGNAL CONDITIONS (increased sensitivity):
         // 1. Long-term ROC positive (upward trend)
         // 2. Short-term ROC stronger positive (acceleration)
         // 3. Last candle is green and closes above previous high
-        if (longTermROC > 0.05 && // Long-term positive momentum (> 0.05%)
-            shortTermROC > 0.1 && // Short-term positive momentum (> 0.1%)
+        if (longTermROC > 0.02 && // Increased sensitivity: reduced from 0.05% to 0.02%
+            shortTermROC > 0.05 && // Increased sensitivity: reduced from 0.1% to 0.05%
             shortTermROC > longTermROC && // Short-term stronger than long-term (acceleration)
             isLastCandleGreen &&
             lastCandle.close > previousCandle.high) {
 
-            console.log(`${symbol}: ✅ ROCBULLISH signal confirmed:
-                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (positive trend)
-                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating upward)
+            console.log(`${symbol}: ✅ ROC BULLISH signal confirmed (HIGH SENSITIVITY):
+                - Long-term ROC (8): ${longTermROC.toFixed(3)}% (positive trend)
+                - Short-term ROC (2): ${shortTermROC.toFixed(3)}% (accelerating upward)
                 - ROC alignment: SHORT > LONG (${shortTermROC.toFixed(3)}% > ${longTermROC.toFixed(3)}%)
                 - Last candle GREEN: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes above prev high: ${lastCandle.close.toFixed(5)} > ${previousCandle.high.toFixed(5)}`);
             return 'BULLISH';
         }
 
-        // BEARISH SIGNAL CONDITIONS:
+        // BEARISH SIGNAL CONDITIONS (increased sensitivity):
         // 1. Long-term ROC negative (downward trend)
         // 2. Short-term ROC stronger negative (acceleration)
         // 3. Last candle is red and closes below previous low
-        if (longTermROC < -0.05 && // Long-term negative momentum (< -0.05%)
-            shortTermROC < -0.1 && // Short-term negative momentum (< -0.1%)
+        if (longTermROC < -0.02 && // Increased sensitivity: reduced from -0.05% to -0.02%
+            shortTermROC < -0.05 && // Increased sensitivity: reduced from -0.1% to -0.05%
             shortTermROC < longTermROC && // Short-term more negative than long-term (acceleration)
             isLastCandleRed &&
             lastCandle.close < previousCandle.low) {
 
-            console.log(`${symbol}: ✅ ROC BEARISH signal confirmed:
-                - Long-term ROC (20): ${longTermROC.toFixed(3)}% (negative trend)
-                - Short-term ROC (5): ${shortTermROC.toFixed(3)}% (accelerating downward)
+            console.log(`${symbol}: ✅ ROC BEARISH signal confirmed (HIGH SENSITIVITY):
+                - Long-term ROC (8): ${longTermROC.toFixed(3)}% (negative trend)
+                - Short-term ROC (2): ${shortTermROC.toFixed(3)}% (accelerating downward)
                 - ROC alignment: SHORT < LONG (${shortTermROC.toFixed(3)}% < ${longTermROC.toFixed(3)}%)
                 - Last candle RED: ${lastCandle.open.toFixed(5)} → ${lastCandle.close.toFixed(5)}
                 - Closes below prev low: ${lastCandle.close.toFixed(5)} < ${previousCandle.low.toFixed(5)}`);
@@ -693,10 +677,10 @@ export class TrendAnalysisEngine {
             return 'HOLD';
         }
 
-        // Apply the validated ROC signal - LOWERED THRESHOLD FOR MORE SIGNALS
-        if (rocSignal === 'BULLISH' && confidence > 55) { // Lowered from 65 to 55
+        // Apply the validated ROC signal - INCREASED SENSITIVITY
+        if (rocSignal === 'BULLISH' && confidence > 45) { // Increased sensitivity: lowered from 55 to 45
             return 'BUY';
-        } else if (rocSignal === 'BEARISH' && confidence > 55) { // Lowered from 65 to 55
+        } else if (rocSignal === 'BEARISH' && confidence > 45) { // Increased sensitivity: lowered from 55 to 45
             return 'SELL';
         }
 
@@ -704,7 +688,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Analyze mean reversion opportunities using Ehlers Decycler and at least 5 candles
+     * Analyze basic trend momentum (removed mean reversion logic)
      */
     private analyzePullbackWithDecycler(candles: any[], ehlersSignals?: EhlersSignals): PullbackAnalysis {
         if (candles.length < 5) {
@@ -714,155 +698,43 @@ export class TrendAnalysisEngine {
                 longerTermTrend: 'neutral',
                 pullbackType: 'none',
                 confidence: 0,
+                entrySignal: false,
                 recommendation: 'HOLD',
             };
         }
 
+        // Basic trend momentum analysis without mean reversion
         const last5Candles = candles.slice(-5);
-        const last10Candles = candles.slice(-10);
-
-        // Calculate recent price action for mean reversion analysis
-        const recentHighs = last5Candles.map(c => c.high);
-        const recentLows = last5Candles.map(c => c.low);
         const recentCloses = last5Candles.map(c => c.close);
-
-        const longerHighs = last10Candles.map(c => c.high);
-        const longerLows = last10Candles.map(c => c.low);
-        const longerCloses = last10Candles.map(c => c.close);
-
         const currentPrice = recentCloses[recentCloses.length - 1];
-        const recentHigh = Math.max(...recentHighs);
-        const recentLow = Math.min(...recentLows);
-        const longerHigh = Math.max(...longerHighs);
-        const longerLow = Math.min(...longerLows);
-
-        // Calculate mean/midpoint for reversion analysis
-        const recentMidpoint = (recentHigh + recentLow) / 2;
-        const longerMidpoint = (longerHigh + longerLow) / 2;
-
-        // Determine market regime using Decycler
-        let marketRegime: 'trending' | 'ranging' | 'neutral' = 'neutral';
-        let regimeStrength = 0;
-
-        if (ehlersSignals?.decycler !== undefined && ehlersSignals?.instantaneousTrendline !== undefined) {
-            const decyclerValue = ehlersSignals.decycler;
-            const instantValue = ehlersSignals.instantaneousTrendline;
-            const trendDivergence = Math.abs(instantValue - decyclerValue) / decyclerValue;
-
-            regimeStrength = trendDivergence * 100;
-
-            // Mean reversion works best in ranging markets
-            if (trendDivergence < 0.005) { // Less than 0.5% divergence suggests ranging
-                marketRegime = 'ranging';
-            } else {
-                marketRegime = 'trending';
-            }
-
-            console.log(`📊 MEAN REVERSION ANALYSIS ${candles[0]?.symbol || 'SYMBOL'}: Decycler=${decyclerValue.toFixed(5)}, Instant=${instantValue.toFixed(5)}, Regime=${marketRegime}, Divergence=${(trendDivergence*100).toFixed(2)}%`);
-        } else {
-            // Fallback: use price volatility to determine regime
-            const priceRange = (recentHigh - recentLow) / recentMidpoint;
-            if (priceRange > 0.01) { // > 1% range suggests trending
-                marketRegime = 'trending';
-                regimeStrength = priceRange * 100;
-            } else {
-                marketRegime = 'ranging';
-                regimeStrength = (1 - priceRange) * 100;
-            }
-        }
-
-        // Mean reversion signal detection
+        const firstPrice = recentCloses[0];
+        
+        // Simple momentum calculation
+        const momentum = (currentPrice - firstPrice) / firstPrice;
+        
         let pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback' = 'none';
-        let pullbackStrength: 'weak' | 'medium' | 'strong' = 'weak';
         let confidence = 0;
-
-        // MEAN REVERSION BUY SIGNAL: Price oversold, expecting bounce
-        const distanceFromHigh = (recentHigh - currentPrice) / recentHigh;
-        const distanceFromMidpoint = (currentPrice - recentMidpoint) / recentMidpoint;
-        const isOversold = currentPrice <= recentLow * 1.005; // Within 0.5% of recent low
-        const hasBottomTail = last5Candles.some(c => (c.close - c.low) / (c.high - c.low) > 0.7); // Candle with long bottom wick
-
-        if (distanceFromHigh > 0.005 && // At least 0.5% down from high
-            distanceFromMidpoint < -0.002 && // Below midpoint
-            isOversold &&
-            hasBottomTail) {
-
-            pullbackType = 'bullish_pullback'; // INVERTED: Buy when oversold
-            confidence = 60;
-
-            // Strength based on how oversold
-            if (distanceFromHigh > 0.015 && marketRegime === 'ranging') { // >1.5% down in ranging market
-                pullbackStrength = 'strong';
-                confidence = 85;
-                console.log(`🔄 STRONG MEAN REVERSION BUY: Oversold ${(distanceFromHigh*100).toFixed(2)}% from high in ranging market`);
-            } else if (distanceFromHigh > 0.008) { // >0.8% down
-                pullbackStrength = 'medium';
-                confidence = 72;
-                console.log(`🔄 MEDIUM MEAN REVERSION BUY: Oversold ${(distanceFromHigh*100).toFixed(2)}% from high`);
-            } else {
-                pullbackStrength = 'weak';
-                confidence = 65;
-            }
+        
+        // Basic trend following (removed mean reversion)
+        if (momentum > 0.001) {
+            pullbackType = 'bullish_pullback';
+            confidence = Math.min(80, momentum * 10000);
+        } else if (momentum < -0.001) {
+            pullbackType = 'bearish_pullback';
+            confidence = Math.min(80, Math.abs(momentum) * 10000);
         }
-
-        // MEAN REVERSION SELL SIGNAL: Price overbought, expecting pullback  
-        const distanceFromLow = (currentPrice - recentLow) / recentLow;
-        const isOverbought = currentPrice >= recentHigh * 0.995; // Within 0.5% of recent high
-        const hasTopTail = last5Candles.some(c => (c.high - c.close) / (c.high - c.low) > 0.7); // Candle with long top wick
-
-        if (distanceFromLow > 0.005 && // At least 0.5% up from low
-            distanceFromMidpoint > 0.002 && // Above midpoint
-            isOverbought &&
-            hasTopTail) {
-
-            pullbackType = 'bearish_pullback'; // INVERTED: Sell when overbought
-            confidence = 60;
-
-            // Strength based on how overbought
-            if (distanceFromLow > 0.015 && marketRegime === 'ranging') { // >1.5% up in ranging market
-                pullbackStrength = 'strong';
-                confidence = 85;
-                console.log(`🔄 STRONG MEAN REVERSION SELL: Overbought ${(distanceFromLow*100).toFixed(2)}% from low in ranging market`);
-            } else if (distanceFromLow > 0.008) { // >0.8% up
-                pullbackStrength = 'medium';
-                confidence = 72;
-                console.log(`🔄 MEDIUM MEAN REVERSION SELL: Overbought ${(distanceFromLow*100).toFixed(2)}% from low`);
-            } else {
-                pullbackStrength = 'weak';
-                confidence = 65;
-            }
-        }
-
-        // Generate INVERTED recommendation for mean reversion
-        let recommendation: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
-
-        if (pullbackType === 'bullish_pullback' && confidence >= 70) {
-            recommendation = 'BUY'; // Buy oversold conditions
-        } else if (pullbackType === 'bearish_pullback' && confidence >= 70) {
-            recommendation = 'SELL'; // Sell overbought conditions
-        }
-
-        // Enhance confidence with Ehlers signals for mean reversion
-        if (ehlersSignals && pullbackType !== 'none') {
-            // In mean reversion, we want contrarian signals
-            if (ehlersSignals.anticipatorySignal < -1.0 && pullbackType === 'bullish_pullback') {
-                confidence = Math.min(95, confidence + 15); // Negative signal + oversold = strong buy
-            } else if (ehlersSignals.anticipatorySignal > 1.0 && pullbackType === 'bearish_pullback') {
-                confidence = Math.min(95, confidence + 15); // Positive signal + overbought = strong sell
-            }
-
-            // Bonus for ranging markets (better for mean reversion)
-            if (marketRegime === 'ranging') {
-                confidence = Math.min(95, confidence + 10);
-            }
-        }
+        
+        const recommendation: 'BUY' | 'SELL' | 'HOLD' = 
+            pullbackType === 'bullish_pullback' && confidence >= 60 ? 'BUY' :
+            pullbackType === 'bearish_pullback' && confidence >= 60 ? 'SELL' : 'HOLD';
         
         return {
             isPullback: pullbackType !== 'none',
-            pullbackStrength,
-            longerTermTrend: marketRegime === 'ranging' ? 'neutral' : marketRegime === 'trending' ? 'bullish' : 'neutral', // Simplified for mean reversion
+            pullbackStrength: confidence > 70 ? 'strong' : confidence > 50 ? 'medium' : 'weak',
+            longerTermTrend: momentum > 0 ? 'bullish' : momentum < 0 ? 'bearish' : 'neutral',
             pullbackType,
             confidence,
+            entrySignal: confidence >= 60,
             recommendation
         };
     }
