@@ -61,9 +61,16 @@ export class IntegratedCandleManager {
 
         this.activeSymbols.add(symbol);
 
-        // Time-based candle processing disabled
+        // Set up time-based candle callback
         if (this.config.useTimeBased) {
-            console.log(`⚠️ Time-based candle processing is disabled for ${symbol} - using tick-based only`);
+            const timeCandleCallback = (candle: CandleData) => {
+                if (this.config.enableROCAnalysis) {
+                    this.trendAnalysisEngine.addCandleData(candle);
+                }
+                console.log(`⏰ Time-candle processed for ${symbol}: ${candle.close.toFixed(5)}`);
+            };
+
+            candleReconstructionEngine.addCandleCallback(symbol, timeCandleCallback);
         }
 
         // Set up tick-based candle callback
@@ -82,14 +89,17 @@ export class IntegratedCandleManager {
     }
 
     /**
-     * Process incoming tick data (tick-based only)
+     * Process incoming tick data
      */
     processTick(tick: TickData): void {
-        // Only process through tick-based engine
+        // Process through time-based engine
+        if (this.config.useTimeBased) {
+            candleReconstructionEngine.processTick(tick);
+        }
+
+        // Process through tick-based engine
         if (this.config.useTickBased) {
             this.tickBasedEngine.processTick(tick);
-        } else {
-            console.warn(`⚠️ Tick-based processing is disabled for ${tick.symbol}`);
         }
     }
 
@@ -230,13 +240,13 @@ export class IntegratedCandleManager {
 
 // Create default configurations
 export const defaultConfig: CandleManagerConfig = {
-    useTimeBased: false,
+    useTimeBased: true,
     useTickBased: true,
     ticksPerCandle: 5,
     enableROCAnalysis: true,
     rocPeriods: {
-        fast: 5,
-        slow: 20
+        fast: 1,
+        slow: 5
     }
 };
 

@@ -72,15 +72,32 @@ export class TrendAnalysisEngine {
         // Update trend analysis periodically
         this.updateTimer = setInterval(() => this.updateAllTrends(), 30 * 1000); // Every 30 seconds
 
-        console.log('🚀 Tick-Based ROC TrendAnalysisEngine initialized with Ehlers preprocessing (tick-based candles only)');
+        console.log('🚀 ROC-Only TrendAnalysisEngine initialized with Ehlers preprocessing');
     }
 
     /**
-     * Add candle data (DISABLED - using tick-based only)
+     * Add candle data and update trend analysis
      */
     addCandleData(candle: CandleData): void {
-        // Time-based candles disabled - use tick-based candles only
-        console.log(`⚠️ Time-based candle ignored for ${candle.symbol}: ${candle.close.toFixed(5)} - Using tick-based analysis only`);
+        const { symbol, close, timestamp } = candle;
+
+        // Store price history
+        if (!this.priceHistory.has(symbol)) {
+            this.priceHistory.set(symbol, []);
+        }
+
+        const prices = this.priceHistory.get(symbol)!;
+        prices.push(close);
+
+        // Maintain history size
+        if (prices.length > this.MAX_HISTORY) {
+            prices.shift();
+        }
+
+        // Process with Ehlers filters and calculate ROC
+        this.processWithEhlers(symbol, close, timestamp.getTime());
+
+        console.log(`📊 Added candle data for ${symbol}: ${close.toFixed(5)}`);
     }
 
     /**
