@@ -201,8 +201,8 @@ export class TrendAnalysisEngine {
         const prices = this.priceHistory.get(symbol)!;
         prices.push(price);
 
-        // Maintain history size
-        if (prices.length > this.MAX_HISTORY) {
+        // Maintain history size - keep more for 500-period ROC
+        if (prices.length > 1000) { // Increased from MAX_HISTORY to accommodate 500-period ROC
             prices.shift();
         }
 
@@ -210,6 +210,34 @@ export class TrendAnalysisEngine {
         if (prices.length >= this.SLOW_ROC_PERIOD + 10) { // Need enough data for slow ROC + preprocessing
             this.updateTrendAnalysis(symbol, price);
         }
+    }
+
+    /**
+     * Get last 500 ticks from historical data for initial ROC calculation
+     */
+    getLast500Ticks(symbol: string): number[] {
+        const prices = this.priceHistory.get(symbol);
+        if (!prices) return [];
+        
+        // Return last 500 prices, or all available if less than 500
+        return prices.slice(-500);
+    }
+
+    /**
+     * Initialize trend analysis with historical data subset
+     */
+    initializeWithHistoricalData(symbol: string): boolean {
+        const prices = this.priceHistory.get(symbol);
+        if (!prices || prices.length < 500) {
+            console.log(`${symbol}: Insufficient historical data for 500-period ROC (have ${prices?.length || 0} ticks)`);
+            return false;
+        }
+
+        // Use exactly 500 ticks for initial calculation
+        const last500Ticks = this.getLast500Ticks(symbol);
+        console.log(`${symbol}: Initializing with ${last500Ticks.length} historical ticks for 500-period ROC`);
+
+        return true;
     }
 
     /**

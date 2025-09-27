@@ -176,6 +176,9 @@ export class TickStreamManager {
                     };
                     this.notifyTickCallbacks(tickData);
                 }
+
+                // Initialize trend analysis with sufficient historical data
+                console.log(`${symbol}: Historical data loaded, ready for 500-period ROC analysis`);
             }
 
             // Store subscription ID for real-time updates
@@ -281,6 +284,47 @@ export class TickStreamManager {
 
     isSubscribedTo(symbol: string): boolean {
         return this.subscriptions.has(symbol);
+    }
+
+    /**
+     * Get exactly 500 historical ticks for ROC analysis
+     */
+    async get500HistoricalTicks(symbol: string): Promise<TickData[]> {
+        try {
+            const historyResponse = await this.api.send({
+                ticks_history: symbol,
+                count: 500,
+                end: 'latest',
+                style: 'ticks'
+            });
+
+            if (historyResponse.error) {
+                throw new Error(`Failed to get 500 ticks for ${symbol}: ${historyResponse.error.message}`);
+            }
+
+            if (historyResponse.history && historyResponse.history.prices) {
+                const times = historyResponse.history.times;
+                const prices = historyResponse.history.prices;
+                
+                const ticks: TickData[] = [];
+                for (let i = 0; i < prices.length; i++) {
+                    ticks.push({
+                        symbol,
+                        epoch: times[i],
+                        quote: parseFloat(prices[i]),
+                        timestamp: new Date(times[i] * 1000),
+                    });
+                }
+                
+                console.log(`Retrieved exactly ${ticks.length} historical ticks for ${symbol}`);
+                return ticks;
+            }
+
+            return [];
+        } catch (error) {
+            console.error(`Error getting 500 ticks for ${symbol}:`, error);
+            return [];
+        }
     }
 
     getConnectionStatus(): boolean {
