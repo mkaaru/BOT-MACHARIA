@@ -73,7 +73,10 @@ export class TickStreamManager {
                     const times = rawData.history.times;
                     const prices = rawData.history.prices;
                     
-                    console.log(`Received history for ${symbol}: ${prices.length} ticks`);
+                    const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
+                    const is1sVolatility = symbolInfo?.is_1s_volatility || false;
+                    
+                    console.log(`📈 Received history for ${symbol} (${is1sVolatility ? '1s' : 'regular'}): ${prices.length} ticks`);
                     
                     // Process historical ticks
                     for (let i = 0; i < prices.length; i++) {
@@ -85,6 +88,8 @@ export class TickStreamManager {
                         };
                         this.notifyTickCallbacks(tickData);
                     }
+                    
+                    console.log(`✅ Processed ${prices.length} historical ticks for ${symbol}`);
                     return;
                 }
                 
@@ -96,12 +101,26 @@ export class TickStreamManager {
                         quote: rawData.tick.quote,
                         timestamp: new Date(rawData.tick.epoch * 1000),
                     };
+                    
+                    const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === tickData.symbol);
+                    const is1sVolatility = symbolInfo?.is_1s_volatility || false;
+                    
+                    // Log 1-second volatility ticks for debugging
+                    if (is1sVolatility) {
+                        console.log(`🔄 Real-time tick for ${tickData.symbol}: ${tickData.quote.toFixed(5)}`);
+                    }
+                    
                     this.notifyTickCallbacks(tickData);
                 } else if (hasAPIError(rawData)) {
-                    console.error(`TickStreamManager API Error - ${rawData.error.code}: ${rawData.error.message}`);
+                    console.error(`❌ TickStreamManager API Error - ${rawData.error.code}: ${rawData.error.message}`);
+                    
+                    // Log additional context for debugging
+                    if (rawData.echo_req?.ticks_history) {
+                        console.error(`❌ Error was for symbol: ${rawData.echo_req.ticks_history}`);
+                    }
                 }
             } catch (error) {
-                console.error('TickStreamManager: Error parsing message:', error);
+                console.error('❌ TickStreamManager: Error parsing message:', error);
             }
         };
 
@@ -146,17 +165,27 @@ export class TickStreamManager {
         }
 
         try {
+            // Determine if this is a 1-second volatility
+            const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
+            const is1sVolatility = symbolInfo?.is_1s_volatility || false;
+            
+            console.log(`📊 Subscribing to ${symbol} (${is1sVolatility ? '1-second' : 'regular'} volatility)...`);
+
             // First, get historical ticks (last 5000 ticks) for immediate trend analysis
-            const historyResponse = await this.api.send({
+            const historyRequest = {
                 ticks_history: symbol,
                 count: 5000,
                 end: 'latest',
                 style: 'ticks',
                 subscribe: 1
-            });
+            };
+
+            console.log(`Requesting historical data for ${symbol}:`, historyRequest);
+            const historyResponse = await this.api.send(historyRequest);
 
             if (historyResponse.error) {
-                throw new Error(`Failed to get history for ${symbol}: ${historyResponse.error.message}`);
+                console.error(`❌ API Error for ${symbol}:`, historyResponse.error);
+                throw new Error(`Failed to get history for ${symbol}: ${historyResponse.error.message} (Code: ${historyResponse.error.code})`);
             }
 
             // Process historical ticks immediately
@@ -164,7 +193,7 @@ export class TickStreamManager {
                 const times = historyResponse.history.times;
                 const prices = historyResponse.history.prices;
                 
-                console.log(`Processing ${prices.length} historical ticks for ${symbol}`);
+                console.log(`✅ Processing ${prices.length} historical ticks for ${symbol} (${is1sVolatility ? '1s' : 'regular'})`);
                 
                 // Process each historical tick
                 for (let i = 0; i < prices.length; i++) {
@@ -178,17 +207,27 @@ export class TickStreamManager {
                 }
 
                 // Initialize trend analysis with sufficient historical data
-                console.log(`${symbol}: Historical data loaded, ready for 500-period ROC analysis`);
+                console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for 500-period ROC analysis`);
+            } else {
+                console.warn(`⚠️ No historical data received for ${symbol}`);
             }
 
             // Store subscription ID for real-time updates
             if (historyResponse.subscription?.id) {
                 this.subscriptions.set(symbol, historyResponse.subscription.id);
-                console.log(`Successfully subscribed to ${symbol} with ID: ${historyResponse.subscription.id} and processed ${historyResponse.history?.prices?.length || 0} historical ticks`);
+                console.log(`🔄 Successfully subscribed to ${symbol} with ID: ${historyResponse.subscription.id}`);
+            } else {
+                console.warn(`⚠️ No subscription ID received for ${symbol}`);
             }
         } catch (error) {
-            console.error(`Error subscribing to ${symbol}:`, error);
-            throw error;
+            console.error(`❌ Error subscribing to ${symbol}:`, error);
+            // Don't throw the error to prevent stopping other subscriptions
+            console.log(`🔄 Retrying ${symbol} subscription in 2 seconds...`);
+            setTimeout(() => {
+                this.subscribeToSymbol(symbol).catch(retryError => {
+                    console.error(`❌ Retry failed for ${symbol}:`, retryError);
+                });
+            }, 2000);
         }
     }
 
@@ -201,18 +240,38 @@ export class TickStreamManager {
             await this.waitForConnection();
         }
 
-        const subscriptionPromises = VOLATILITY_SYMBOLS.map(async (symbolInfo, index) => {
-            // Add small delay between subscriptions to avoid overwhelming the API
+        // Process regular volatilities first, then 1-second volatilities
+        const regularVolatilities = VOLATILITY_SYMBOLS.filter(s => !s.is_1s_volatility);
+        const oneSecondVolatilities = VOLATILITY_SYMBOLS.filter(s => s.is_1s_volatility);
+
+        console.log(`Subscribing to ${regularVolatilities.length} regular volatilities and ${oneSecondVolatilities.length} 1-second volatilities`);
+
+        // Subscribe to regular volatilities first
+        const regularPromises = regularVolatilities.map(async (symbolInfo, index) => {
             await new Promise(resolve => setTimeout(resolve, index * 100));
             
             return this.subscribeToSymbol(symbolInfo.symbol).catch(error => {
-                console.warn(`Failed to subscribe to ${symbolInfo.symbol}:`, error);
+                console.warn(`Failed to subscribe to regular volatility ${symbolInfo.symbol}:`, error);
                 return null;
             });
         });
 
-        await Promise.allSettled(subscriptionPromises);
-        console.log(`Subscribed to ${this.subscriptions.size} volatility indices`);
+        await Promise.allSettled(regularPromises);
+        console.log(`Completed subscription to regular volatilities`);
+
+        // Then subscribe to 1-second volatilities with additional delay
+        const oneSecondPromises = oneSecondVolatilities.map(async (symbolInfo, index) => {
+            await new Promise(resolve => setTimeout(resolve, index * 150 + 500)); // Extra delay for 1s volatilities
+            
+            console.log(`Subscribing to 1-second volatility: ${symbolInfo.symbol}`);
+            return this.subscribeToSymbol(symbolInfo.symbol).catch(error => {
+                console.warn(`Failed to subscribe to 1-second volatility ${symbolInfo.symbol}:`, error);
+                return null;
+            });
+        });
+
+        await Promise.allSettled(oneSecondPromises);
+        console.log(`Subscribed to ${this.subscriptions.size} total volatility indices`);
     }
 
     private async waitForConnection(timeout: number = 10000): Promise<void> {

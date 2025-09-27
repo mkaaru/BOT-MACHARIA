@@ -218,7 +218,7 @@ export class TrendAnalysisEngine {
     getLast500Ticks(symbol: string): number[] {
         const prices = this.priceHistory.get(symbol);
         if (!prices) return [];
-        
+
         // Return last 500 prices, or all available if less than 500
         return prices.slice(-500);
     }
@@ -456,8 +456,8 @@ export class TrendAnalysisEngine {
                 continue;
             }
 
-            const value = c1 * (prices[i] + prices[i - 1]) / 2 + 
-                         c2 * result[i - 1] + 
+            const value = c1 * (prices[i] + prices[i - 1]) / 2 +
+                         c2 * result[i - 1] +
                          c3 * result[i - 2];
             result[i] = value;
         }
@@ -577,8 +577,8 @@ export class TrendAnalysisEngine {
      * Generate ROC-based recommendation without trend validation - pure ROC signals
      */
     private generateROCRecommendation(
-        fastROC: number, 
-        slowROC: number, 
+        fastROC: number,
+        slowROC: number,
         rocAlignment: 'BULLISH' | 'BEARISH' | 'NEUTRAL',
         rocCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE',
         confidence: number,
