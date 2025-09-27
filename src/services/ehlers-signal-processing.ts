@@ -19,6 +19,9 @@ export interface EhlersSignals {
     dominantCycle: number;
     instantaneousTrendline: number;
     decycler: number;
+    // 200-period Simple Decycler for overall trend
+    decycler200: number;
+    decycler200Slope: number;
 }
 
 export interface DerivMarketConfig {
@@ -67,6 +70,8 @@ export interface HilbertState {
     instTrendline: number[];
     trendline: number[];
     decycler: number[];
+    decycler200: number[];
+    decycler200Slope: number[];
 }
 
 // Placeholder for CandleData interface, assuming it has at least 'close', 'high', 'low', 'open'
@@ -166,6 +171,23 @@ export class EhlersSignalProcessor {
         // Adjust adaptive thresholds
         this.adjustAdaptiveThresholds(symbol);
 
+        // Calculate 200-period Simple Decycler for overall trend determination
+        const decycler200Result = this.calculateSimpleDecycler200(hilbertState.prices);
+        const currentDecycler200 = decycler200Result.values.length > 0 ? 
+            decycler200Result.values[decycler200Result.values.length - 1] : price;
+        const decycler200Slope = decycler200Result.slope || 0;
+
+        // Store decycler200 data in state
+        if (decycler200Result.values.length > 0) {
+            hilbertState.decycler200 = decycler200Result.values.slice(-this.MAX_HISTORY);
+            if (decycler200Result.slope !== null) {
+                hilbertState.decycler200Slope.push(decycler200Result.slope);
+                if (hilbertState.decycler200Slope.length > this.MAX_HISTORY) {
+                    hilbertState.decycler200Slope.shift();
+                }
+            }
+        }
+
         const signals: EhlersSignals = {
             roofingFilter: roofingValue,
             netValue,
@@ -184,7 +206,10 @@ export class EhlersSignalProcessor {
             signalQuality: enhancedSignals.signalQuality || 0,
             dominantCycle: enhancedSignals.dominantCycle || 20,
             instantaneousTrendline: enhancedSignals.instantaneousTrendline || price,
-            decycler: enhancedSignals.decycler || price
+            decycler: enhancedSignals.decycler || price,
+            // 200-period Simple Decycler for overall trend
+            decycler200: currentDecycler200,
+            decycler200Slope: decycler200Slope
         };
 
         // Store signals history
@@ -263,7 +288,9 @@ export class EhlersSignalProcessor {
             deltaPhase: [],
             instTrendline: [],
             trendline: [],
-            decycler: []
+            decycler: [],
+            decycler200: [],
+            decycler200Slope: []
         });
     }
 
@@ -487,6 +514,45 @@ export class EhlersSignalProcessor {
         }
 
         return decycler;
+    }
+
+    /**
+     * Calculate 200-period Simple Decycler for overall trend determination
+     */
+    private calculateSimpleDecycler200(prices: number[]): { values: number[]; slope: number | null } {
+        if (prices.length < 200) {
+            return { values: [], slope: null };
+        }
+
+        const decycler: number[] = [];
+        const period = 200;
+        const alpha = 1 / (period * Math.sqrt(2) + 1);
+
+        // Initialize first values
+        for (let i = 0; i < Math.min(2, prices.length); i++) {
+            decycler[i] = prices[i];
+        }
+
+        // Calculate decycler values
+        for (let i = 2; i < prices.length; i++) {
+            decycler[i] = alpha * (prices[i] + prices[i - 1]) / 2 +
+                          (1 - alpha) * decycler[i - 1];
+        }
+
+        // Calculate slope of the last 10 periods for trend determination
+        let slope: number | null = null;
+        if (decycler.length >= 10) {
+            const recent = decycler.slice(-10);
+            const n = recent.length;
+            const sumX = (n * (n - 1)) / 2;
+            const sumY = recent.reduce((a, b) => a + b, 0);
+            const sumXY = recent.reduce((acc, val, idx) => acc + idx * val, 0);
+            const sumXX = (n * (n - 1) * (2 * n - 1)) / 6;
+
+            slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        }
+
+        return { values: decycler, slope };
     }
 
     /**
@@ -1286,39 +1352,80 @@ export class EhlersSignalProcessor {
             return { action: 'HOLD', confidence: 0, reason: 'No signal data', anticipatory: false, signalStrength: 'weak' };
         }
 
+        // 200-period Decycler Trend Alignment Check
+        const decycler200Slope = signals.decycler200Slope;
+        const slopeThreshold = 0.0001; // Minimum slope to consider as trend
+        const isBullishTrend = decycler200Slope > slopeThreshold;
+        const isBearishTrend = decycler200Slope < -slopeThreshold;
+
+        console.log(`📊 ${symbol}: Decycler200 Slope: ${decycler200Slope.toFixed(6)} | Trend: ${isBullishTrend ? 'BULLISH' : isBearishTrend ? 'BEARISH' : 'NEUTRAL'}`);
+
         const cycleConditions = this.isGoodForCycleTrading(symbol);
 
-        // Enhanced anticipatory signals with multiple strength levels
+        // Enhanced anticipatory signals with 200-period decycler trend alignment
         if (Math.abs(signals.anticipatorySignal) > 1.2) {
-            // Very strong anticipatory signals (pullback detection)
-            const action = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            const signalDirection = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            
+            // Check trend alignment
+            if ((signalDirection === 'BUY' && !isBullishTrend) || (signalDirection === 'SELL' && !isBearishTrend)) {
+                return {
+                    action: 'HOLD',
+                    confidence: 30,
+                    reason: `Strong ${signalDirection.toLowerCase()} signal rejected - conflicts with 200-period decycler trend (slope: ${decycler200Slope.toFixed(6)})`,
+                    anticipatory: true,
+                    signalStrength: 'weak'
+                };
+            }
+
             const confidence = Math.min(95, 70 + signals.snr * 4);
             return {
-                action,
+                action: signalDirection,
                 confidence,
-                reason: `Strong ${action.toLowerCase()} pullback opportunity detected`,
+                reason: `Strong ${signalDirection.toLowerCase()} signal aligned with 200-period decycler trend (slope: ${decycler200Slope.toFixed(6)})`,
                 anticipatory: true,
                 signalStrength: 'strong'
             };
         } else if (Math.abs(signals.anticipatorySignal) > 0.7) {
-            // Medium strength anticipatory signals
-            const action = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            const signalDirection = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            
+            // Check trend alignment
+            if ((signalDirection === 'BUY' && !isBullishTrend) || (signalDirection === 'SELL' && !isBearishTrend)) {
+                return {
+                    action: 'HOLD',
+                    confidence: 25,
+                    reason: `Medium ${signalDirection.toLowerCase()} signal rejected - conflicts with 200-period decycler trend`,
+                    anticipatory: true,
+                    signalStrength: 'weak'
+                };
+            }
+
             const confidence = Math.min(85, 60 + signals.snr * 3);
             return {
-                action,
+                action: signalDirection,
                 confidence,
-                reason: `Early ${action.toLowerCase()} momentum shift detected`,
+                reason: `Medium ${signalDirection.toLowerCase()} signal aligned with decycler trend`,
                 anticipatory: true,
                 signalStrength: 'medium'
             };
         } else if (Math.abs(signals.anticipatorySignal) > 0.4) {
-            // Weaker anticipatory signals
-            const action = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            const signalDirection = signals.anticipatorySignal > 0 ? 'BUY' : 'SELL';
+            
+            // Check trend alignment
+            if ((signalDirection === 'BUY' && !isBullishTrend) || (signalDirection === 'SELL' && !isBearishTrend)) {
+                return {
+                    action: 'HOLD',
+                    confidence: 20,
+                    reason: `Weak ${signalDirection.toLowerCase()} signal rejected - conflicts with 200-period decycler trend`,
+                    anticipatory: true,
+                    signalStrength: 'weak'
+                };
+            }
+
             const confidence = Math.min(75, 50 + signals.snr * 2);
             return {
-                action,
+                action: signalDirection,
                 confidence,
-                reason: `Potential ${action.toLowerCase()} setup forming`,
+                reason: `Weak ${signalDirection.toLowerCase()} signal aligned with decycler trend`,
                 anticipatory: true,
                 signalStrength: 'weak'
             };
@@ -1329,20 +1436,38 @@ export class EhlersSignalProcessor {
             return { action: 'HOLD', confidence: 30, reason: cycleConditions.reason, anticipatory: false, signalStrength: 'weak' };
         }
 
-        // Standard NET signals (delayed but more reliable)
+        // Standard NET signals with trend alignment
         if (signals.netValue > 0.3) {
+            if (!isBullishTrend) {
+                return {
+                    action: 'HOLD',
+                    confidence: 20,
+                    reason: 'NET bullish signal rejected - conflicts with bearish/neutral 200-period decycler trend',
+                    anticipatory: false,
+                    signalStrength: 'weak'
+                };
+            }
             return {
                 action: 'BUY',
                 confidence: Math.min(75, 40 + signals.snr * 2),
-                reason: 'NET bullish confirmation',
+                reason: 'NET bullish signal aligned with bullish decycler trend',
                 anticipatory: false,
                 signalStrength: 'medium'
             };
         } else if (signals.netValue < -0.3) {
+            if (!isBearishTrend) {
+                return {
+                    action: 'HOLD',
+                    confidence: 20,
+                    reason: 'NET bearish signal rejected - conflicts with bullish/neutral 200-period decycler trend',
+                    anticipatory: false,
+                    signalStrength: 'weak'
+                };
+            }
             return {
                 action: 'SELL',
                 confidence: Math.min(75, 40 + signals.snr * 2),
-                reason: 'NET bearish confirmation',
+                reason: 'NET bearish signal aligned with bearish decycler trend',
                 anticipatory: false,
                 signalStrength: 'medium'
             };

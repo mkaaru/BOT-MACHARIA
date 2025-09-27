@@ -43,6 +43,8 @@ export interface TrendAnalysis {
         snr: number;
         netValue: number;
         anticipatorySignal: number;
+        decycler200?: number; // Added for 200-period decycler
+        decycler200Slope?: number; // Added for 200-period decycler slope
     };
 
     ehlersRecommendation?: {
@@ -708,13 +710,13 @@ export class TrendAnalysisEngine {
         const recentCloses = last5Candles.map(c => c.close);
         const currentPrice = recentCloses[recentCloses.length - 1];
         const firstPrice = recentCloses[0];
-        
+
         // Simple momentum calculation
         const momentum = (currentPrice - firstPrice) / firstPrice;
-        
+
         let pullbackType: 'none' | 'bullish_pullback' | 'bearish_pullback' = 'none';
         let confidence = 0;
-        
+
         // Basic trend following (removed mean reversion)
         if (momentum > 0.001) {
             pullbackType = 'bullish_pullback';
@@ -723,11 +725,11 @@ export class TrendAnalysisEngine {
             pullbackType = 'bearish_pullback';
             confidence = Math.min(80, Math.abs(momentum) * 10000);
         }
-        
-        const recommendation: 'BUY' | 'SELL' | 'HOLD' = 
+
+        const recommendation: 'BUY' | 'SELL' | 'HOLD' =
             pullbackType === 'bullish_pullback' && confidence >= 60 ? 'BUY' :
             pullbackType === 'bearish_pullback' && confidence >= 60 ? 'SELL' : 'HOLD';
-        
+
         return {
             isPullback: pullbackType !== 'none',
             pullbackStrength: confidence > 70 ? 'strong' : confidence > 50 ? 'medium' : 'weak',
