@@ -50,7 +50,6 @@ export interface TrendAnalysis {
         reason: string;
         anticipatory: boolean;
         signalStrength: 'weak' | 'medium' | 'strong';
-        isPullbackSignal?: boolean;
     };
 
     
@@ -72,13 +71,6 @@ export interface TrendAnalysis {
         strength: number;
         confidence: number;
         factors: string[];
-    };
-
-    // Cycle trading assessment
-    cycleTrading?: {
-        suitable: boolean;
-        snrLevel: 'poor' | 'good' | 'excellent';
-        recommendation: string;
     };
 
     // Deriv market specific signals
@@ -165,7 +157,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Update trend analysis for a specific symbol with enhanced pullback detection
+     * Update trend analysis for a specific symbol with pure trend analysis
      */
     private updateTrendAnalysis(symbol: string, currentPrice: number): void {
         // Calculate ROC indicators for trend analysis
@@ -297,18 +289,18 @@ export class TrendAnalysisEngine {
 
         const analysis: TrendAnalysis = {
             symbol,
+            timestamp: Date.now(),
             direction: finalDirection,
             strength,
             confidence,
             price: currentPrice,
             lastUpdate: new Date(),
             recommendation: finalRecommendation,
+            reason: this.generateReasonForRecommendation(finalRecommendation, persistentROCSignal, ehlersPredict, momentumBreakout),
             score: enhancedScore,
             longTermROC,
             shortTermROC,
             rocAlignment,
-            
-            
             sustainedMomentum, // Add sustained momentum analysis
             momentumBreakout, // Add momentum breakout analysis
             ehlersPredict, // Add Ehlers Predictive System results
@@ -409,7 +401,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate recommendation based on SMA conditions and candle patterns
+     * Generate recommendation based on alignment (simplified)
      */
     private generateRecommendationByAlignment(
         direction: TrendDirection,
@@ -418,22 +410,15 @@ export class TrendAnalysisEngine {
         alignment: any,
         symbol?: string
     ): 'BUY' | 'SELL' | 'HOLD' {
+        // Use ROC-based validation instead
         if (!symbol) {
             return 'HOLD';
         }
 
-        // Get specific signal validation using dual ROC and candle patterns
-        const signalValidation = this.validateDualROCSignal(symbol);
-
-        if (!signalValidation) {
-            return 'HOLD';
-        }
-
-        // Apply the validated signal
-        if (signalValidation === 'BULLISH') {
-            return 'BUY';
-        } else if (signalValidation === 'BEARISH') {
-            return 'SELL';
+        // Strong alignment with good confidence
+        if (alignment.isAligned && confidence > 70 && strength !== 'weak') {
+            if (direction === 'bullish') return 'BUY';
+            if (direction === 'bearish') return 'SELL';
         }
 
         return 'HOLD';
@@ -1270,6 +1255,37 @@ export class TrendAnalysisEngine {
     }
 
 
+
+    /**
+     * Generate clear reason for recommendation based on priority systems
+     */
+    private generateReasonForRecommendation(
+        recommendation: 'BUY' | 'SELL' | 'HOLD',
+        rocSignal: 'BULLISH' | 'BEARISH' | null,
+        ehlersPredict: any,
+        momentumBreakout: any
+    ): string {
+        if (recommendation === 'HOLD') {
+            return 'No clear trend signal detected';
+        }
+
+        const reasons: string[] = [];
+
+        // Priority 1: Ehlers Predictive
+        if (ehlersPredict && ehlersPredict.signal.entry && ehlersPredict.signal.confidence >= 75 && ehlersPredict.strength !== 'weak') {
+            reasons.push(`Ehlers Predictive ${recommendation} signal (${ehlersPredict.strength}) in ${ehlersPredict.marketPhase} market`);
+        }
+        // Priority 2: Momentum Breakout
+        else if (momentumBreakout.hasBreakout && momentumBreakout.confidence >= 80) {
+            reasons.push(`Momentum ${momentumBreakout.breakoutType.replace('_', ' ').toLowerCase()} detected`);
+        }
+        // Priority 3: ROC Signals
+        else if (rocSignal) {
+            reasons.push(`Strong ROC ${rocSignal.toLowerCase()} momentum signal`);
+        }
+
+        return reasons.length > 0 ? reasons.join(' | ') : `${recommendation} signal based on technical analysis`;
+    }
 
     /**
      * Legacy method - kept for compatibility but now calls ROC-based validation
