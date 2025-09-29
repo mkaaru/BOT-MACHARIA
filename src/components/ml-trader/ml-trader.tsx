@@ -147,7 +147,7 @@ const MLTrader = observer(() => {
     const initializeTickStreams = useCallback(async () => {
         try {
             console.log('🔄 Initializing tick streams for ML Trader...');
-            
+
             // Subscribe to all volatility symbols
             await tickStreamManager.subscribeToAllVolatilities();
 
@@ -155,7 +155,7 @@ const MLTrader = observer(() => {
             DERIV_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
                 tickStreamManager.addTickCallback(symbolInfo.symbol, (tick) => {
                     console.log(`📊 ML Trader received tick: ${tick.symbol} = ${tick.quote.toFixed(5)}`);
-                    
+
                     // Feed tick to volatility scanner
                     derivVolatilityScanner.processTick({
                         symbol: tick.symbol,
@@ -179,7 +179,7 @@ const MLTrader = observer(() => {
     const initializeVolatilityScanner = useCallback(async () => {
         try {
             console.log('🔄 Initializing volatility scanner...');
-            
+
             // Subscribe to scanner status updates
             const statusUnsubscribe = derivVolatilityScanner.onStatusChange((status) => {
                 console.log('📊 Scanner status update:', status);
@@ -536,21 +536,21 @@ const MLTrader = observer(() => {
 
             // Determine contract type based on recommendation action
             const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
-            
+
             // Get duration in seconds
             const durationSeconds = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
-            
+
             // Default stake and martingale multiplier
             const defaultStake = 1.0;
             const martingaleMultiplier = 1; // Set to 1 as requested
-            
+
             // Generate Bot Builder XML with Martingale strategy
             const xmlContent = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="martingale_stake">martingale_stake</variable>
     <variable id="current_stake">current_stake</variable>
   </variables>
-  
+
   <!-- Trade Definition Block -->
   <block type="trade_definition" id="trade_definition_main" deletable="false" x="40" y="40">
     <field name="MARKET_LIST">synthetic_index</field>
@@ -702,7 +702,7 @@ const MLTrader = observer(() => {
 
                     if (window.Blockly?.derivWorkspace) {
                         console.log('🔄 Loading XML to Bot Builder...');
-                        
+
                         await load({
                             block_string: xmlContent,
                             file_name: `ML_${recommendation.displayName}_${recommendation.action}_Strategy`,
@@ -715,9 +715,9 @@ const MLTrader = observer(() => {
 
                         // Center the workspace
                         window.Blockly.derivWorkspace.scrollCenter();
-                        
+
                         setStatus(`✅ Loaded ${recommendation.action} strategy for ${recommendation.displayName} to Bot Builder with Martingale set to ${martingaleMultiplier}`);
-                        
+
                         console.log(`✅ Successfully loaded ${recommendation.displayName} ${recommendation.action} strategy to Bot Builder`);
                     } else {
                         console.error('❌ Bot Builder workspace not available');
@@ -820,7 +820,7 @@ const MLTrader = observer(() => {
                                         onClick={() => applyRecommendation(rec)}
                                     >
                                         <div className="card-gradient-overlay" />
-                                        
+
                                         <div className="rec-header">
                                             <div className="symbol-info">
                                                 <div className="symbol-badge">
@@ -832,7 +832,7 @@ const MLTrader = observer(() => {
                                                     <Text size="xxs" color="general">#{rec.rank}</Text>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="action-section">
                                                 <div className={`action-badge ${rec.action.toLowerCase()}`}>
                                                     <div className={`action-icon ${rec.action.toLowerCase()}`}>
@@ -876,7 +876,7 @@ const MLTrader = observer(() => {
                                                     <Text size="sm" weight="bold">{rec.duration}</Text>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="metric-item">
                                                 <div className="metric-icon">⚡</div>
                                                 <div className="metric-content">
@@ -884,7 +884,7 @@ const MLTrader = observer(() => {
                                                     <Text size="sm" weight="bold">{rec.momentumScore.toFixed(0)}%</Text>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="metric-item">
                                                 <div className="metric-icon">🎯</div>
                                                 <div className="metric-content">
@@ -905,7 +905,7 @@ const MLTrader = observer(() => {
                                                 <span className="btn-icon">🤖</span>
                                                 <Text size="xs" weight="bold">{localize('Load to Bot Builder')}</Text>
                                             </button>
-                                            
+
                                             <button 
                                                 className="action-btn apply-settings"
                                                 onClick={(e) => {
