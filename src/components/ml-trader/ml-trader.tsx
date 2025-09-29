@@ -534,6 +534,26 @@ const MLTrader = observer(() => {
             // Switch to Bot Builder tab
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
 
+            // Wait for Bot Builder to be ready
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Clear the workspace first
+            const workspace = window.Blockly?.derivWorkspace || window.Blockly?.getMainWorkspace();
+            if (workspace) {
+                console.log('🧹 Clearing workspace before loading new strategy...');
+                try {
+                    // Clear workspace completely
+                    workspace.clear();
+                    workspace.clearUndo();
+                    console.log('✅ Workspace cleared successfully');
+                } catch (clearError) {
+                    console.warn('Warning during workspace clear:', clearError);
+                }
+                
+                // Wait a moment after clearing
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
             // Determine contract type based on recommendation action
             const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
@@ -765,30 +785,42 @@ const MLTrader = observer(() => {
             </div>
 
             <div className="ml-trader__status">
-                <div className="status-indicator">
-                    <div className={`status-dot ${is_scanner_active ? 'active' : 'inactive'}`} />
-                    <Text size="sm">{status}</Text>
-                </div>
-
-                {scanner_status && (
-                    <div className="scanner-stats">
-                        <Text size="xs">
-                            {localize('Scanning {{symbols}} symbols | {{recs}} opportunities | Avg confidence: {{conf}}%', {
-                                symbols: scanner_status.symbolsTracked,
-                                recs: scanner_status.recommendationsCount,
-                                conf: scanner_status.avgConfidence.toFixed(1)
-                            })}
-                        </Text>
+                <div className="status-row">
+                    <div className="status-indicator">
+                        <div className={`status-dot ${is_scanner_active ? 'active' : 'inactive'}`} />
+                        <Text size="sm" weight="bold">{status}</Text>
                     </div>
-                )}
+
+                    {scanner_status && (
+                        <div className="scanner-stats">
+                            <div className="stat-item">
+                                <Text size="xs" color="general">{localize('Symbols')}</Text>
+                                <Text size="sm" weight="bold">{scanner_status.symbolsTracked}</Text>
+                            </div>
+                            <div className="stat-item">
+                                <Text size="xs" color="general">{localize('Opportunities')}</Text>
+                                <Text size="sm" weight="bold">{scanner_status.recommendationsCount}</Text>
+                            </div>
+                            <div className="stat-item">
+                                <Text size="xs" color="general">{localize('Avg Confidence')}</Text>
+                                <Text size="sm" weight="bold">{scanner_status.avgConfidence.toFixed(1)}%</Text>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="ml-trader__content">
                 {/* Recommendations Panel */}
-                <div className="recommendations-panel">
-                    <div className="panel-header">
-                        <Text size="md" weight="bold">{localize('Live Recommendations')}</Text>
-                        <div className="filter-controls">
+                <div className="ml-trader__recommendations">
+                    <div className="recommendations-header">
+                        <div className="header-title">
+                            <Text size="md" weight="bold">{localize('Live Recommendations')}</Text>
+                            <Text size="xs" color="general">
+                                {localize('AI-Powered Trading Opportunities')}
+                            </Text>
+                        </div>
+                        <div className="header-controls">
                             <button 
                                 className={`filter-btn ${show_advanced_view ? 'active' : ''}`}
                                 onClick={() => setShowAdvancedView(!show_advanced_view)}
@@ -949,9 +981,14 @@ const MLTrader = observer(() => {
                 </div>
 
                 {/* Trading Interface */}
-                <div className="trading-interface">
-                    <div className="panel-header">
-                        <Text size="md" weight="bold">{localize('Trading Interface')}</Text>
+                <div className="ml-trader__trading-interface">
+                    <div className="trading-header">
+                        <div className="header-title">
+                            <Text size="md" weight="bold">{localize('Trading Interface')}</Text>
+                            <Text size="xs" color="general">
+                                {localize('Configure and Execute Trades')}
+                            </Text>
+                        </div>
                         <div className="auto-trading-toggle">
                             <button 
                                 className={`toggle-btn ${trading_interface.is_auto_trading ? 'active' : ''}`}
