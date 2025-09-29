@@ -525,212 +525,251 @@ const MLTrader = observer(() => {
     };
 
     /**
-     * Load recommendation to Bot Builder with all parameters set - using Trading Hub loading logic
+     * Load recommendation to Bot Builder using Trading Hub loading logic
      */
     const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
         try {
-            console.log('🤖 Loading recommendation to Bot Builder using Trading Hub logic:', recommendation);
+            console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
 
-            // Switch to Bot Builder tab first
-            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+            // Get symbol display name
+            const displayName = recommendation.displayName || recommendation.symbol;
 
-            // Wait for Bot Builder to be ready
-            await new Promise(resolve => setTimeout(resolve, 800));
+            // Determine contract type based on strategy (map ML Trader actions to contract types)
+            let contractType = 'DIGITOVER';
+            if (recommendation.action === 'RISE') contractType = 'CALL';
+            else if (recommendation.action === 'FALL') contractType = 'PUT';
 
-            // Get workspace reference with multiple fallbacks
-            let workspace = window.Blockly?.derivWorkspace;
-            if (!workspace) {
-                workspace = window.Blockly?.getMainWorkspace();
-            }
-
-            if (!workspace) {
-                console.error('❌ Bot Builder workspace not available');
-                setStatus('❌ Bot Builder not ready. Please try again.');
-                return;
-            }
-
-            console.log('🧹 Clearing workspace using Trading Hub method...');
-
-            // Trading Hub clearing method - more thorough
-            try {
-                // Disable events during clearing
-                window.Blockly.Events.disable();
-                
-                // Clear workspace completely using the same method as Trading Hub
-                workspace.clear();
-                workspace.clearUndo();
-                
-                // Reset workspace state
-                if (workspace.trashcan) {
-                    workspace.trashcan.contents_ = [];
-                }
-                
-                // Re-enable events
-                window.Blockly.Events.enable();
-                
-                console.log('✅ Workspace cleared successfully using Trading Hub method');
-                
-                // Wait for clearing to complete
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-            } catch (clearError) {
-                console.warn('Warning during workspace clear:', clearError);
-                // Re-enable events if error occurred
-                window.Blockly.Events.enable();
-            }
-
-            // Determine contract type based on recommendation action
-            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
-
-            // Get duration in seconds
-            const durationSeconds = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
-
-            // Default stake and martingale multiplier
+            // Default settings
             const defaultStake = 1.0;
-            const martingaleMultiplier = 1; // Set to 1 as requested
+            const defaultDuration = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
+            const defaultDurationUnit = 's'; // seconds
+            const martingaleMultiplier = 1.0; // Default martingale multiplier
 
-            // Generate Bot Builder XML with Martingale strategy
-            const xmlContent = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+            // Map ML Trader recommendation to Trading Hub style trade type categories
+            const getTradeTypeMapping = (action: string) => {
+                switch (action) {
+                    case 'RISE':
+                    case 'FALL':
+                        return {
+                            tradeTypeCategory: 'callput',
+                            tradeTypeList: 'callput',
+                            contractType: action === 'RISE' ? 'CALL' : 'PUT'
+                        };
+                    default:
+                        return {
+                            tradeTypeCategory: 'callput',
+                            tradeTypeList: 'callput',
+                            contractType: 'CALL'
+                        };
+                }
+            };
+
+            const tradeMapping = getTradeTypeMapping(recommendation.action);
+
+            // Generate Bot Builder XML using Trading Hub structure
+            const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
-    <variable id="martingale_stake">martingale_stake</variable>
-    <variable id="current_stake">current_stake</variable>
+    <variable id="Stake">Stake</variable>
+    <variable id="Result_is">Result_is</variable>
+    <variable id="Martingale_Multiplier">Martingale_Multiplier</variable>
   </variables>
 
   <!-- Trade Definition Block -->
-  <block type="trade_definition" id="trade_definition_main" deletable="false" x="40" y="40">
-    <field name="MARKET_LIST">synthetic_index</field>
-    <field name="SUBMARKET_LIST">continuous_indices</field>
-    <field name="SYMBOL_LIST">${recommendation.symbol}</field>
-    <field name="TRADETYPE_LIST">callput</field>
-    <field name="TYPE_LIST">${contractType}</field>
-    <field name="BASIS_LIST">stake</field>
-    <field name="DURATION_TYPE">s</field>
-    <value name="DURATION">
-      <shadow type="math_number">
-        <field name="NUM">${durationSeconds}</field>
-      </shadow>
-    </value>
-    <value name="AMOUNT">
-      <block type="variables_get">
-        <field name="VAR">current_stake</field>
-      </block>
-    </value>
-    <statement name="SUBMARKET">
-      <block type="trade_definition_market">
+  <block type="trade_definition" id="trade_definition_main" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="market_block" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">continuous_indices</field>
+        <field name="SYMBOL_LIST">${recommendation.symbol}</field>
+        <next>
+          <block type="trade_definition_tradetype" id="tradetype_block" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">${tradeMapping.tradeTypeCategory}</field>
+            <field name="TRADETYPE_LIST">${tradeMapping.tradeTypeList}</field>
+            <next>
+              <block type="trade_definition_contracttype" id="contracttype_block" deletable="false" movable="false">
+                <field name="TYPE_LIST">${tradeMapping.contractType}</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="candleinterval_block" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="restart_block" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id="restartonerror_block" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Initialization -->
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="init_print">
+        <value name="TEXT">
+          <shadow type="text" id="init_text">
+            <field name="TEXT">ML Trader Strategy Loading...</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="text_print" id="strategy_print">
+            <value name="TEXT">
+              <shadow type="text" id="strategy_text">
+                <field name="TEXT">${displayName} - ${recommendation.action} (${recommendation.confidence.toFixed(1)}% confidence)</field>
+              </shadow>
+            </value>
+            <next>
+              <block type="variables_set" id="set_stake">
+                <field name="VAR" id="Stake">Stake</field>
+                <value name="VALUE">
+                  <block type="math_number" id="stake_number">
+                    <field name="NUM">${defaultStake}</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="set_martingale">
+                    <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="martingale_number">
+                        <field name="NUM">${martingaleMultiplier}</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+
+    <!-- Trade Options -->
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="trade_options_block">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
+        <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
+        <value name="DURATION">
+          <shadow type="math_number" id="duration_number">
+            <field name="NUM">${defaultDuration}</field>
+          </shadow>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number" id="amount_shadow">
+            <field name="NUM">${defaultStake}</field>
+          </shadow>
+          <block type="variables_get" id="amount_var">
+            <field name="VAR" id="Stake">Stake</field>
+          </block>
+        </value>
       </block>
     </statement>
   </block>
 
-  <!-- Initialize Variables -->
-  <block type="variables_set" x="40" y="250">
-    <field name="VAR">martingale_stake</field>
-    <value name="VALUE">
-      <block type="math_number">
-        <field name="NUM">${defaultStake}</field>
-      </block>
-    </value>
-    <next>
-      <block type="variables_set">
-        <field name="VAR">current_stake</field>
-        <value name="VALUE">
-          <block type="variables_get">
-            <field name="VAR">martingale_stake</field>
-          </block>
-        </value>
-      </block>
-    </next>
-  </block>
-
-  <!-- Before Purchase -->
-  <block type="before_purchase" x="40" y="350">
+  <!-- Purchase Block -->
+  <block type="before_purchase" id="before_purchase_block" deletable="false" x="267" y="544">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="text_print">
-        <value name="TEXT">
-          <block type="text">
-            <field name="TEXT">Starting ${recommendation.action} trade on ${recommendation.displayName} - Confidence: ${recommendation.confidence.toFixed(1)}% - Stake: </field>
-          </block>
+      <block type="notify" id="notify_block">
+        <field name="NOTIFICATION_TYPE">success</field>
+        <field name="NOTIFICATION_SOUND">silent</field>
+        <value name="MESSAGE">
+          <shadow type="text" id="notify_text">
+            <field name="TEXT">ML Trader Strategy Executing...</field>
+          </shadow>
         </value>
         <next>
-          <block type="text_print">
-            <value name="TEXT">
-              <block type="variables_get">
-                <field name="VAR">current_stake</field>
-              </block>
-            </value>
+          <block type="purchase" id="purchase_block">
+            <field name="PURCHASE_LIST">${tradeMapping.contractType}</field>
           </block>
         </next>
       </block>
     </statement>
   </block>
 
-  <!-- After Purchase - Martingale Logic -->
-  <block type="after_purchase" x="40" y="500">
+  <!-- After Purchase Block -->
+  <block type="after_purchase" id="after_purchase_block" x="679" y="293">
     <statement name="AFTERPURCHASE_STACK">
-      <block type="controls_if">
-        <mutation else="1"></mutation>
+      <block type="controls_if" id="result_check">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
         <value name="IF0">
-          <block type="contract_check_result">
+          <block type="contract_check_result" id="check_win">
             <field name="CHECK_RESULT">win</field>
           </block>
         </value>
         <statement name="DO0">
-          <!-- Reset stake on win -->
-          <block type="variables_set">
-            <field name="VAR">current_stake</field>
+          <block type="variables_set" id="reset_stake_win">
+            <field name="VAR" id="Stake">Stake</field>
             <value name="VALUE">
-              <block type="variables_get">
-                <field name="VAR">martingale_stake</field>
+              <block type="math_number" id="win_stake">
+                <field name="NUM">${defaultStake}</field>
               </block>
             </value>
             <next>
-              <block type="text_print">
-                <value name="TEXT">
-                  <block type="text">
-                    <field name="TEXT">✅ Trade WON! Resetting stake to initial amount</field>
+              <block type="variables_set" id="set_result_win">
+                <field name="VAR" id="Result_is">Result_is</field>
+                <value name="VALUE">
+                  <block type="text" id="result_win_text">
+                    <field name="TEXT">Win</field>
                   </block>
                 </value>
+                <next>
+                  <block type="trade_again" id="trade_again_win"></block>
+                </next>
               </block>
             </next>
           </block>
         </statement>
         <statement name="ELSE">
-          <!-- Apply martingale on loss -->
-          <block type="variables_set">
-            <field name="VAR">current_stake</field>
-            <value name="VALUE">
-              <block type="math_arithmetic">
-                <field name="OP">MULTIPLY</field>
-                <value name="A">
-                  <block type="variables_get">
-                    <field name="VAR">current_stake</field>
-                  </block>
-                </value>
-                <value name="B">
-                  <block type="math_number">
-                    <field name="NUM">${martingaleMultiplier}</field>
-                  </block>
-                </value>
+          <block type="controls_if" id="loss_check">
+            <value name="IF0">
+              <block type="contract_check_result" id="check_loss">
+                <field name="CHECK_RESULT">loss</field>
               </block>
             </value>
-            <next>
-              <block type="text_print">
-                <value name="TEXT">
-                  <block type="text">
-                    <field name="TEXT">❌ Trade LOST! Next stake: </field>
+            <statement name="DO0">
+              <block type="variables_set" id="increase_stake">
+                <field name="VAR" id="Stake">Stake</field>
+                <value name="VALUE">
+                  <block type="math_arithmetic" id="martingale_calc">
+                    <field name="OP">MULTIPLY</field>
+                    <value name="A">
+                      <shadow type="math_number" id="current_stake_shadow">
+                        <field name="NUM">1</field>
+                      </shadow>
+                      <block type="variables_get" id="current_stake">
+                        <field name="VAR" id="Stake">Stake</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <shadow type="math_number" id="multiplier_shadow">
+                        <field name="NUM">${martingaleMultiplier}</field>
+                      </shadow>
+                      <block type="variables_get" id="multiplier_var">
+                        <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
+                      </block>
+                    </value>
                   </block>
                 </value>
                 <next>
-                  <block type="text_print">
-                    <value name="TEXT">
-                      <block type="variables_get">
-                        <field name="VAR">current_stake</field>
+                  <block type="variables_set" id="set_result_loss">
+                    <field name="VAR" id="Result_is">Result_is</field>
+                    <value name="VALUE">
+                      <block type="text" id="result_loss_text">
+                        <field name="TEXT">Loss</field>
                       </block>
                     </value>
                   </block>
                 </next>
               </block>
+            </statement>
+            <next>
+              <block type="trade_again" id="trade_again_loss"></block>
             </next>
           </block>
         </statement>
@@ -739,84 +778,73 @@ const MLTrader = observer(() => {
   </block>
 </xml>`;
 
-            // Use Trading Hub loading method with proper timing
-            console.log('🔄 Starting XML loading using Trading Hub method...');
-            
-            // Trading Hub loading sequence
-            try {
-                const { load } = await import('@/external/bot-skeleton');
-                const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+            console.log('📄 Loading ML Trader strategy to Bot Builder...');
 
-                // Verify workspace is still available
-                const currentWorkspace = window.Blockly?.derivWorkspace;
-                if (!currentWorkspace) {
-                    throw new Error('Workspace became unavailable during loading');
-                }
+            // Switch to Bot Builder tab
+            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
 
-                console.log('🔄 Loading XML strategy to Bot Builder...');
-
-                // Use the same loading method as Trading Hub
-                await load({
-                    block_string: xmlContent,
-                    file_name: `ML_${recommendation.displayName}_${recommendation.action}_Strategy`,
-                    workspace: currentWorkspace,
-                    from: save_types.UNSAVED,
-                    drop_event: {},
-                    strategy_id: window.Blockly.utils.idGenerator.genUid(),
-                    showIncompatibleStrategyDialog: false,
-                });
-
-                // Post-loading cleanup like Trading Hub
-                await new Promise(resolve => setTimeout(resolve, 200));
-
-                // Center and organize workspace
-                if (currentWorkspace.scrollCenter) {
-                    currentWorkspace.scrollCenter();
-                }
-                
-                // Clean up workspace layout
-                if (currentWorkspace.cleanUp) {
-                    currentWorkspace.cleanUp();
-                }
-
-                // Update workspace strategy reference
-                currentWorkspace.strategy_to_load = xmlContent;
-                currentWorkspace.current_strategy_id = window.Blockly.utils.idGenerator.genUid();
-
-                setStatus(`✅ Loaded ${recommendation.action} strategy for ${recommendation.displayName} to Bot Builder with Martingale set to ${martingaleMultiplier}`);
-
-                console.log(`✅ Successfully loaded ${recommendation.displayName} ${recommendation.action} strategy to Bot Builder using Trading Hub method`);
-                
-            } catch (loadError) {
-                console.error('❌ Error during Trading Hub style loading:', loadError);
-                
-                // Fallback method similar to Trading Hub fallback
-                console.log('🔄 Attempting fallback loading method...');
+            // Wait for tab switch and load the strategy
+            setTimeout(async () => {
                 try {
-                    const workspace = window.Blockly?.derivWorkspace;
-                    if (workspace) {
-                        // Direct XML loading as fallback
-                        const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
-                        window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
-                        
-                        // Post-loading setup
-                        workspace.scrollCenter();
-                        workspace.strategy_to_load = xmlContent;
-                        
-                        setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
-                        console.log('✅ Fallback loading successful');
+                    // Import bot skeleton functions
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+
+                    // Load to workspace
+                    if (window.Blockly?.derivWorkspace) {
+                        console.log('📦 Loading ML Trader strategy to workspace...');
+
+                        await load({
+                            block_string: botSkeletonXML,
+                            file_name: `MLTrader_${displayName}_${recommendation.action}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+
+                        // Center workspace
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML Trader strategy loaded to workspace');
+
+                        setStatus(`✅ Loaded ${recommendation.action} strategy for ${displayName} to Bot Builder`);
+
                     } else {
-                        throw new Error('Workspace not available for fallback');
+                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+
+                        // Fallback method
+                        setTimeout(() => {
+                            if (window.Blockly?.derivWorkspace) {
+                                window.Blockly.derivWorkspace.clear();
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                                window.Blockly.derivWorkspace.scrollCenter();
+                                console.log('✅ ML Trader strategy loaded using fallback method');
+                                setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
+                            }
+                        }, 500);
                     }
-                } catch (fallbackError) {
-                    console.error('❌ Fallback loading also failed:', fallbackError);
-                    setStatus(`❌ Failed to load strategy: ${fallbackError.message}`);
+                } catch (loadError) {
+                    console.error('❌ Error loading ML Trader strategy:', loadError);
+
+                    // Final fallback
+                    if (window.Blockly?.derivWorkspace) {
+                        window.Blockly.derivWorkspace.clear();
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML Trader strategy loaded using final fallback');
+                        setStatus(`✅ Loaded ${recommendation.action} strategy using final fallback`);
+                    }
                 }
-            }
+            }, 300);
+
+            console.log(`✅ Loaded ${displayName} - ${recommendation.action} strategy to Bot Builder`);
 
         } catch (error) {
-            console.error('❌ Error in loadToBotBuilder:', error);
-            setStatus(`❌ Error: ${error}`);
+            console.error('Error loading recommendation to Bot Builder:', error);
+            setStatus(`❌ Error loading strategy: ${error}`);
         }
     }, [store.dashboard]);
 
