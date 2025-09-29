@@ -525,33 +525,58 @@ const MLTrader = observer(() => {
     };
 
     /**
-     * Load recommendation to Bot Builder with all parameters set
+     * Load recommendation to Bot Builder with all parameters set - using Trading Hub loading logic
      */
     const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
         try {
-            console.log('🤖 Loading recommendation to Bot Builder:', recommendation);
+            console.log('🤖 Loading recommendation to Bot Builder using Trading Hub logic:', recommendation);
 
-            // Switch to Bot Builder tab
+            // Switch to Bot Builder tab first
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
 
             // Wait for Bot Builder to be ready
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 800));
 
-            // Clear the workspace first
-            const workspace = window.Blockly?.derivWorkspace || window.Blockly?.getMainWorkspace();
-            if (workspace) {
-                console.log('🧹 Clearing workspace before loading new strategy...');
-                try {
-                    // Clear workspace completely
-                    workspace.clear();
-                    workspace.clearUndo();
-                    console.log('✅ Workspace cleared successfully');
-                } catch (clearError) {
-                    console.warn('Warning during workspace clear:', clearError);
+            // Get workspace reference with multiple fallbacks
+            let workspace = window.Blockly?.derivWorkspace;
+            if (!workspace) {
+                workspace = window.Blockly?.getMainWorkspace();
+            }
+
+            if (!workspace) {
+                console.error('❌ Bot Builder workspace not available');
+                setStatus('❌ Bot Builder not ready. Please try again.');
+                return;
+            }
+
+            console.log('🧹 Clearing workspace using Trading Hub method...');
+
+            // Trading Hub clearing method - more thorough
+            try {
+                // Disable events during clearing
+                window.Blockly.Events.disable();
+                
+                // Clear workspace completely using the same method as Trading Hub
+                workspace.clear();
+                workspace.clearUndo();
+                
+                // Reset workspace state
+                if (workspace.trashcan) {
+                    workspace.trashcan.contents_ = [];
                 }
                 
-                // Wait a moment after clearing
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Re-enable events
+                window.Blockly.Events.enable();
+                
+                console.log('✅ Workspace cleared successfully using Trading Hub method');
+                
+                // Wait for clearing to complete
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+            } catch (clearError) {
+                console.warn('Warning during workspace clear:', clearError);
+                // Re-enable events if error occurred
+                window.Blockly.Events.enable();
             }
 
             // Determine contract type based on recommendation action
@@ -714,40 +739,80 @@ const MLTrader = observer(() => {
   </block>
 </xml>`;
 
-            // Wait for Bot Builder to be available
-            setTimeout(async () => {
-                try {
-                    const { load } = await import('@/external/bot-skeleton');
-                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+            // Use Trading Hub loading method with proper timing
+            console.log('🔄 Starting XML loading using Trading Hub method...');
+            
+            // Trading Hub loading sequence
+            try {
+                const { load } = await import('@/external/bot-skeleton');
+                const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
 
-                    if (window.Blockly?.derivWorkspace) {
-                        console.log('🔄 Loading XML to Bot Builder...');
-
-                        await load({
-                            block_string: xmlContent,
-                            file_name: `ML_${recommendation.displayName}_${recommendation.action}_Strategy`,
-                            workspace: window.Blockly.derivWorkspace,
-                            from: save_types.UNSAVED,
-                            drop_event: null,
-                            strategy_id: null,
-                            showIncompatibleStrategyDialog: null,
-                        });
-
-                        // Center the workspace
-                        window.Blockly.derivWorkspace.scrollCenter();
-
-                        setStatus(`✅ Loaded ${recommendation.action} strategy for ${recommendation.displayName} to Bot Builder with Martingale set to ${martingaleMultiplier}`);
-
-                        console.log(`✅ Successfully loaded ${recommendation.displayName} ${recommendation.action} strategy to Bot Builder`);
-                    } else {
-                        console.error('❌ Bot Builder workspace not available');
-                        setStatus('❌ Bot Builder not ready. Please try again.');
-                    }
-                } catch (error) {
-                    console.error('❌ Error loading to Bot Builder:', error);
-                    setStatus(`❌ Failed to load strategy: ${error}`);
+                // Verify workspace is still available
+                const currentWorkspace = window.Blockly?.derivWorkspace;
+                if (!currentWorkspace) {
+                    throw new Error('Workspace became unavailable during loading');
                 }
-            }, 1000);
+
+                console.log('🔄 Loading XML strategy to Bot Builder...');
+
+                // Use the same loading method as Trading Hub
+                await load({
+                    block_string: xmlContent,
+                    file_name: `ML_${recommendation.displayName}_${recommendation.action}_Strategy`,
+                    workspace: currentWorkspace,
+                    from: save_types.UNSAVED,
+                    drop_event: {},
+                    strategy_id: window.Blockly.utils.idGenerator.genUid(),
+                    showIncompatibleStrategyDialog: false,
+                });
+
+                // Post-loading cleanup like Trading Hub
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                // Center and organize workspace
+                if (currentWorkspace.scrollCenter) {
+                    currentWorkspace.scrollCenter();
+                }
+                
+                // Clean up workspace layout
+                if (currentWorkspace.cleanUp) {
+                    currentWorkspace.cleanUp();
+                }
+
+                // Update workspace strategy reference
+                currentWorkspace.strategy_to_load = xmlContent;
+                currentWorkspace.current_strategy_id = window.Blockly.utils.idGenerator.genUid();
+
+                setStatus(`✅ Loaded ${recommendation.action} strategy for ${recommendation.displayName} to Bot Builder with Martingale set to ${martingaleMultiplier}`);
+
+                console.log(`✅ Successfully loaded ${recommendation.displayName} ${recommendation.action} strategy to Bot Builder using Trading Hub method`);
+                
+            } catch (loadError) {
+                console.error('❌ Error during Trading Hub style loading:', loadError);
+                
+                // Fallback method similar to Trading Hub fallback
+                console.log('🔄 Attempting fallback loading method...');
+                try {
+                    const workspace = window.Blockly?.derivWorkspace;
+                    if (workspace) {
+                        // Direct XML loading as fallback
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
+                        
+                        // Post-loading setup
+                        workspace.scrollCenter();
+                        workspace.strategy_to_load = xmlContent;
+                        
+                        setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
+                        console.log('✅ Fallback loading successful');
+                    } else {
+                        throw new Error('Workspace not available for fallback');
+                    }
+                } catch (fallbackError) {
+                    console.error('❌ Fallback loading also failed:', fallbackError);
+                    setStatus(`❌ Failed to load strategy: ${fallbackError.message}`);
+                }
+            }
 
         } catch (error) {
             console.error('❌ Error in loadToBotBuilder:', error);
