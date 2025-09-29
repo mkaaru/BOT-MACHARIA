@@ -862,7 +862,7 @@ const MLTrader = observer(() => {
 
                 <div className="header-stats">
                     {is_authorized && (
-                        <div className="account-info">
+                        <div className="account-info desktop-only">
                             <Text size="sm" weight="bold">
                                 {localize('Balance: {{balance}} {{currency}}', { 
                                     balance: account_balance.toFixed(2), 
@@ -885,7 +885,7 @@ const MLTrader = observer(() => {
                     </div>
 
                     {scanner_status && (
-                        <div className="scanner-stats">
+                        <div className="scanner-stats desktop-only">
                             <div className="stat-item">
                                 <Text size="xs" color="general">{localize('Symbols')}</Text>
                                 <Text size="sm" weight="bold">{scanner_status.symbolsTracked}</Text>
