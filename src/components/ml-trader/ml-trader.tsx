@@ -145,12 +145,16 @@ const MLTrader = observer(() => {
      */
     const initializeTickStreams = useCallback(async () => {
         try {
+            console.log('🔄 Initializing tick streams for ML Trader...');
+            
             // Subscribe to all volatility symbols
             await tickStreamManager.subscribeToAllVolatilities();
 
             // Add tick callbacks to feed the scanner
             DERIV_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
                 tickStreamManager.addTickCallback(symbolInfo.symbol, (tick) => {
+                    console.log(`📊 ML Trader received tick: ${tick.symbol} = ${tick.quote.toFixed(5)}`);
+                    
                     // Feed tick to volatility scanner
                     derivVolatilityScanner.processTick({
                         symbol: tick.symbol,
@@ -173,14 +177,18 @@ const MLTrader = observer(() => {
      */
     const initializeVolatilityScanner = useCallback(async () => {
         try {
+            console.log('🔄 Initializing volatility scanner...');
+            
             // Subscribe to scanner status updates
             const statusUnsubscribe = derivVolatilityScanner.onStatusChange((status) => {
+                console.log('📊 Scanner status update:', status);
                 setScannerStatus(status);
                 setScanProgress((status.recommendationsCount / DERIV_VOLATILITY_SYMBOLS.length) * 100);
             });
 
             // Subscribe to recommendation updates
             const recommendationsUnsubscribe = derivVolatilityScanner.onRecommendationChange((recs) => {
+                console.log(`🎯 New recommendations: ${recs.length} opportunities found`);
                 setRecommendations(recs);
                 updateSymbolAnalyses();
 
@@ -190,15 +198,24 @@ const MLTrader = observer(() => {
                 }
             });
 
-            // Start periodic scanning
-            setInterval(() => {
-                if (is_scanner_active) {
-                    derivVolatilityScanner.performFullScan();
-                }
-            }, 15000); // Scan every 15 seconds
+            // Start periodic scanning after a delay to allow data to accumulate
+            setTimeout(() => {
+                const scanInterval = setInterval(() => {
+                    if (is_scanner_active) {
+                        console.log('🔍 Performing periodic scan...');
+                        derivVolatilityScanner.performFullScan();
+                    }
+                }, 30000); // Scan every 30 seconds
 
-            // Initial scan
-            await derivVolatilityScanner.performFullScan();
+                // Store interval for cleanup
+                return () => clearInterval(scanInterval);
+            }, 60000); // Wait 1 minute before starting periodic scans
+
+            // Initial scan after 2 minutes to allow sufficient data
+            setTimeout(async () => {
+                console.log('🚀 Performing initial scanner scan...');
+                await derivVolatilityScanner.performFullScan();
+            }, 120000);
 
             console.log('✅ Volatility scanner initialized');
 
