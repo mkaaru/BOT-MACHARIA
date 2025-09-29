@@ -1,0 +1,94 @@
+The key code is in the Trading Hub Display component. Here's the loadToBotBuilder function that handles loading recommendations to the Bot Builder:
+
+From src/components/trading-hub/trading-hub-display.tsx:
+
+// Load recommendation directly to Bot Builder (similar to ML Trader)
+const loadToBotBuilder = useCallback(async (recommendation: TradeRecommendation) => {
+    try {
+        console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
+        // Get symbol display name
+        const displayName = symbolMap[recommendation.symbol] || recommendation.symbol;
+        // Determine contract type based on strategy
+        let contractType = 'DIGITOVER';
+        if (recommendation.strategy === 'under') contractType = 'DIGITUNDER';
+        else if (recommendation.strategy === 'even') contractType = 'DIGITEVEN';
+        else if (recommendation.strategy === 'odd') contractType = 'DIGITODD';
+        else if (recommendation.strategy === 'matches') contractType = 'DIGITMATCH';
+        else if (recommendation.strategy === 'differs') contractType = 'DIGITDIFF';
+        // Default settings
+        const defaultStake = 0.5;
+        const defaultDuration = 1;
+        const defaultDurationUnit = 't'; // ticks
+        const barrier = recommendation.barrier;
+        let prediction = null;
+        if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+            prediction = parseInt(recommendation.barrier || '5');
+        } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
+            prediction = parseInt(recommendation.barrier || '5');
+        }
+        // Generate Bot Builder XML
+        const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="Stake">Stake</variable>
+    <variable id="Result_is">Result_is</variable>
+    <variable id="Martingale_Multiplier">Martingale_Multiplier</variable>
+  </variables>
+  <!-- Trade Definition Block -->
+  <block type="trade_definition" id="trade_definition_main" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="market_block" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">continuous_indices</field>
+        <field name="SYMBOL_LIST">${recommendation.symbol}</field>
+        <!-- ... rest of XML structure ... -->
+      </block>
+    </statement>
+  </block>
+</xml>`;
+        console.log('📄 Loading Trading Hub strategy to Bot Builder...');
+        // Switch to Bot Builder tab
+        store.dashboard.setActiveTab(1);
+        // Wait for tab switch and load the strategy
+        setTimeout(async () => {
+            try {
+                // Import bot skeleton functions
+                const { load } = await import('@/external/bot-skeleton');
+                const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+                // Load to workspace
+                if (window.Blockly?.derivWorkspace) {
+                    console.log('📦 Loading Trading Hub strategy to workspace...');
+                    await load({
+                        block_string: botSkeletonXML,
+                        file_name: `TradingHub_${displayName}_${recommendation.strategy.toUpperCase()}_${Date.now()}`,
+                        workspace: window.Blockly.derivWorkspace,
+                        from: save_types.UNSAVED,
+                        drop_event: null,
+                        strategy_id: null,
+                        showIncompatibleStrategyDialog: null,
+                    });
+                    // Center workspace
+                    window.Blockly.derivWorkspace.scrollCenter();
+                    console.log('✅ Trading Hub strategy loaded to workspace');
+                } else {
+                    console.warn('⚠️ Blockly workspace not ready, using fallback method');
+                    // Fallback method implementation...
+                }
+            } catch (loadError) {
+                console.error('❌ Error loading Trading Hub strategy:', loadError);
+                // Fallback implementation...
+            }
+        }, 300);
+    } catch (error) {
+        console.error('Error loading recommendation to Bot Builder:', error);
+    }
+}, [store.dashboard]);
+The key steps this code follows are:
+
+Tab Switching: store.dashboard.setActiveTab(1) - Switches to Bot Builder tab
+XML Generation: Creates a complete Bot Builder XML strategy based on the recommendation
+Import Bot Skeleton: Imports the load function from @/external/bot-skeleton
+Load to Workspace: Uses the load function to load the XML into the Blockly workspace
+Workspace Management: Centers the workspace and handles cleanup
+The load function from the bot skeleton is the core utility that handles loading XML strategies into the Bot Builder workspace. This is the same loading mechanism used throughout the application for loading strategies from various sources (files, quick strategies, etc.).
+
+The Bot Builder button in your Trading Hub interface calls this loadToBotBuilder function when clicked, which generates the appropriate XML for the trading strategy and loads it into the Bot Builder workspace.
