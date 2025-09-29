@@ -689,7 +689,8 @@
             overflow-y: auto;
             padding: 8px;
 
-            .recommendation-card.beautiful {
+            .recommendation-card.beautiful,
+            .recommendation-card.beautiful-card {
                 position: relative;
                 background: linear-gradient(145deg, var(--general-section-1) 0%, rgba(var(--brand-coral-rgb), 0.05) 100%);
                 border: 2px solid transparent;
@@ -1020,7 +1021,8 @@
                 grid-template-columns: 1fr;
                 gap: 12px;
 
-                .recommendation-card.beautiful {
+                .recommendation-card.beautiful,
+                .recommendation-card.beautiful-card {
                     padding: 16px;
 
                     .rec-header {

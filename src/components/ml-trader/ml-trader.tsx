@@ -812,136 +812,138 @@ const MLTrader = observer(() => {
                                 </div>
                             </div>
                         ) : (
-                            recommendations.slice(0, 6).map((rec, index) => (
-                                <div 
-                                    key={rec.symbol}
-                                    className={`recommendation-card beautiful ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
-                                    onClick={() => applyRecommendation(rec)}
-                                >
-                                    <div className="card-gradient-overlay" />
-                                    
-                                    <div className="rec-header">
-                                        <div className="symbol-info">
-                                            <div className="symbol-badge">
-                                                <Text size="xs" weight="bold" color="prominent">
-                                                    {rec.displayName}
-                                                </Text>
-                                            </div>
-                                            <div className="rank-badge">
-                                                <Text size="xxs" color="general">#{rec.rank}</Text>
-                                            </div>
-                                        </div>
+                            <div className="beautiful-cards-container">
+                                {recommendations.slice(0, 6).map((rec, index) => (
+                                    <div 
+                                        key={`${rec.symbol}-${index}`}
+                                        className={`recommendation-card beautiful-card ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
+                                        onClick={() => applyRecommendation(rec)}
+                                    >
+                                        <div className="card-gradient-overlay" />
                                         
-                                        <div className="action-section">
-                                            <div className={`action-badge ${rec.action.toLowerCase()}`}>
-                                                <div className={`action-icon ${rec.action.toLowerCase()}`}>
-                                                    {rec.action === 'RISE' ? '📈' : '📉'}
+                                        <div className="rec-header">
+                                            <div className="symbol-info">
+                                                <div className="symbol-badge">
+                                                    <Text size="xs" weight="bold" color="prominent">
+                                                        {rec.displayName}
+                                                    </Text>
                                                 </div>
-                                                <Text size="xs" weight="bold">
-                                                    {rec.action}
-                                                </Text>
+                                                <div className="rank-badge">
+                                                    <Text size="xxs" color="general">#{rec.rank}</Text>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="confidence-section">
-                                        <div className="confidence-circle">
-                                            <div 
-                                                className="confidence-fill" 
-                                                style={{ 
-                                                    background: `conic-gradient(${getConfidenceColor(rec.confidence)} ${rec.confidence * 3.6}deg, #e0e0e0 0deg)` 
-                                                }}
-                                            >
-                                                <div className="confidence-inner">
-                                                    <Text size="sm" weight="bold" color="prominent">
-                                                        {rec.confidence.toFixed(0)}%
+                                            
+                                            <div className="action-section">
+                                                <div className={`action-badge ${rec.action.toLowerCase()}`}>
+                                                    <div className={`action-icon ${rec.action.toLowerCase()}`}>
+                                                        {rec.action === 'RISE' ? '📈' : '📉'}
+                                                    </div>
+                                                    <Text size="xs" weight="bold">
+                                                        {rec.action}
                                                     </Text>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="confidence-label">
-                                            <Text size="xs" color="general">{localize('Confidence')}</Text>
-                                            <Text size="xs" weight="bold">
-                                                {formatConfidence(rec.confidence)}
-                                            </Text>
-                                        </div>
-                                    </div>
 
-                                    <div className="rec-metrics">
-                                        <div className="metric-item">
-                                            <div className="metric-icon">⏱️</div>
-                                            <div className="metric-content">
-                                                <Text size="xs" color="general">{localize('Duration')}</Text>
-                                                <Text size="sm" weight="bold">{rec.duration}</Text>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="metric-item">
-                                            <div className="metric-icon">⚡</div>
-                                            <div className="metric-content">
-                                                <Text size="xs" color="general">{localize('Momentum')}</Text>
-                                                <Text size="sm" weight="bold">{rec.momentumScore.toFixed(0)}%</Text>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="metric-item">
-                                            <div className="metric-icon">🎯</div>
-                                            <div className="metric-content">
-                                                <Text size="xs" color="general">{localize('Alignment')}</Text>
-                                                <Text size="sm" weight="bold">{rec.trendAlignment.toFixed(0)}%</Text>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="card-actions">
-                                        <button 
-                                            className="action-btn load-to-bot"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                loadToBotBuilder(rec);
-                                            }}
-                                        >
-                                            <span className="btn-icon">🤖</span>
-                                            <Text size="xs" weight="bold">{localize('Load to Bot Builder')}</Text>
-                                        </button>
-                                        
-                                        <button 
-                                            className="action-btn apply-settings"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                applyRecommendation(rec);
-                                            }}
-                                        >
-                                            <span className="btn-icon">⚙️</span>
-                                            <Text size="xs" weight="bold">{localize('Apply Settings')}</Text>
-                                        </button>
-                                    </div>
-
-                                    {show_advanced_view && (
-                                        <div className="rec-advanced">
-                                            <div className="advanced-reason">
-                                                <Text size="xs" color="general">{rec.reason}</Text>
-                                            </div>
-                                            <div className="advanced-metrics">
-                                                <div className="adv-metric">
-                                                    <span className="adv-label">Risk:</span>
-                                                    <span className={`adv-value risk-${rec.urgency.toLowerCase()}`}>
-                                                        {rec.urgency}
-                                                    </span>
+                                        <div className="confidence-section">
+                                            <div className="confidence-circle">
+                                                <div 
+                                                    className="confidence-fill" 
+                                                    style={{ 
+                                                        background: `conic-gradient(${getConfidenceColor(rec.confidence)} ${rec.confidence * 3.6}deg, #e0e0e0 0deg)` 
+                                                    }}
+                                                >
+                                                    <div className="confidence-inner">
+                                                        <Text size="sm" weight="bold" color="prominent">
+                                                            {rec.confidence.toFixed(0)}%
+                                                        </Text>
+                                                    </div>
                                                 </div>
-                                                <div className="adv-metric">
-                                                    <span className="adv-label">R/R:</span>
-                                                    <span className="adv-value">{rec.riskReward.toFixed(2)}</span>
+                                            </div>
+                                            <div className="confidence-label">
+                                                <Text size="xs" color="general">{localize('Confidence')}</Text>
+                                                <Text size="xs" weight="bold">
+                                                    {formatConfidence(rec.confidence)}
+                                                </Text>
+                                            </div>
+                                        </div>
+
+                                        <div className="rec-metrics">
+                                            <div className="metric-item">
+                                                <div className="metric-icon">⏱️</div>
+                                                <div className="metric-content">
+                                                    <Text size="xs" color="general">{localize('Duration')}</Text>
+                                                    <Text size="sm" weight="bold">{rec.duration}</Text>
                                                 </div>
-                                                <div className="adv-metric">
-                                                    <span className="adv-label">Payout:</span>
-                                                    <span className="adv-value">{(rec.expectedPayout * 100).toFixed(0)}%</span>
+                                            </div>
+                                            
+                                            <div className="metric-item">
+                                                <div className="metric-icon">⚡</div>
+                                                <div className="metric-content">
+                                                    <Text size="xs" color="general">{localize('Momentum')}</Text>
+                                                    <Text size="sm" weight="bold">{rec.momentumScore.toFixed(0)}%</Text>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="metric-item">
+                                                <div className="metric-icon">🎯</div>
+                                                <div className="metric-content">
+                                                    <Text size="xs" color="general">{localize('Alignment')}</Text>
+                                                    <Text size="sm" weight="bold">{rec.trendAlignment.toFixed(0)}%</Text>
                                                 </div>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))
+
+                                        <div className="card-actions">
+                                            <button 
+                                                className="action-btn load-to-bot"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    loadToBotBuilder(rec);
+                                                }}
+                                            >
+                                                <span className="btn-icon">🤖</span>
+                                                <Text size="xs" weight="bold">{localize('Load to Bot Builder')}</Text>
+                                            </button>
+                                            
+                                            <button 
+                                                className="action-btn apply-settings"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    applyRecommendation(rec);
+                                                }}
+                                            >
+                                                <span className="btn-icon">⚙️</span>
+                                                <Text size="xs" weight="bold">{localize('Apply Settings')}</Text>
+                                            </button>
+                                        </div>
+
+                                        {show_advanced_view && (
+                                            <div className="rec-advanced">
+                                                <div className="advanced-reason">
+                                                    <Text size="xs" color="general">{rec.reason}</Text>
+                                                </div>
+                                                <div className="advanced-metrics">
+                                                    <div className="adv-metric">
+                                                        <span className="adv-label">Risk:</span>
+                                                        <span className={`adv-value risk-${rec.urgency.toLowerCase()}`}>
+                                                            {rec.urgency}
+                                                        </span>
+                                                    </div>
+                                                    <div className="adv-metric">
+                                                        <span className="adv-label">R/R:</span>
+                                                        <span className="adv-value">{rec.riskReward.toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="adv-metric">
+                                                        <span className="adv-label">Payout:</span>
+                                                        <span className="adv-value">{(rec.expectedPayout * 100).toFixed(0)}%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </div>
                 </div>
