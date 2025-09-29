@@ -1,0 +1,136 @@
+/**
+ * Professional Deriv Market Scanner for Rise/Fall Trading
+ * Analyzes all volatility indices with momentum-weighted multi-timeframe analysis
+ */
+
+export interface DerivTickData {
+    symbol: string;
+    quote: number;
+    epoch: number;
+}
+
+export type TimeframeDirection = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+
+export interface MomentumAnalysis {
+    raw: number;              // Raw momentum value
+    ema: number;              // Smoothed momentum
+    acceleration: number;     // Rate of change of momentum
+    strength: number;         // 0-100 strength score
+    direction: 'INCREASING' | 'DECREASING' | 'FLAT';
+    score: number;            // Weighted momentum score (0-100)
+}
+
+export interface MultiTimeframeAnalysis {
+    m1: { direction: TimeframeDirection; roc: number; weight: number };  // 1-minute
+    m2: { direction: TimeframeDirection; roc: number; weight: number };  // 2-minute
+    m3: { direction: TimeframeDirection; roc: number; weight: number };  // 3-minute
+    m5: { direction: TimeframeDirection; roc: number; weight: number };  // 5-minute (highest weight)
+    alignment: number;        // 0-100 alignment score
+    consensus: TimeframeDirection;
+    weightedScore: number;    // Momentum-weighted directional score
+}
+
+export interface VolatilityAnalysis {
+    symbol: string;
+    displayName: string;
+    currentPrice: number;
+    lastUpdate: Date;
+    
+    // Multi-timeframe trend analysis
+    timeframes: MultiTimeframeAnalysis;
+    
+    // Momentum metrics (heavily weighted)
+    momentum: MomentumAnalysis;
+    
+    // Trading recommendation
+    recommendation: 'STRONG_RISE' | 'RISE' | 'STRONG_FALL' | 'FALL' | 'NO_TRADE';
+    confidence: number;       // 0-100
+    contractDuration: '1m' | '2m' | '3m' | '5m';
+    
+    // Risk assessment
+    volatility: number;       // Market volatility score
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+    
+    // Entry criteria
+    isTradeReady: boolean;
+    entryScore: number;       // Combined score (0-100)
+    entryReason: string;
+    
+    // Market state
+    trendStrength: number;    // 0-100
+    marketPhase: 'TRENDING_UP' | 'TRENDING_DOWN' | 'RANGING' | 'VOLATILE';
+    
+    // Tick statistics
+    tickCount: number;
+    dataQuality: 'EXCELLENT' | 'GOOD' | 'POOR';
+}
+
+export interface ScannerRecommendation {
+    rank: number;
+    symbol: string;
+    displayName: string;
+    action: 'RISE' | 'FALL';
+    confidence: number;
+    duration: '1m' | '2m' | '3m' | '5m';
+    entryPrice: number;
+    momentumScore: number;
+    trendAlignment: number;
+    reason: string;
+    urgency: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export class DerivVolatilityScanner {
+    // Track all Deriv volatility indices
+    private readonly VOLATILITY_SYMBOLS = [
+        { symbol: '1HZ10V', name: 'Volatility 10 (1s) Index', baseVolatility: 10 },
+        { symbol: '1HZ25V', name: 'Volatility 25 (1s) Index', baseVolatility: 25 },
+        { symbol: '1HZ50V', name: 'Volatility 50 (1s) Index', baseVolatility: 50 },
+        { symbol: '1HZ75V', name: 'Volatility 75 (1s) Index', baseVolatility: 75 },
+        { symbol: '1HZ100V', name: 'Volatility 100 (1s) Index', baseVolatility: 100 },
+        { symbol: 'R_10', name: 'Volatility 10 Index', baseVolatility: 10 },
+        { symbol: 'R_25', name: 'Volatility 25 Index', baseVolatility: 25 },
+        { symbol: 'R_50', name: 'Volatility 50 Index', baseVolatility: 50 },
+        { symbol: 'R_75', name: 'Volatility 75 Index', baseVolatility: 75 },
+        { symbol: 'R_100', name: 'Volatility 100 Index', baseVolatility: 100 }
+    ];
+
+    // Price and momentum storage
+    private priceData: Map<string, number[]> = new Map();
+    private momentumData: Map<string, number[]> = new Map();
+    private tickTimestamps: Map<string, number[]> = new Map();
+    
+    // Analysis cache
+    private analysisCache: Map<string, VolatilityAnalysis> = new Map();
+    private lastScanTime: number = 0;
+    
+    // Timeframe configurations (in ticks)
+    private readonly TIMEFRAME_CONFIG = {
+        M1: { ticks: 60, weight: 0.15 },   // 1 minute (~60 ticks)
+        M2: { ticks: 120, weight: 0.20 },  // 2 minutes (~120 ticks)
+        M3: { ticks: 180, weight: 0.25 },  // 3 minutes (~180 ticks)
+        M5: { ticks: 300, weight: 0.40 }   // 5 minutes (~300 ticks) - HIGHEST WEIGHT
+    };
+    
+    // Momentum calculation periods
+    private readonly MOMENTUM_FAST = 10;      // Fast momentum (10 ticks)
+    private readonly MOMENTUM_MEDIUM = 30;    // Medium momentum (30 ticks)
+    private readonly MOMENTUM_SLOW = 60;      // Slow momentum (60 ticks)
+    private readonly MOMENTUM_EMA_PERIOD = 20;
+    
+    // Trading thresholds
+    private readonly MIN_CONFIDENCE = 70;
+    private readonly MIN_MOMENTUM_STRENGTH = 55;
+    private readonly MIN_ALIGNMENT_SCORE = 65;
+    private readonly MIN_TICKS_REQUIRED = 350; // Need at least 5+ minutes of data
+    
+    // Momentum weighting (70% momentum, 30% trend direction)
+    private readonly MOMENTUM_WEIGHT = 0.70;
+    private readonly DIRECTION_WEIGHT = 0.30;
+    
+    private readonly MAX_HISTORY = 500; // ~8 minutes of tick data
+    
+    constructor() {
+        console.log('🚀 Deriv Volatility Scanner Initialized');
+        console.log('📊 Tracking:', this.VOLATILITY_SYMBOLS.length, 'volatility indices');
+        console.log('⚡ Momentum Weight: 70% | Direction Weight: 30%');
+        console.log('🎯 Focus:

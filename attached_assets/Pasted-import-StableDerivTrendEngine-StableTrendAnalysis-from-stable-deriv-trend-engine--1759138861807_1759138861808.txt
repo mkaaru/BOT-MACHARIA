@@ -1,0 +1,634 @@
+import { StableDerivTrendEngine, StableTrendAnalysis } from './stable-deriv-trend-engine';
+
+/**
+ * Advanced Multi-Timeframe Volatility Scanner for Deriv
+ * Focuses on momentum cascade from 5-minute trends down to tick-level execution
+ */
+
+export interface VolatilitySymbol {
+    symbol: string;
+    displayName: string;
+    tickFrequency: number; // average ticks per minute
+    volatilityType: 'V10' | 'V25' | 'V50' | 'V75' | 'V100';
+}
+
+export interface MomentumCascade {
+    timeframe: string;
+    direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    strength: number; // 0-100
+    roc: number;
+    confidence: number;
+}
+
+export interface MultiTimeframeAnalysis {
+    symbol: string;
+    timestamp: number;
+    price: number;
+    
+    // Cascade from 5min -> 3min -> 1min -> 30sec
+    cascade: {
+        fiveMinute: MomentumCascade;
+        threeMinute: MomentumCascade;
+        oneMinute: MomentumCascade;
+        thirtySecond: MomentumCascade;
+    };
+    
+    // Overall momentum score (weighted by timeframe)
+    momentumScore: number; // -100 to +100
+    
+    // Alignment across timeframes
+    alignment: {
+        score: number; // 0-100
+        description: string;
+        allAligned: boolean;
+    };
+    
+    // Trading recommendation
+    recommendation: {
+        action: 'RISE' | 'FALL' | 'WAIT';
+        confidence: number;
+        timeframe: '1m' | '3m' | '5m';
+        reasoning: string[];
+        entryPrice: number;
+        targetDuration: number; // seconds
+    };
+    
+    // Risk assessment
+    risk: {
+        level: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME';
+        factors: string[];
+        volatilityIndex: number;
+    };
+}
+
+export interface ScannerResult {
+    scanTime: Date;
+    symbolsScanned: number;
+    opportunities: MultiTimeframeAnalysis[];
+    topPicks: {
+        mostBullish: MultiTimeframeAnalysis | null;
+        mostBearish: MultiTimeframeAnalysis | null;
+        highestConfidence: MultiTimeframeAnalysis | null;
+    };
+}
+
+export class DerivVolatilityScanner {
+    private symbols: VolatilitySymbol[] = [
+        { symbol: '1HZ10V', displayName: 'Volatility 10 Index', tickFrequency: 2, volatilityType: 'V10' },
+        { symbol: '1HZ25V', displayName: 'Volatility 25 Index', tickFrequency: 2, volatilityType: 'V25' },
+        { symbol: '1HZ50V', displayName: 'Volatility 50 Index', tickFrequency: 2, volatilityType: 'V50' },
+        { symbol: '1HZ75V', displayName: 'Volatility 75 Index', tickFrequency: 2, volatilityType: 'V75' },
+        { symbol: '1HZ100V', displayName: 'Volatility 100 Index', tickFrequency: 2, volatilityType: 'V100' },
+    ];
+
+    private trendEngines: Map<string, StableDerivTrendEngine> = new Map();
+    private tickData: Map<string, Array<{ price: number; timestamp: number }>> = new Map();
+    
+    // Timeframe windows (in ticks, approximate)
+    private readonly TIMEFRAMES = {
+        FIVE_MINUTE: 600,    // ~5 minutes of ticks
+        THREE_MINUTE: 360,   // ~3 minutes
+        ONE_MINUTE: 120,     // ~1 minute
+        THIRTY_SECOND: 60    // ~30 seconds
+    };
+
+    // Momentum weighting (higher timeframes get more weight)
+    private readonly MOMENTUM_WEIGHTS = {
+        FIVE_MINUTE: 0.40,   // 40% weight
+        THREE_MINUTE: 0.30,  // 30% weight
+        ONE_MINUTE: 0.20,    // 20% weight
+        THIRTY_SECOND: 0.10  // 10% weight
+    };
+
+    constructor() {
+        // Initialize trend engines for each symbol
+        this.symbols.forEach(sym => {
+            this.trendEngines.set(sym.symbol, new StableDerivTrendEngine());
+            this.tickData.set(sym.symbol, []);
+        });
+
+        console.log('📊 Deriv Volatility Scanner Initialized');
+        console.log(`🎯 Tracking ${this.symbols.length} volatility indices`);
+        console.log('⏱️  Timeframes: 5m → 3m → 1m → 30s (momentum cascade)');
+    }
+
+    /**
+     * Process incoming tick from Deriv stream
+     */
+    processTick(tick: { symbol: string; quote: number; epoch: number }): void {
+        const { symbol, quote, epoch } = tick;
+        
+        // Store tick data
+        const data = this.tickData.get(symbol);
+        if (data) {
+            data.push({ price: quote, timestamp: epoch * 1000 });
+            
+            // Maintain reasonable history (last 30 minutes)
+            const cutoff = epoch * 1000 - (30 * 60 * 1000);
+            while (data.length > 0 && data[0].timestamp < cutoff) {
+                data.shift();
+            }
+        }
+
+        // Process through trend engine
+        const engine = this.trendEngines.get(symbol);
+        if (engine) {
+            engine.processTick(tick);
+        }
+    }
+
+    /**
+     * Scan all volatility indices and return opportunities
+     */
+    async scanAllVolatilities(): Promise<ScannerResult> {
+        const opportunities: MultiTimeframeAnalysis[] = [];
+
+        for (const sym of this.symbols) {
+            const analysis = this.analyzeSymbol(sym);
+            if (analysis && analysis.recommendation.action !== 'WAIT') {
+                opportunities.push(analysis);
+            }
+        }
+
+        // Sort by confidence
+        opportunities.sort((a, b) => b.recommendation.confidence - a.recommendation.confidence);
+
+        // Find top picks
+        const topPicks = {
+            mostBullish: this.findMostBullish(opportunities),
+            mostBearish: this.findMostBearish(opportunities),
+            highestConfidence: opportunities.length > 0 ? opportunities[0] : null
+        };
+
+        return {
+            scanTime: new Date(),
+            symbolsScanned: this.symbols.length,
+            opportunities,
+            topPicks
+        };
+    }
+
+    /**
+     * Analyze single symbol with multi-timeframe momentum cascade
+     */
+    private analyzeSymbol(symbol: VolatilitySymbol): MultiTimeframeAnalysis | null {
+        const data = this.tickData.get(symbol.symbol);
+        if (!data || data.length < this.TIMEFRAMES.FIVE_MINUTE) {
+            return null;
+        }
+
+        const currentPrice = data[data.length - 1].price;
+
+        // Calculate momentum cascade
+        const fiveMin = this.calculateTimeframeMomentum(data, this.TIMEFRAMES.FIVE_MINUTE, '5min');
+        const threeMin = this.calculateTimeframeMomentum(data, this.TIMEFRAMES.THREE_MINUTE, '3min');
+        const oneMin = this.calculateTimeframeMomentum(data, this.TIMEFRAMES.ONE_MINUTE, '1min');
+        const thirtySecond = this.calculateTimeframeMomentum(data, this.TIMEFRAMES.THIRTY_SECOND, '30sec');
+
+        // Calculate weighted momentum score
+        const momentumScore = 
+            (fiveMin.strength * fiveMin.roc / 100 * this.MOMENTUM_WEIGHTS.FIVE_MINUTE) +
+            (threeMin.strength * threeMin.roc / 100 * this.MOMENTUM_WEIGHTS.THREE_MINUTE) +
+            (oneMin.strength * oneMin.roc / 100 * this.MOMENTUM_WEIGHTS.ONE_MINUTE) +
+            (thirtySecond.strength * thirtySecond.roc / 100 * this.MOMENTUM_WEIGHTS.THIRTY_SECOND);
+
+        // Calculate alignment
+        const alignment = this.calculateAlignment(fiveMin, threeMin, oneMin, thirtySecond);
+
+        // Generate recommendation
+        const recommendation = this.generateRecommendation(
+            symbol,
+            momentumScore,
+            alignment,
+            fiveMin,
+            threeMin,
+            oneMin,
+            thirtySecond,
+            currentPrice
+        );
+
+        // Assess risk
+        const risk = this.assessRisk(symbol, alignment, momentumScore, [fiveMin, threeMin, oneMin, thirtySecond]);
+
+        return {
+            symbol: symbol.symbol,
+            timestamp: Date.now(),
+            price: currentPrice,
+            cascade: {
+                fiveMinute: fiveMin,
+                threeMinute: threeMin,
+                oneMinute: oneMin,
+                thirtySecond: thirtySecond
+            },
+            momentumScore,
+            alignment,
+            recommendation,
+            risk
+        };
+    }
+
+    /**
+     * Calculate momentum for specific timeframe
+     */
+    private calculateTimeframeMomentum(
+        data: Array<{ price: number; timestamp: number }>,
+        period: number,
+        label: string
+    ): MomentumCascade {
+        if (data.length < period + 10) {
+            return {
+                timeframe: label,
+                direction: 'NEUTRAL',
+                strength: 0,
+                roc: 0,
+                confidence: 0
+            };
+        }
+
+        // Get price at period ago
+        const currentPrice = data[data.length - 1].price;
+        const pastPrice = data[data.length - period].price;
+        
+        // Calculate ROC
+        const roc = ((currentPrice - pastPrice) / pastPrice) * 100;
+        
+        // Calculate direction
+        let direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+        if (roc > 0.02) direction = 'BULLISH';
+        else if (roc < -0.02) direction = 'BEARISH';
+        
+        // Calculate strength based on consistency
+        const strength = this.calculateMomentumStrength(data, period);
+        
+        // Calculate confidence based on trend consistency
+        const confidence = this.calculateTrendConfidence(data, period, direction);
+
+        return {
+            timeframe: label,
+            direction,
+            strength,
+            roc,
+            confidence
+        };
+    }
+
+    /**
+     * Calculate momentum strength (how consistent the trend is)
+     */
+    private calculateMomentumStrength(
+        data: Array<{ price: number; timestamp: number }>,
+        period: number
+    ): number {
+        const recent = data.slice(-period);
+        let upMoves = 0;
+        let downMoves = 0;
+
+        for (let i = 1; i < recent.length; i++) {
+            if (recent[i].price > recent[i - 1].price) upMoves++;
+            else if (recent[i].price < recent[i - 1].price) downMoves++;
+        }
+
+        const total = upMoves + downMoves;
+        if (total === 0) return 0;
+
+        const dominantMoves = Math.max(upMoves, downMoves);
+        return (dominantMoves / total) * 100;
+    }
+
+    /**
+     * Calculate trend confidence
+     */
+    private calculateTrendConfidence(
+        data: Array<{ price: number; timestamp: number }>,
+        period: number,
+        direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
+    ): number {
+        if (direction === 'NEUTRAL') return 30;
+
+        const recent = data.slice(-period);
+        let confirmations = 0;
+
+        // Check mini-trends within the period
+        const segments = 5;
+        const segmentSize = Math.floor(recent.length / segments);
+
+        for (let i = 0; i < segments; i++) {
+            const start = i * segmentSize;
+            const end = Math.min(start + segmentSize, recent.length);
+            const segment = recent.slice(start, end);
+            
+            if (segment.length < 2) continue;
+
+            const segmentROC = ((segment[segment.length - 1].price - segment[0].price) / segment[0].price) * 100;
+            
+            if ((direction === 'BULLISH' && segmentROC > 0) ||
+                (direction === 'BEARISH' && segmentROC < 0)) {
+                confirmations++;
+            }
+        }
+
+        return (confirmations / segments) * 100;
+    }
+
+    /**
+     * Calculate alignment across all timeframes
+     */
+    private calculateAlignment(
+        fiveMin: MomentumCascade,
+        threeMin: MomentumCascade,
+        oneMin: MomentumCascade,
+        thirtySecond: MomentumCascade
+    ): MultiTimeframeAnalysis['alignment'] {
+        const directions = [fiveMin.direction, threeMin.direction, oneMin.direction, thirtySecond.direction];
+        
+        // Count bullish/bearish
+        const bullish = directions.filter(d => d === 'BULLISH').length;
+        const bearish = directions.filter(d => d === 'BEARISH').length;
+        
+        let score = 0;
+        let description = '';
+        let allAligned = false;
+
+        if (bullish === 4) {
+            score = 100;
+            description = 'Perfect bullish alignment across all timeframes';
+            allAligned = true;
+        } else if (bearish === 4) {
+            score = 100;
+            description = 'Perfect bearish alignment across all timeframes';
+            allAligned = true;
+        } else if (bullish === 3) {
+            score = 75;
+            description = 'Strong bullish alignment (3/4 timeframes)';
+        } else if (bearish === 3) {
+            score = 75;
+            description = 'Strong bearish alignment (3/4 timeframes)';
+        } else if (bullish === 2 && bearish === 0) {
+            score = 50;
+            description = 'Moderate bullish bias';
+        } else if (bearish === 2 && bullish === 0) {
+            score = 50;
+            description = 'Moderate bearish bias';
+        } else {
+            score = 25;
+            description = 'Mixed signals - conflicting timeframes';
+        }
+
+        return { score, description, allAligned };
+    }
+
+    /**
+     * Generate trading recommendation with reasoning
+     */
+    private generateRecommendation(
+        symbol: VolatilitySymbol,
+        momentumScore: number,
+        alignment: MultiTimeframeAnalysis['alignment'],
+        fiveMin: MomentumCascade,
+        threeMin: MomentumCascade,
+        oneMin: MomentumCascade,
+        thirtySecond: MomentumCascade,
+        currentPrice: number
+    ): MultiTimeframeAnalysis['recommendation'] {
+        const reasoning: string[] = [];
+        
+        // Minimum requirements for trading
+        const MIN_ALIGNMENT = 75;
+        const MIN_FIVE_MIN_CONFIDENCE = 60;
+        const MIN_MOMENTUM_SCORE = 0.05;
+
+        // Check 5-minute trend (most important)
+        if (fiveMin.confidence < MIN_FIVE_MIN_CONFIDENCE) {
+            reasoning.push(`5-minute trend confidence too low (${fiveMin.confidence.toFixed(0)}%)`);
+            return {
+                action: 'WAIT',
+                confidence: alignment.score * 0.3,
+                timeframe: '5m',
+                reasoning,
+                entryPrice: currentPrice,
+                targetDuration: 0
+            };
+        }
+
+        // Check alignment
+        if (alignment.score < MIN_ALIGNMENT) {
+            reasoning.push(`Insufficient timeframe alignment (${alignment.score.toFixed(0)}%)`);
+            return {
+                action: 'WAIT',
+                confidence: alignment.score * 0.4,
+                timeframe: '5m',
+                reasoning,
+                entryPrice: currentPrice,
+                targetDuration: 0
+            };
+        }
+
+        // Determine action based on momentum cascade
+        let action: 'RISE' | 'FALL' | 'WAIT' = 'WAIT';
+        let confidence = 50;
+        let timeframe: '1m' | '3m' | '5m' = '3m';
+        let targetDuration = 180; // 3 minutes default
+
+        if (Math.abs(momentumScore) < MIN_MOMENTUM_SCORE) {
+            reasoning.push('Momentum too weak for reliable trade');
+            return {
+                action: 'WAIT',
+                confidence: 40,
+                timeframe: '3m',
+                reasoning,
+                entryPrice: currentPrice,
+                targetDuration: 0
+            };
+        }
+
+        // Bullish setup
+        if (momentumScore > MIN_MOMENTUM_SCORE && fiveMin.direction === 'BULLISH') {
+            action = 'RISE';
+            confidence = Math.min(95, 60 + (alignment.score * 0.35));
+            
+            reasoning.push(`5-min trend is bullish (ROC: ${fiveMin.roc.toFixed(3)}%)`);
+            reasoning.push(`Momentum cascade favors upside (score: ${momentumScore.toFixed(3)})`);
+            reasoning.push(`${alignment.description}`);
+            
+            // Shorter trades for highly volatile indices
+            if (symbol.volatilityType === 'V75' || symbol.volatilityType === 'V100') {
+                timeframe = '1m';
+                targetDuration = 60;
+                reasoning.push(`High volatility index - using 1-minute contract`);
+            } else if (alignment.allAligned && threeMin.strength > 70) {
+                timeframe = '5m';
+                targetDuration = 300;
+                reasoning.push(`Strong alignment - extended 5-minute timeframe`);
+            }
+        }
+        // Bearish setup
+        else if (momentumScore < -MIN_MOMENTUM_SCORE && fiveMin.direction === 'BEARISH') {
+            action = 'FALL';
+            confidence = Math.min(95, 60 + (alignment.score * 0.35));
+            
+            reasoning.push(`5-min trend is bearish (ROC: ${fiveMin.roc.toFixed(3)}%)`);
+            reasoning.push(`Momentum cascade favors downside (score: ${momentumScore.toFixed(3)})`);
+            reasoning.push(`${alignment.description}`);
+            
+            // Shorter trades for highly volatile indices
+            if (symbol.volatilityType === 'V75' || symbol.volatilityType === 'V100') {
+                timeframe = '1m';
+                targetDuration = 60;
+                reasoning.push(`High volatility index - using 1-minute contract`);
+            } else if (alignment.allAligned && threeMin.strength > 70) {
+                timeframe = '5m';
+                targetDuration = 300;
+                reasoning.push(`Strong alignment - extended 5-minute timeframe`);
+            }
+        }
+
+        return {
+            action,
+            confidence,
+            timeframe,
+            reasoning,
+            entryPrice: currentPrice,
+            targetDuration
+        };
+    }
+
+    /**
+     * Assess risk level
+     */
+    private assessRisk(
+        symbol: VolatilitySymbol,
+        alignment: MultiTimeframeAnalysis['alignment'],
+        momentumScore: number,
+        cascades: MomentumCascade[]
+    ): MultiTimeframeAnalysis['risk'] {
+        const factors: string[] = [];
+        let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' = 'MEDIUM';
+        
+        // Volatility index base risk
+        const volatilityIndex = parseInt(symbol.volatilityType.substring(1));
+        
+        if (volatilityIndex >= 75) {
+            factors.push('High volatility index (V75+)');
+            riskLevel = 'HIGH';
+        }
+        
+        // Alignment risk
+        if (alignment.score < 75) {
+            factors.push('Timeframe misalignment increases risk');
+            riskLevel = riskLevel === 'HIGH' ? 'EXTREME' : 'HIGH';
+        } else if (alignment.allAligned) {
+            factors.push('Perfect alignment reduces risk');
+            if (riskLevel === 'MEDIUM') riskLevel = 'LOW';
+        }
+        
+        // Momentum consistency risk
+        const avgConfidence = cascades.reduce((sum, c) => sum + c.confidence, 0) / cascades.length;
+        if (avgConfidence < 60) {
+            factors.push('Low confidence across timeframes');
+            riskLevel = 'HIGH';
+        } else if (avgConfidence >= 80) {
+            factors.push('High confidence improves risk profile');
+        }
+
+        return {
+            level: riskLevel,
+            factors,
+            volatilityIndex
+        };
+    }
+
+    /**
+     * Helper: Find most bullish opportunity
+     */
+    private findMostBullish(opportunities: MultiTimeframeAnalysis[]): MultiTimeframeAnalysis | null {
+        const bullish = opportunities.filter(o => o.recommendation.action === 'RISE');
+        if (bullish.length === 0) return null;
+        
+        return bullish.reduce((max, curr) => 
+            curr.momentumScore > max.momentumScore ? curr : max
+        );
+    }
+
+    /**
+     * Helper: Find most bearish opportunity
+     */
+    private findMostBearish(opportunities: MultiTimeframeAnalysis[]): MultiTimeframeAnalysis | null {
+        const bearish = opportunities.filter(o => o.recommendation.action === 'FALL');
+        if (bearish.length === 0) return null;
+        
+        return bearish.reduce((min, curr) => 
+            curr.momentumScore < min.momentumScore ? curr : min
+        );
+    }
+
+    /**
+     * Get detailed analysis for specific symbol
+     */
+    getSymbolAnalysis(symbol: string): MultiTimeframeAnalysis | null {
+        const sym = this.symbols.find(s => s.symbol === symbol);
+        if (!sym) return null;
+        
+        return this.analyzeSymbol(sym);
+    }
+
+    /**
+     * Cleanup
+     */
+    destroy(): void {
+        this.trendEngines.forEach(engine => engine.destroy());
+        this.trendEngines.clear();
+        this.tickData.clear();
+    }
+}
+
+// Export formatted scanner results
+export function formatScannerResults(result: ScannerResult): string {
+    let output = `\n═══════════════════════════════════════════════════\n`;
+    output += `🔍 DERIV VOLATILITY SCANNER RESULTS\n`;
+    output += `📅 Scan Time: ${result.scanTime.toLocaleString()}\n`;
+    output += `📊 Symbols Scanned: ${result.symbolsScanned}\n`;
+    output += `✅ Opportunities Found: ${result.opportunities.length}\n`;
+    output += `═══════════════════════════════════════════════════\n\n`;
+
+    if (result.topPicks.highestConfidence) {
+        output += `🏆 HIGHEST CONFIDENCE TRADE:\n`;
+        output += formatAnalysis(result.topPicks.highestConfidence);
+        output += `\n`;
+    }
+
+    if (result.opportunities.length > 0) {
+        output += `\n📋 ALL OPPORTUNITIES (sorted by confidence):\n`;
+        output += `─────────────────────────────────────────────────\n`;
+        result.opportunities.forEach((opp, idx) => {
+            output += `\n${idx + 1}. ${opp.symbol}\n`;
+            output += formatAnalysis(opp);
+        });
+    } else {
+        output += `⏳ No trading opportunities at this time. Continue monitoring...\n`;
+    }
+
+    return output;
+}
+
+function formatAnalysis(analysis: MultiTimeframeAnalysis): string {
+    let output = ``;
+    output += `   Action: ${analysis.recommendation.action} | Confidence: ${analysis.recommendation.confidence.toFixed(1)}%\n`;
+    output += `   Timeframe: ${analysis.recommendation.timeframe} | Duration: ${analysis.recommendation.targetDuration}s\n`;
+    output += `   Price: ${analysis.price.toFixed(5)} | Momentum Score: ${analysis.momentumScore.toFixed(4)}\n`;
+    output += `   Risk Level: ${analysis.risk.level}\n`;
+    output += `   \n`;
+    output += `   📈 Momentum Cascade:\n`;
+    output += `      5min:  ${analysis.cascade.fiveMinute.direction} (${analysis.cascade.fiveMinute.strength.toFixed(0)}% strength)\n`;
+    output += `      3min:  ${analysis.cascade.threeMinute.direction} (${analysis.cascade.threeMinute.strength.toFixed(0)}% strength)\n`;
+    output += `      1min:  ${analysis.cascade.oneMinute.direction} (${analysis.cascade.oneMinute.strength.toFixed(0)}% strength)\n`;
+    output += `      30sec: ${analysis.cascade.thirtySecond.direction} (${analysis.cascade.thirtySecond.strength.toFixed(0)}% strength)\n`;
+    output += `   \n`;
+    output += `   🎯 Alignment: ${analysis.alignment.score.toFixed(0)}% - ${analysis.alignment.description}\n`;
+    output += `   \n`;
+    output += `   💡 Reasoning:\n`;
+    analysis.recommendation.reasoning.forEach(reason => {
+        output += `      • ${reason}\n`;
+    });
+    
+    return output;
+}
