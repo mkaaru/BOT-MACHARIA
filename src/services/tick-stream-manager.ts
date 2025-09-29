@@ -88,24 +88,42 @@ export class TickStreamManager {
                     
                     console.log(`📈 Processing history for ${symbol} (${is1sVolatility ? '1s' : 'regular'}): ${prices.length} ticks`);
                     
-                    // Process historical ticks one by one
-                    let processedCount = 0;
+                    // Convert to bulk historical data format for immediate processing
+                    const historicalData: Array<{ price: number; timestamp: number }> = [];
+                    
                     for (let i = 0; i < Math.min(times.length, prices.length); i++) {
-                        const tickData: TickData = {
-                            symbol,
-                            epoch: times[i],
-                            quote: parseFloat(prices[i]),
-                            timestamp: new Date(times[i] * 1000),
-                        };
+                        const price = parseFloat(prices[i]);
+                        const timestamp = times[i] * 1000;
                         
-                        // Only process valid tick data
-                        if (!isNaN(tickData.quote) && tickData.epoch > 0) {
-                            this.notifyTickCallbacks(tickData);
-                            processedCount++;
+                        if (!isNaN(price) && times[i] > 0) {
+                            historicalData.push({ price, timestamp });
                         }
                     }
+
+                    // Process bulk data for immediate analysis (volatility scanner)
+                    try {
+                        // Import and process through volatility scanner
+                        const { derivVolatilityScanner } = await import('./deriv-volatility-scanner');
+                        derivVolatilityScanner.processBulkHistoricalData(symbol, historicalData);
+                    } catch (error) {
+                        console.error(`Error processing bulk historical data for ${symbol}:`, error);
+                    }
                     
-                    console.log(`✅ Successfully processed ${processedCount}/${prices.length} historical ticks for ${symbol}`);
+                    // Also process individual ticks for other systems
+                    let processedCount = 0;
+                    for (const data of historicalData) {
+                        const tickData: TickData = {
+                            symbol,
+                            epoch: data.timestamp / 1000,
+                            quote: data.price,
+                            timestamp: new Date(data.timestamp),
+                        };
+                        
+                        this.notifyTickCallbacks(tickData);
+                        processedCount++;
+                    }
+                    
+                    console.log(`✅ Successfully processed ${processedCount}/${prices.length} historical ticks for ${symbol} (immediate analysis ready)`);
                     return;
                 }
                 

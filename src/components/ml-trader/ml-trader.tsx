@@ -211,11 +211,25 @@ const MLTrader = observer(() => {
                 return () => clearInterval(scanInterval);
             }, 60000); // Wait 1 minute before starting periodic scans
 
-            // Initial scan after 2 minutes to allow sufficient data
+            // Initial scan after 30 seconds to allow 5000 historical ticks to load
             setTimeout(async () => {
-                console.log('🚀 Performing initial scanner scan...');
+                console.log('🚀 Performing initial scanner scan with historical data...');
                 await derivVolatilityScanner.performFullScan();
-            }, 120000);
+            }, 30000);
+
+            // Quick check every 10 seconds for symbols that have loaded historical data
+            const quickCheckInterval = setInterval(async () => {
+                const readySymbols = DERIV_VOLATILITY_SYMBOLS.filter(symbolInfo => {
+                    const analysis = derivVolatilityScanner.getSymbolAnalysis(symbolInfo.symbol);
+                    return analysis && analysis.tickCount >= 100;
+                });
+
+                if (readySymbols.length >= 3) {
+                    console.log(`🎯 ${readySymbols.length} symbols ready for analysis - performing scan`);
+                    await derivVolatilityScanner.performFullScan();
+                    clearInterval(quickCheckInterval);
+                }
+            }, 10000);
 
             console.log('✅ Volatility scanner initialized');
 

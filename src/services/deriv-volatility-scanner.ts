@@ -156,7 +156,7 @@ export class DerivVolatilityScanner {
     private readonly MIN_CONFIDENCE = 75;
     private readonly MIN_MOMENTUM_STRENGTH = 60;
     private readonly MIN_ALIGNMENT_SCORE = 70;
-    private readonly MIN_DATA_POINTS = 350;   // Need at least 5+ minutes of data
+    private readonly MIN_DATA_POINTS = 100;   // Reduced to start analysis faster with 5000 historical ticks
     private readonly MIN_TREND_QUALITY = 65;
 
     // Momentum weighting (75% momentum, 25% trend direction)
@@ -224,6 +224,56 @@ export class DerivVolatilityScanner {
         // Update analysis cache if we have sufficient data
         if (priceHistory.length >= this.MIN_DATA_POINTS) {
             this.updateAnalysis(symbol);
+        }
+    }
+
+    /**
+     * Process bulk historical data (optimized for 5000 tick batches from Deriv API)
+     */
+    processBulkHistoricalData(symbol: string, historicalTicks: Array<{ price: number; timestamp: number }>): void {
+        const priceHistory = this.priceData.get(symbol);
+        const momentumHistory = this.momentumData.get(symbol);
+        const velocityHistory = this.velocityData.get(symbol);
+
+        if (!priceHistory || !momentumHistory || !velocityHistory) return;
+
+        console.log(`📊 Processing ${historicalTicks.length} historical ticks for ${symbol}...`);
+
+        // Clear existing data to avoid duplicates
+        priceHistory.length = 0;
+        momentumHistory.length = 0;
+        velocityHistory.length = 0;
+
+        // Sort by timestamp to ensure chronological order
+        const sortedTicks = historicalTicks.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Take the latest MAX_HISTORY ticks to fit our analysis window
+        const recentTicks = sortedTicks.slice(-this.MAX_HISTORY);
+
+        // Add all historical data at once
+        priceHistory.push(...recentTicks);
+
+        // Calculate momentum for all historical data in batch
+        for (let i = 1; i < priceHistory.length; i++) {
+            const current = priceHistory[i];
+            const previous = priceHistory[i - 1];
+
+            // Calculate raw momentum (price change)
+            const rawMomentum = current.price - previous.price;
+            momentumHistory.push(rawMomentum);
+
+            // Calculate velocity (rate of price change)
+            const timeDiff = (current.timestamp - previous.timestamp) / 1000; // seconds
+            const velocity = timeDiff > 0 ? rawMomentum / timeDiff : 0;
+            velocityHistory.push(velocity);
+        }
+
+        console.log(`✅ Processed ${priceHistory.length} price points, ${momentumHistory.length} momentum points for ${symbol}`);
+
+        // Immediately perform analysis since we have sufficient historical data
+        if (priceHistory.length >= this.MIN_DATA_POINTS) {
+            this.updateAnalysis(symbol);
+            console.log(`🎯 ${symbol}: Analysis ready with ${priceHistory.length} data points`);
         }
     }
 
@@ -1019,6 +1069,29 @@ export class DerivVolatilityScanner {
      */
     getTopOpportunities(count: number = 3): ScannerRecommendation[] {
         return this.recommendations.slice(0, count);
+    }
+
+    /**
+     * Check how many symbols are ready for analysis
+     */
+    getReadySymbolsCount(): number {
+        let readyCount = 0;
+        this.VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+            const priceHistory = this.priceData.get(symbolInfo.symbol);
+            if (priceHistory && priceHistory.length >= this.MIN_DATA_POINTS) {
+                readyCount++;
+            }
+        });
+        return readyCount;
+    }
+
+    /**
+     * Check if historical data loading is complete for most symbols
+     */
+    isHistoricalDataReady(): boolean {
+        const readyCount = this.getReadySymbolsCount();
+        const totalSymbols = this.VOLATILITY_SYMBOLS.length;
+        return readyCount >= Math.floor(totalSymbols * 0.7); // 70% of symbols ready
     }
 
     /**
