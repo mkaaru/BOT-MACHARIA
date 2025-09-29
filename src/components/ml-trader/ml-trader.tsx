@@ -849,7 +849,7 @@ const MLTrader = observer(() => {
     }, [store.dashboard]);
 
     return (
-        <div className="ml-trader">
+        <div className="ml-trader" style={{ paddingBottom: '10rem', minHeight: '100vh', overflowY: 'auto' }}>
             <div className="ml-trader__header">
                 <div className="header-title">
                     <Text size="lg" weight="bold" color="prominent">
