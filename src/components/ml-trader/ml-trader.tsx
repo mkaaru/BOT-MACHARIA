@@ -4,6 +4,7 @@ import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
+import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { derivVolatilityScanner, ScannerRecommendation, ScannerStatus, VolatilityAnalysis } from '@/services/deriv-volatility-scanner';
 import { tickStreamManager } from '@/services/tick-stream-manager';
@@ -512,6 +513,228 @@ const MLTrader = observer(() => {
         }
     };
 
+    /**
+     * Get confidence color based on percentage
+     */
+    const getConfidenceColor = (confidence: number): string => {
+        if (confidence >= 90) return '#4CAF50'; // Green - Excellent
+        if (confidence >= 80) return '#8BC34A'; // Light Green - High  
+        if (confidence >= 70) return '#FFC107'; // Amber - Good
+        if (confidence >= 60) return '#FF9800'; // Orange - Moderate
+        return '#F44336'; // Red - Low
+    };
+
+    /**
+     * Load recommendation to Bot Builder with all parameters set
+     */
+    const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
+        try {
+            console.log('🤖 Loading recommendation to Bot Builder:', recommendation);
+
+            // Switch to Bot Builder tab
+            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+
+            // Determine contract type based on recommendation action
+            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
+            
+            // Get duration in seconds
+            const durationSeconds = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
+            
+            // Default stake and martingale multiplier
+            const defaultStake = 1.0;
+            const martingaleMultiplier = 1; // Set to 1 as requested
+            
+            // Generate Bot Builder XML with Martingale strategy
+            const xmlContent = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="martingale_stake">martingale_stake</variable>
+    <variable id="current_stake">current_stake</variable>
+  </variables>
+  
+  <!-- Trade Definition Block -->
+  <block type="trade_definition" id="trade_definition_main" deletable="false" x="40" y="40">
+    <field name="MARKET_LIST">synthetic_index</field>
+    <field name="SUBMARKET_LIST">continuous_indices</field>
+    <field name="SYMBOL_LIST">${recommendation.symbol}</field>
+    <field name="TRADETYPE_LIST">callput</field>
+    <field name="TYPE_LIST">${contractType}</field>
+    <field name="BASIS_LIST">stake</field>
+    <field name="DURATION_TYPE">s</field>
+    <value name="DURATION">
+      <shadow type="math_number">
+        <field name="NUM">${durationSeconds}</field>
+      </shadow>
+    </value>
+    <value name="AMOUNT">
+      <block type="variables_get">
+        <field name="VAR">current_stake</field>
+      </block>
+    </value>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_market">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">continuous_indices</field>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Initialize Variables -->
+  <block type="variables_set" x="40" y="250">
+    <field name="VAR">martingale_stake</field>
+    <value name="VALUE">
+      <block type="math_number">
+        <field name="NUM">${defaultStake}</field>
+      </block>
+    </value>
+    <next>
+      <block type="variables_set">
+        <field name="VAR">current_stake</field>
+        <value name="VALUE">
+          <block type="variables_get">
+            <field name="VAR">martingale_stake</field>
+          </block>
+        </value>
+      </block>
+    </next>
+  </block>
+
+  <!-- Before Purchase -->
+  <block type="before_purchase" x="40" y="350">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="text_print">
+        <value name="TEXT">
+          <block type="text">
+            <field name="TEXT">Starting ${recommendation.action} trade on ${recommendation.displayName} - Confidence: ${recommendation.confidence.toFixed(1)}% - Stake: </field>
+          </block>
+        </value>
+        <next>
+          <block type="text_print">
+            <value name="TEXT">
+              <block type="variables_get">
+                <field name="VAR">current_stake</field>
+              </block>
+            </value>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+
+  <!-- After Purchase - Martingale Logic -->
+  <block type="after_purchase" x="40" y="500">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">
+          <block type="contract_check_result">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <!-- Reset stake on win -->
+          <block type="variables_set">
+            <field name="VAR">current_stake</field>
+            <value name="VALUE">
+              <block type="variables_get">
+                <field name="VAR">martingale_stake</field>
+              </block>
+            </value>
+            <next>
+              <block type="text_print">
+                <value name="TEXT">
+                  <block type="text">
+                    <field name="TEXT">✅ Trade WON! Resetting stake to initial amount</field>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <!-- Apply martingale on loss -->
+          <block type="variables_set">
+            <field name="VAR">current_stake</field>
+            <value name="VALUE">
+              <block type="math_arithmetic">
+                <field name="OP">MULTIPLY</field>
+                <value name="A">
+                  <block type="variables_get">
+                    <field name="VAR">current_stake</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="math_number">
+                    <field name="NUM">${martingaleMultiplier}</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="text_print">
+                <value name="TEXT">
+                  <block type="text">
+                    <field name="TEXT">❌ Trade LOST! Next stake: </field>
+                  </block>
+                </value>
+                <next>
+                  <block type="text_print">
+                    <value name="TEXT">
+                      <block type="variables_get">
+                        <field name="VAR">current_stake</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+</xml>`;
+
+            // Wait for Bot Builder to be available
+            setTimeout(async () => {
+                try {
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+
+                    if (window.Blockly?.derivWorkspace) {
+                        console.log('🔄 Loading XML to Bot Builder...');
+                        
+                        await load({
+                            block_string: xmlContent,
+                            file_name: `ML_${recommendation.displayName}_${recommendation.action}_Strategy`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+
+                        // Center the workspace
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        
+                        setStatus(`✅ Loaded ${recommendation.action} strategy for ${recommendation.displayName} to Bot Builder with Martingale set to ${martingaleMultiplier}`);
+                        
+                        console.log(`✅ Successfully loaded ${recommendation.displayName} ${recommendation.action} strategy to Bot Builder`);
+                    } else {
+                        console.error('❌ Bot Builder workspace not available');
+                        setStatus('❌ Bot Builder not ready. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('❌ Error loading to Bot Builder:', error);
+                    setStatus(`❌ Failed to load strategy: ${error}`);
+                }
+            }, 1000);
+
+        } catch (error) {
+            console.error('❌ Error in loadToBotBuilder:', error);
+            setStatus(`❌ Error: ${error}`);
+        }
+    }, [store.dashboard]);
+
     return (
         <div className="ml-trader">
             <div className="ml-trader__header">
@@ -589,46 +812,131 @@ const MLTrader = observer(() => {
                                 </div>
                             </div>
                         ) : (
-                            recommendations.slice(0, 5).map((rec, index) => (
+                            recommendations.slice(0, 6).map((rec, index) => (
                                 <div 
                                     key={rec.symbol}
-                                    className={`recommendation-card ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
+                                    className={`recommendation-card beautiful ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
                                     onClick={() => applyRecommendation(rec)}
                                 >
+                                    <div className="card-gradient-overlay" />
+                                    
                                     <div className="rec-header">
                                         <div className="symbol-info">
-                                            <Text size="sm" weight="bold">{rec.displayName}</Text>
-                                            <Text size="xs" color="general">#{rec.rank}</Text>
+                                            <div className="symbol-badge">
+                                                <Text size="xs" weight="bold" color="prominent">
+                                                    {rec.displayName}
+                                                </Text>
+                                            </div>
+                                            <div className="rank-badge">
+                                                <Text size="xxs" color="general">#{rec.rank}</Text>
+                                            </div>
                                         </div>
-                                        <div className={`action-badge ${rec.action.toLowerCase()}`}>
-                                            {rec.action}
+                                        
+                                        <div className="action-section">
+                                            <div className={`action-badge ${rec.action.toLowerCase()}`}>
+                                                <div className={`action-icon ${rec.action.toLowerCase()}`}>
+                                                    {rec.action === 'RISE' ? '📈' : '📉'}
+                                                </div>
+                                                <Text size="xs" weight="bold">
+                                                    {rec.action}
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="confidence-section">
+                                        <div className="confidence-circle">
+                                            <div 
+                                                className="confidence-fill" 
+                                                style={{ 
+                                                    background: `conic-gradient(${getConfidenceColor(rec.confidence)} ${rec.confidence * 3.6}deg, #e0e0e0 0deg)` 
+                                                }}
+                                            >
+                                                <div className="confidence-inner">
+                                                    <Text size="sm" weight="bold" color="prominent">
+                                                        {rec.confidence.toFixed(0)}%
+                                                    </Text>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="confidence-label">
+                                            <Text size="xs" color="general">{localize('Confidence')}</Text>
+                                            <Text size="xs" weight="bold">
+                                                {formatConfidence(rec.confidence)}
+                                            </Text>
                                         </div>
                                     </div>
 
                                     <div className="rec-metrics">
-                                        <div className="metric">
-                                            <Text size="xs" color="general">{localize('Confidence')}</Text>
-                                            <Text size="sm" weight="bold">
-                                                {formatConfidence(rec.confidence)}
-                                            </Text>
+                                        <div className="metric-item">
+                                            <div className="metric-icon">⏱️</div>
+                                            <div className="metric-content">
+                                                <Text size="xs" color="general">{localize('Duration')}</Text>
+                                                <Text size="sm" weight="bold">{rec.duration}</Text>
+                                            </div>
                                         </div>
-                                        <div className="metric">
-                                            <Text size="xs" color="general">{localize('Duration')}</Text>
-                                            <Text size="sm">{rec.duration}</Text>
+                                        
+                                        <div className="metric-item">
+                                            <div className="metric-icon">⚡</div>
+                                            <div className="metric-content">
+                                                <Text size="xs" color="general">{localize('Momentum')}</Text>
+                                                <Text size="sm" weight="bold">{rec.momentumScore.toFixed(0)}%</Text>
+                                            </div>
                                         </div>
-                                        <div className="metric">
-                                            <Text size="xs" color="general">{localize('Momentum')}</Text>
-                                            <Text size="sm">{rec.momentumScore.toFixed(0)}%</Text>
+                                        
+                                        <div className="metric-item">
+                                            <div className="metric-icon">🎯</div>
+                                            <div className="metric-content">
+                                                <Text size="xs" color="general">{localize('Alignment')}</Text>
+                                                <Text size="sm" weight="bold">{rec.trendAlignment.toFixed(0)}%</Text>
+                                            </div>
                                         </div>
+                                    </div>
+
+                                    <div className="card-actions">
+                                        <button 
+                                            className="action-btn load-to-bot"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                loadToBotBuilder(rec);
+                                            }}
+                                        >
+                                            <span className="btn-icon">🤖</span>
+                                            <Text size="xs" weight="bold">{localize('Load to Bot Builder')}</Text>
+                                        </button>
+                                        
+                                        <button 
+                                            className="action-btn apply-settings"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                applyRecommendation(rec);
+                                            }}
+                                        >
+                                            <span className="btn-icon">⚙️</span>
+                                            <Text size="xs" weight="bold">{localize('Apply Settings')}</Text>
+                                        </button>
                                     </div>
 
                                     {show_advanced_view && (
                                         <div className="rec-advanced">
-                                            <Text size="xs" color="general">{rec.reason}</Text>
+                                            <div className="advanced-reason">
+                                                <Text size="xs" color="general">{rec.reason}</Text>
+                                            </div>
                                             <div className="advanced-metrics">
-                                                <span>Risk: {rec.urgency}</span>
-                                                <span>R/R: {rec.riskReward.toFixed(2)}</span>
-                                                <span>Payout: {(rec.expectedPayout * 100).toFixed(0)}%</span>
+                                                <div className="adv-metric">
+                                                    <span className="adv-label">Risk:</span>
+                                                    <span className={`adv-value risk-${rec.urgency.toLowerCase()}`}>
+                                                        {rec.urgency}
+                                                    </span>
+                                                </div>
+                                                <div className="adv-metric">
+                                                    <span className="adv-label">R/R:</span>
+                                                    <span className="adv-value">{rec.riskReward.toFixed(2)}</span>
+                                                </div>
+                                                <div className="adv-metric">
+                                                    <span className="adv-label">Payout:</span>
+                                                    <span className="adv-value">{(rec.expectedPayout * 100).toFixed(0)}%</span>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
