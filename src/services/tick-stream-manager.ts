@@ -6,6 +6,7 @@ import {
     hasAPIError
 } from '@/types/deriv-api-types';
 import { tenSecondCandleEngine, ehlersTradingBot } from './ehlers-predictive-system';
+import { derivVolatilityScanner } from './deriv-volatility-scanner';
 
 export interface TickData {
     symbol: string;
@@ -102,8 +103,7 @@ export class TickStreamManager {
 
                     // Process bulk data for immediate analysis (volatility scanner)
                     try {
-                        // Import and process through volatility scanner
-                        const { derivVolatilityScanner } = await import('./deriv-volatility-scanner');
+                        // Process through volatility scanner
                         derivVolatilityScanner.processBulkHistoricalData(symbol, historicalData);
                     } catch (error) {
                         console.error(`Error processing bulk historical data for ${symbol}:`, error);
