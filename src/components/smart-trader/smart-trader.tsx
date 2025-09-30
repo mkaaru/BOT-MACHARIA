@@ -8,9 +8,7 @@ import { useStore } from '@/hooks/useStore';
 import './smart-trader.scss';
 
 // External module for statistics emitter
-// Assuming this module exists and is properly configured
-// If not, it would need to be implemented elsewhere in the project
-import { statisticsEmitter } from '@/utils/statisticsEmitter'; // Assuming this path
+import { statisticsEmitter } from '@/utils/statistics-emitter';
 
 // Asian Up/Down trade types
 const ASIAN_TYPES = [
