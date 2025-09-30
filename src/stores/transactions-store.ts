@@ -38,6 +38,7 @@ export default class TransactionsStore {
             transactions: computed,
             statistics: computed,
             onBotContractEvent: action.bound,
+            onExternalTradeEvent: action.bound,
             pushTransaction: action.bound,
             clear: action.bound,
             registerReactions: action.bound,
@@ -46,8 +47,15 @@ export default class TransactionsStore {
             sortOutPositionsBeforeAction: action.bound,
             recoverPendingContractsById: action.bound,
             updateStatistics: action.bound,
-            onBotContractEvent: action.bound,
         });
+
+        // Register for external trade events from trading engines
+        if (typeof window !== 'undefined' && window.observer) {
+            window.observer.register('external.trade.result', this.onExternalTradeEvent);
+            window.observer.register('statistics.update', (stats: any) => {
+                this.updateStatistics(stats);
+            });
+        }
     }
     TRANSACTION_CACHE = 'transaction_cache';
 
@@ -106,6 +114,7 @@ export default class TransactionsStore {
     };
 
     onBotContractEvent(data: TContractInfo) {
+        console.log('📝 Transaction store received contract event:', data);
         this.pushTransaction(data);
     }
 
@@ -288,7 +297,57 @@ export default class TransactionsStore {
         }
     }
 
-    updateStatistics() {
+    // Handle external trade events from Smart Trader, ML Trader, etc.
+    onExternalTradeEvent = (tradeData: any) => {
+        console.log('🔄 External trade event received:', tradeData);
+        
+        const { 
+            contract_id, 
+            buy_price, 
+            sell_price, 
+            profit, 
+            is_completed, 
+            contract_type,
+            underlying,
+            currency 
+        } = tradeData;
+
+        // Create contract info compatible with our transaction format
+        const contractInfo: TContractInfo = {
+            contract_id: contract_id || Date.now(),
+            buy_price: Number(buy_price) || 0,
+            sell_price: Number(sell_price) || 0,
+            profit: Number(profit) || 0,
+            is_completed: is_completed || false,
+            contract_type: contract_type || 'CALL',
+            underlying: underlying || 'R_50',
+            currency: currency || 'USD',
+            date_start: new Date().toISOString(),
+            transaction_ids: {
+                buy: contract_id || Date.now(),
+                sell: sell_price ? contract_id + 1 : null
+            },
+            ...tradeData
+        };
+
+        this.pushTransaction(contractInfo);
+    };
+
+    updateStatistics(externalStats?: any) {
+        // If external stats are provided, use them directly
+        if (externalStats) {
+            console.log('📊 Using external statistics:', externalStats);
+            this.statistics = {
+                total_stake: externalStats.totalStake || externalStats.total_stake || 0,
+                total_payout: externalStats.totalPayout || externalStats.total_payout || 0,
+                total_profit: externalStats.totalProfit || externalStats.total_profit || 0,
+                won_contracts: externalStats.totalWins || externalStats.won_contracts || 0,
+                lost_contracts: externalStats.totalLosses || externalStats.lost_contracts || 0,
+                number_of_runs: externalStats.totalRuns || externalStats.number_of_runs || 0,
+            };
+            return;
+        }
+
         const transactions = this.transactions;
 
         const totalStake = transactions.reduce((sum, transaction) => {
@@ -323,13 +382,13 @@ export default class TransactionsStore {
             completedTransactions: completedTransactions.length,
             wonContracts,
             lostContracts,
-            totalProfit: getRoundedNumber(totalProfit, this.currency)
+            totalProfit: totalProfit
         });
 
         this.statistics = {
-            total_stake: getRoundedNumber(totalStake, this.currency),
-            total_payout: getRoundedNumber(totalPayout, this.currency),
-            total_profit: getRoundedNumber(totalProfit, this.currency),
+            total_stake: totalStake,
+            total_payout: totalPayout,
+            total_profit: totalProfit,
             won_contracts: wonContracts,
             lost_contracts: lostContracts,
             number_of_runs: completedTransactions.length, // Use completed transactions for accurate run count
