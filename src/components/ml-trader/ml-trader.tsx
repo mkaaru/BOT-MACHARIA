@@ -104,34 +104,6 @@ const MLTrader = observer(() => {
         return () => cleanup();
     }, []);
 
-    // Auto-refresh recommendations every 45 seconds
-    useEffect(() => {
-        const refreshInterval = setInterval(() => {
-            if (is_scanner_active && derivVolatilityScanner) {
-                console.log('🔄 Auto-refreshing ML Trader recommendations...');
-                
-                // Perform a fresh scan to get updated recommendations
-                derivVolatilityScanner.performFullScan().then(() => {
-                    console.log('✅ Auto-refresh completed');
-                }).catch((error) => {
-                    console.warn('⚠️ Auto-refresh failed:', error);
-                });
-                
-                // Update symbol analyses
-                updateSymbolAnalyses();
-                
-                // Update status message briefly
-                const currentStatus = status;
-                setStatus('Refreshing recommendations...');
-                setTimeout(() => {
-                    setStatus(currentStatus || 'ML Trader ready - Scanning for momentum opportunities');
-                }, 2000);
-            }
-        }, 45000); // 45 seconds
-
-        return () => clearInterval(refreshInterval);
-    }, [is_scanner_active, status, updateSymbolAnalyses]);
-
     /**
      * Initialize ML Trader with Deriv volatility scanner
      */
