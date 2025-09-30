@@ -467,13 +467,7 @@ export default class RunPanelStore {
     };
 
     onExternalTradeResult = (tradeResult) => {
-        console.log('🔄 External trade result received in run panel:', tradeResult);
-        
-        // Forward to transactions store
-        if (this.root_store.transactions) {
-            this.root_store.transactions.onExternalTradeEvent(tradeResult);
-        }
-        
+        console.log('🔄 External trade result received:', tradeResult);
         // Handle external trade results (Smart Trader, ML Trader, etc.)
         this.setHasOpenContract(false);
     };
