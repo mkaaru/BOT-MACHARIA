@@ -48,7 +48,7 @@ export default Engine =>
 
             const accountStat = this.getAccountStat();
 
-            // Update win/loss counts
+            // Update win/loss counts - contracts with profit <= 0 are losses
             if (win) {
                 accountStat.totalWins += 1;
             } else {

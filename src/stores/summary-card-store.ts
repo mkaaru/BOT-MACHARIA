@@ -200,7 +200,7 @@ export default class SummaryCardStore {
     onBotContractEvent(contract: TContractInfo) {
         const { profit } = contract;
         const indicative = getIndicativePrice(contract as ProposalOpenContract);
-        
+
         // Ensure profit is properly handled as a number (can be negative for losses)
         const profitValue = Number(profit) || 0;
         this.profit = profitValue;
@@ -257,7 +257,8 @@ export default class SummaryCardStore {
                 wins: profitValue > 0 ? this.trading_hub_stats.wins + 1 : this.trading_hub_stats.wins,
                 losses: profitValue <= 0 ? this.trading_hub_stats.losses + 1 : this.trading_hub_stats.losses,
                 profit_loss: this.trading_hub_stats.profit_loss + profitValue,
-                last_trade_result: profitValue > 0 ? 'WIN' : 'LOSS'
+                last_trade_result: profitValue > 0 ? 'WIN' : 'LOSS',
+                current_stake: ''
             });
         }
     }
