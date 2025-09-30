@@ -200,7 +200,10 @@ export default class SummaryCardStore {
     onBotContractEvent(contract: TContractInfo) {
         const { profit } = contract;
         const indicative = getIndicativePrice(contract as ProposalOpenContract);
-        this.profit = profit;
+        
+        // Ensure profit is properly handled as a number (can be negative for losses)
+        const profitValue = Number(profit) || 0;
+        this.profit = profitValue;
 
         if (this.contract_id !== contract.id) {
             this.clear(false);
@@ -208,15 +211,15 @@ export default class SummaryCardStore {
             this.indicative = indicative;
         }
 
-        const movements: TMovements = { profit, indicative };
+        const movements: TMovements = { profit: profitValue, indicative };
 
         Object.keys(movements).forEach(name => {
             const movement = movements[name as keyof TMovements];
             const current_movement = this[name as keyof TMovements];
 
-            if (name in this && movement && movement !== current_movement) {
+            if (name in this && movement !== undefined && movement !== current_movement) {
                 this[`${name as keyof TMovements}_movement`] =
-                    movement && movement > (this[name as keyof TMovements] || 0) ? 'profit' : 'loss';
+                    movement > (this[name as keyof TMovements] || 0) ? 'profit' : 'loss';
             } else if (this[`${name as keyof TMovements}_movement`] !== '') {
                 this.indicative_movement = '';
             }
@@ -225,7 +228,7 @@ export default class SummaryCardStore {
             if (name === 'indicative') this.indicative = movement;
         });
 
-        // TODO only add props that is being used
+        // Store the complete contract info
         this.contract_info = contract;
     }
 
@@ -234,24 +237,27 @@ export default class SummaryCardStore {
         const { profit } = contract;
         const indicative = getIndicativePrice(contract as ProposalOpenContract);
 
+        // Ensure profit is properly handled as a number (can be negative for losses)
+        const profitValue = Number(profit) || 0;
+
         if (this.contract_id !== contract.id) {
             this.clear(false);
             this.contract_id = contract.id;
             this.indicative = indicative;
         }
 
-        this.profit = profit;
-        this.profit_loss = profit;
+        this.profit = profitValue;
+        this.profit_loss = profitValue;
         this.contract_info = contract;
 
         // Update trading hub specific stats
         if (contract.is_sold) {
             this.updateTradingHubStats({
                 total_trades: this.trading_hub_stats.total_trades + 1,
-                wins: profit > 0 ? this.trading_hub_stats.wins + 1 : this.trading_hub_stats.wins,
-                losses: profit <= 0 ? this.trading_hub_stats.losses + 1 : this.trading_hub_stats.losses,
-                profit_loss: this.trading_hub_stats.profit_loss + profit,
-                last_trade_result: profit > 0 ? 'WIN' : 'LOSS'
+                wins: profitValue > 0 ? this.trading_hub_stats.wins + 1 : this.trading_hub_stats.wins,
+                losses: profitValue <= 0 ? this.trading_hub_stats.losses + 1 : this.trading_hub_stats.losses,
+                profit_loss: this.trading_hub_stats.profit_loss + profitValue,
+                last_trade_result: profitValue > 0 ? 'WIN' : 'LOSS'
             });
         }
     }

@@ -37,24 +37,35 @@ export default Engine =>
         updateTotals(contract) {
             const { sell_price: sellPrice, buy_price: buyPrice, currency } = contract;
 
-            const profit = getRoundedNumber(Number(sellPrice) - Number(buyPrice), currency);
+            // Ensure proper number conversion and handle potential undefined values
+            const sellPriceNum = Number(sellPrice) || 0;
+            const buyPriceNum = Number(buyPrice) || 0;
+
+            // Calculate actual profit/loss - negative values indicate losses
+            const profit = getRoundedNumber(sellPriceNum - buyPriceNum, currency);
 
             const win = profit > 0;
 
             const accountStat = this.getAccountStat();
 
-            accountStat.totalWins += win ? 1 : 0;
+            // Update win/loss counts
+            if (win) {
+                accountStat.totalWins += 1;
+            } else {
+                accountStat.totalLosses += 1;
+            }
 
-            accountStat.totalLosses += !win ? 1 : 0;
+            // Update session profit (can be negative for losses)
+            this.sessionProfit = getRoundedNumber(Number(this.sessionProfit) + profit, currency);
 
-            this.sessionProfit = getRoundedNumber(Number(this.sessionProfit) + Number(profit), currency);
+            // Update total profit (can be negative for overall losses)
+            accountStat.totalProfit = getRoundedNumber(Number(accountStat.totalProfit) + profit, currency);
 
-            accountStat.totalProfit = getRoundedNumber(Number(accountStat.totalProfit) + Number(profit), currency);
+            // Update stake and payout totals
+            accountStat.totalStake = getRoundedNumber(Number(accountStat.totalStake) + buyPriceNum, currency);
+            accountStat.totalPayout = getRoundedNumber(Number(accountStat.totalPayout) + sellPriceNum, currency);
 
-            accountStat.totalStake = getRoundedNumber(Number(accountStat.totalStake) + Number(buyPrice), currency);
-
-            accountStat.totalPayout = getRoundedNumber(Number(accountStat.totalPayout) + Number(sellPrice), currency);
-
+            // Broadcast the information with actual profit/loss values
             info({
                 profit,
                 contract,
@@ -66,7 +77,8 @@ export default Engine =>
                 totalPayout: accountStat.totalPayout,
             });
 
-            log(win ? LogTypes.PROFIT : LogTypes.LOST, { currency, profit });
+            // Log with proper profit/loss indication
+            log(win ? LogTypes.PROFIT : LogTypes.LOST, { currency, profit: Math.abs(profit) });
         }
 
         updateAndReturnTotalRuns() {
