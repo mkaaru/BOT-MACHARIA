@@ -130,7 +130,19 @@ export default class SummaryCardStore {
         this.root_store = root_store;
         this.core = core;
         this.disposeReactionsFn = this.registerReactions();
+        
+        // Listen for statistics updates from bot skeleton
+        if (typeof window !== 'undefined' && window.observer) {
+            window.observer.register('statistics.update', this.onStatisticsUpdate.bind(this));
+        }
     }
+
+    onStatisticsUpdate = (stats: any) => {
+        // Update transactions store with new statistics
+        if (this.root_store.transactions) {
+            this.root_store.transactions.updateStatistics(stats);
+        }
+    };
 
     get is_contract_completed() {
         return (
@@ -393,6 +405,19 @@ export default class SummaryCardStore {
             this.setValidationErrorMessages(key, validator.errors.get(key));
         });
     }
+
+    updateStatistics = (stats: {
+        totalProfit: number;
+        totalWins: number;
+        totalLosses: number;
+        totalStake: number;
+        totalPayout: number;
+        totalRuns: number;
+        currency: string;
+    }) => {
+        // This method can be used to sync with external statistics
+        // For now, we'll let the transactions store handle this
+    };
 
     registerReactions() {
         const { client } = this.core;

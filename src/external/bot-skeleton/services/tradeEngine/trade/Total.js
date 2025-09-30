@@ -65,7 +65,7 @@ export default Engine =>
             accountStat.totalStake = getRoundedNumber(Number(accountStat.totalStake) + buyPriceNum, currency);
             accountStat.totalPayout = getRoundedNumber(Number(accountStat.totalPayout) + sellPriceNum, currency);
 
-            // Broadcast the information with actual profit/loss values
+            // Broadcast the information with actual profit/loss values - ensure we emit to update UI
             info({
                 profit,
                 contract,
@@ -75,6 +75,18 @@ export default Engine =>
                 totalLosses: accountStat.totalLosses,
                 totalStake: accountStat.totalStake,
                 totalPayout: accountStat.totalPayout,
+                totalRuns: accountStat.totalRuns,
+            });
+
+            // Emit statistics update for run panel
+            globalObserver.emit('statistics.update', {
+                totalProfit: accountStat.totalProfit,
+                totalWins: accountStat.totalWins,
+                totalLosses: accountStat.totalLosses,
+                totalStake: accountStat.totalStake,
+                totalPayout: accountStat.totalPayout,
+                totalRuns: accountStat.totalRuns,
+                currency
             });
 
             // Log with proper profit/loss indication
