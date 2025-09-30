@@ -104,6 +104,77 @@ const MLTrader = observer(() => {
         return () => cleanup();
     }, []);
 
+    // Enhanced auto-refresh with real-time updates every 30 seconds
+    useEffect(() => {
+        let refreshInterval: NodeJS.Timeout;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 3;
+
+        const performAutoRefresh = async () => {
+            if (is_scanner_active && derivVolatilityScanner) {
+                try {
+                    console.log('🔄 Auto-refreshing ML Trader recommendations...');
+
+                    // Update status to show refresh is happening
+                    const currentStatus = status;
+                    setStatus('🔄 Refreshing recommendations...');
+
+                    // Perform comprehensive refresh
+                    await Promise.all([
+                        derivVolatilityScanner.performFullScan(),
+                        updateSymbolAnalyses(),
+                        // Re-subscribe to any dropped connections
+                        tickStreamManager.subscribeToAllVolatilities()
+                    ]);
+
+                    console.log('✅ Auto-refresh completed successfully');
+                    reconnectAttempts = 0; // Reset on success
+
+                    // Update status back after brief delay
+                    setTimeout(() => {
+                        setStatus(currentStatus || 'ML Trader ready - Scanning for momentum opportunities');
+                    }, 1500);
+
+                } catch (error) {
+                    console.warn('⚠️ Auto-refresh failed:', error);
+                    reconnectAttempts++;
+
+                    if (reconnectAttempts <= maxReconnectAttempts) {
+                        setStatus(`⚠️ Refresh failed, retrying... (${reconnectAttempts}/${maxReconnectAttempts})`);
+
+                        // Retry after shorter interval
+                        setTimeout(() => {
+                            performAutoRefresh();
+                        }, 10000); // 10 second retry
+                    } else {
+                        setStatus('❌ Auto-refresh failed. Please refresh page if needed.');
+                        console.error('Max auto-refresh attempts reached');
+                    }
+                }
+            }
+        };
+
+        // Start auto-refresh with immediate first refresh after delay
+        const startAutoRefresh = () => {
+            // Initial refresh after 30 seconds to let data accumulate
+            setTimeout(() => {
+                performAutoRefresh();
+
+                // Then set up regular interval
+                refreshInterval = setInterval(performAutoRefresh, 30000); // 30 seconds
+            }, 30000);
+        };
+
+        startAutoRefresh();
+
+        return () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        };
+    }, [is_scanner_active, status, updateSymbolAnalyses]);
+
+
     /**
      * Initialize ML Trader with Deriv volatility scanner
      */
@@ -286,11 +357,11 @@ const MLTrader = observer(() => {
         if (contractInProgressRef.current) return;
 
         // Filter recommendations based on user settings
-        const filteredRecs = recs.filter(rec => 
+        const filteredRecs = recs.filter(rec =>
             rec.confidence >= filter_settings.min_confidence &&
             rec.momentumScore >= filter_settings.min_momentum &&
             filter_settings.preferred_durations.includes(rec.duration) &&
-            (filter_settings.max_risk === 'HIGH' || 
+            (filter_settings.max_risk === 'HIGH' ||
              (filter_settings.max_risk === 'MEDIUM' && rec.urgency !== 'CRITICAL') ||
              (filter_settings.max_risk === 'LOW' && rec.urgency === 'LOW'))
         );
@@ -518,7 +589,7 @@ const MLTrader = observer(() => {
      */
     const getConfidenceColor = (confidence: number): string => {
         if (confidence >= 90) return '#4CAF50'; // Green - Excellent
-        if (confidence >= 80) return '#8BC34A'; // Light Green - High  
+        if (confidence >= 80) return '#8BC34A'; // Light Green - High
         if (confidence >= 70) return '#FFC107'; // Amber - Good
         if (confidence >= 60) return '#FF9800'; // Orange - Moderate
         return '#F44336'; // Red - Low
@@ -849,8 +920,8 @@ const MLTrader = observer(() => {
     }, [store.dashboard]);
 
     return (
-        <div 
-            className="ml-trader" 
+        <div
+            className="ml-trader"
             style={{ paddingBottom: '10rem', minHeight: '100vh', overflowY: 'auto' }}
             onContextMenu={(e) => e.preventDefault()}
         >
@@ -868,9 +939,9 @@ const MLTrader = observer(() => {
                     {is_authorized && (
                         <div className="account-info desktop-only">
                             <Text size="sm" weight="bold">
-                                {localize('Balance: {{balance}} {{currency}}', { 
-                                    balance: account_balance.toFixed(2), 
-                                    currency: account_currency 
+                                {localize('Balance: {{balance}} {{currency}}', {
+                                    balance: account_balance.toFixed(2),
+                                    currency: account_currency
                                 })}
                             </Text>
                             <Text size="xs" color="general">
@@ -918,7 +989,7 @@ const MLTrader = observer(() => {
                             </Text>
                         </div>
                         <div className="header-controls">
-                            <button 
+                            <button
                                 className={`filter-btn ${show_advanced_view ? 'active' : ''}`}
                                 onClick={() => setShowAdvancedView(!show_advanced_view)}
                             >
@@ -934,8 +1005,8 @@ const MLTrader = observer(() => {
                                     {localize('Scanning for momentum opportunities...')}
                                 </Text>
                                 <div className="scan-progress">
-                                    <div 
-                                        className="progress-bar" 
+                                    <div
+                                        className="progress-bar"
                                         style={{ width: `${scan_progress}%` }}
                                     />
                                 </div>
@@ -943,7 +1014,7 @@ const MLTrader = observer(() => {
                         ) : (
                             <div className="beautiful-cards-container">
                                 {recommendations.slice(0, 6).map((rec, index) => (
-                                    <div 
+                                    <div
                                         key={`${rec.symbol}-${index}`}
                                         className={`recommendation-card beautiful-card ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
                                         onClick={() => applyRecommendation(rec)}
@@ -976,10 +1047,10 @@ const MLTrader = observer(() => {
 
                                         <div className="confidence-section">
                                             <div className="confidence-circle">
-                                                <div 
-                                                    className="confidence-fill" 
-                                                    style={{ 
-                                                        background: `conic-gradient(${getConfidenceColor(rec.confidence)} ${rec.confidence * 3.6}deg, #e0e0e0 0deg)` 
+                                                <div
+                                                    className="confidence-fill"
+                                                    style={{
+                                                        background: `conic-gradient(${getConfidenceColor(rec.confidence)} ${rec.confidence * 3.6}deg, #e0e0e0 0deg)`
                                                     }}
                                                 >
                                                     <div className="confidence-inner">
@@ -1024,7 +1095,7 @@ const MLTrader = observer(() => {
                                         </div>
 
                                         <div className="card-actions">
-                                            <button 
+                                            <button
                                                 className="action-btn load-to-bot"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -1035,7 +1106,7 @@ const MLTrader = observer(() => {
                                                 <Text size="xs" weight="bold">{localize('Load to Bot Builder')}</Text>
                                             </button>
 
-                                            <button 
+                                            <button
                                                 className="action-btn apply-settings"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -1087,7 +1158,7 @@ const MLTrader = observer(() => {
                             </Text>
                         </div>
                         <div className="auto-trading-toggle">
-                            <button 
+                            <button
                                 className={`toggle-btn ${trading_interface.is_auto_trading ? 'active' : ''}`}
                                 onClick={toggleAutoTrading}
                                 disabled={!is_authorized}
@@ -1101,7 +1172,7 @@ const MLTrader = observer(() => {
                         <div className="form-row">
                             <div className="form-field">
                                 <Text size="xs" color="general">{localize('Symbol')}</Text>
-                                <select 
+                                <select
                                     value={trading_interface.symbol}
                                     onChange={(e) => setTradingInterface(prev => ({ ...prev, symbol: e.target.value }))}
                                 >
@@ -1115,7 +1186,7 @@ const MLTrader = observer(() => {
 
                             <div className="form-field">
                                 <Text size="xs" color="general">{localize('Contract Type')}</Text>
-                                <select 
+                                <select
                                     value={trading_interface.contract_type}
                                     onChange={(e) => setTradingInterface(prev => ({ ...prev, contract_type: e.target.value as 'CALL' | 'PUT' }))}
                                 >
@@ -1131,7 +1202,7 @@ const MLTrader = observer(() => {
                         <div className="form-row">
                             <div className="form-field">
                                 <Text size="xs" color="general">{localize('Duration')}</Text>
-                                <select 
+                                <select
                                     value={`${trading_interface.duration}s`}
                                     onChange={(e) => {
                                         const option = DURATION_OPTIONS.find(d => d.value === e.target.value);
@@ -1154,7 +1225,7 @@ const MLTrader = observer(() => {
 
                             <div className="form-field">
                                 <Text size="xs" color="general">{localize('Stake ({{currency}})', { currency: account_currency })}</Text>
-                                <input 
+                                <input
                                     type="number"
                                     value={trading_interface.stake}
                                     onChange={(e) => setTradingInterface(prev => ({ ...prev, stake: parseFloat(e.target.value) || 0 }))}
@@ -1165,7 +1236,7 @@ const MLTrader = observer(() => {
                         </div>
 
                         <div className="trading-actions">
-                            <button 
+                            <button
                                 className="execute-btn manual"
                                 onClick={executeManualTrade}
                                 disabled={!is_authorized || contractInProgressRef.current || !selected_recommendation}
@@ -1219,7 +1290,7 @@ const MLTrader = observer(() => {
                                 <div key={symbol} className="analysis-card">
                                     <div className="card-header">
                                         <Text size="sm" weight="bold">{analysis.displayName}</Text>
-                                        <div 
+                                        <div
                                             className="risk-indicator"
                                             style={{ backgroundColor: getRiskColor(analysis.riskLevel) }}
                                         >
