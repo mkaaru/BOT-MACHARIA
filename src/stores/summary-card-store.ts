@@ -211,40 +211,31 @@ export default class SummaryCardStore {
         return limit_order;
     }
 
-    onBotContractEvent(contract: TContractInfo) {
-        const { profit } = contract;
-        const indicative = getIndicativePrice(contract as ProposalOpenContract);
+    onBotContractEvent = (contract: ProposalOpenContract) => {
+        // Handle contract updates for summary display
+        if (contract?.is_sold || contract?.status === 'sold') {
+            const profit = Number(contract.profit || 0);
 
-        // Ensure profit is properly handled as a number (can be negative for losses)
-        const profitValue = Number(profit) || 0;
-        this.profit = profitValue;
-
-        if (this.contract_id !== contract.id) {
-            this.clear(false);
-            this.contract_id = contract.id;
-            this.indicative = indicative;
-        }
-
-        const movements: TMovements = { profit: profitValue, indicative };
-
-        Object.keys(movements).forEach(name => {
-            const movement = movements[name as keyof TMovements];
-            const current_movement = this[name as keyof TMovements];
-
-            if (name in this && movement !== undefined && movement !== current_movement) {
-                this[`${name as keyof TMovements}_movement`] =
-                    movement > (this[name as keyof TMovements] || 0) ? 'profit' : 'loss';
-            } else if (this[`${name as keyof TMovements}_movement`] !== '') {
-                this.indicative_movement = '';
+            if (profit > 0) {
+                this.contract_stage = contract_stages.CONTRACT_WON;
+            } else {
+                this.contract_stage = contract_stages.CONTRACT_LOST;
             }
 
-            if (name === 'profit') this.profit_loss = movement;
-            if (name === 'indicative') this.indicative = movement;
-        });
+            // Update profit display
+            this.profit = profit;
+            this.is_contract_completed = true;
 
-        // Store the complete contract info
-        this.contract_info = contract;
-    }
+            console.log('📈 Summary card updated:', {
+                contract_id: contract.contract_id,
+                profit,
+                stage: this.contract_stage
+            });
+        } else if (contract?.status === 'open') {
+            this.is_contract_completed = false;
+            this.contract_stage = contract_stages.PURCHASE_RECEIVED;
+        }
+    };
 
     onTradingHubContractEvent(contract: TContractInfo) {
         // Handle trading hub specific contract events

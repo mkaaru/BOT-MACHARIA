@@ -100,6 +100,14 @@ export default Engine =>
 
         // Centralized statistics broadcasting
         broadcastStatistics(profit, contract, accountStat, currency) {
+            console.log('📊 Broadcasting statistics:', {
+                profit,
+                totalWins: accountStat.totalWins,
+                totalLosses: accountStat.totalLosses,
+                totalRuns: accountStat.totalRuns,
+                currency
+            });
+
             info({
                 profit,
                 contract,
@@ -112,7 +120,7 @@ export default Engine =>
                 totalRuns: accountStat.totalRuns,
             });
 
-            // Emit statistics update for run panel
+            // Emit statistics update for run panel - this should trigger UI updates
             globalObserver.emit('statistics.update', {
                 totalProfit: accountStat.totalProfit,
                 totalWins: accountStat.totalWins,
@@ -120,7 +128,14 @@ export default Engine =>
                 totalStake: accountStat.totalStake,
                 totalPayout: accountStat.totalPayout,
                 totalRuns: accountStat.totalRuns,
-                currency
+                currency,
+                // Ensure these match the transaction store expectations
+                won_contracts: accountStat.totalWins,
+                lost_contracts: accountStat.totalLosses,
+                number_of_runs: accountStat.totalRuns,
+                total_profit: accountStat.totalProfit,
+                total_stake: accountStat.totalStake,
+                total_payout: accountStat.totalPayout
             });
         }
 

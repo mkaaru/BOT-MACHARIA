@@ -36,6 +36,7 @@ export default class TransactionsStore {
             is_called_proposal_open_contract: observable,
             is_transaction_details_modal_open: observable,
             transactions: computed,
+            statistics: computed,
             onBotContractEvent: action.bound,
             pushTransaction: action.bound,
             clear: action.bound,
@@ -44,6 +45,8 @@ export default class TransactionsStore {
             updateResultsCompletedContract: action.bound,
             sortOutPositionsBeforeAction: action.bound,
             recoverPendingContractsById: action.bound,
+            updateStatistics: action.bound,
+            onBotContractEvent: action.bound,
         });
     }
     TRANSACTION_CACHE = 'transaction_cache';
@@ -72,7 +75,7 @@ export default class TransactionsStore {
                 if (is_completed) {
                     // Check multiple conditions to determine if it's a win
                     const isWin = profit > 0 || status === 'won' || (payout && payout > buy_price);
-                    
+
                     if (isWin) {
                         stats.won_contracts += 1;
                         stats.total_payout += payout ?? bid_price ?? 0;
@@ -284,4 +287,100 @@ export default class TransactionsStore {
             }
         }
     }
+
+    updateStatistics() {
+        const transactions = this.transactions;
+
+        const totalStake = transactions.reduce((sum, transaction) => {
+            return sum + (Number(transaction.buy_price) || 0);
+        }, 0);
+
+        const totalPayout = transactions.reduce((sum, transaction) => {
+            return sum + (Number(transaction.sell_price) || 0);
+        }, 0);
+
+        const totalProfit = transactions.reduce((sum, transaction) => {
+            return sum + (Number(transaction.profit) || 0);
+        }, 0);
+
+        // Count winning and losing contracts - only count closed/completed transactions
+        const completedTransactions = transactions.filter(transaction => {
+            return transaction.is_completed || transaction.status === 'sold' || transaction.profit !== undefined;
+        });
+
+        const wonContracts = completedTransactions.filter(transaction => {
+            const profit = Number(transaction.profit || 0);
+            return profit > 0;
+        }).length;
+
+        const lostContracts = completedTransactions.filter(transaction => {
+            const profit = Number(transaction.profit || 0);
+            return profit <= 0; // Include break-even as losses for accurate counting
+        }).length;
+
+        console.log('📊 Statistics update:', {
+            totalTransactions: transactions.length,
+            completedTransactions: completedTransactions.length,
+            wonContracts,
+            lostContracts,
+            totalProfit: getRoundedNumber(totalProfit, this.currency)
+        });
+
+        this.statistics = {
+            total_stake: getRoundedNumber(totalStake, this.currency),
+            total_payout: getRoundedNumber(totalPayout, this.currency),
+            total_profit: getRoundedNumber(totalProfit, this.currency),
+            won_contracts: wonContracts,
+            lost_contracts: lostContracts,
+            number_of_runs: completedTransactions.length, // Use completed transactions for accurate run count
+        };
+    }
+
+    onBotContractEvent = (contract: ProposalOpenContract) => {
+        const { loginid } = this.core.client;
+        const same_contract = this.transactions.find(c => String(c.contract_id) === String(contract.contract_id));
+
+        if (same_contract) {
+            // Update existing contract
+            const wasCompleted = same_contract.is_completed;
+            Object.assign(same_contract, {
+                ...contract,
+                currency: this.currency,
+                is_completed: contract.is_sold || contract.status === 'sold',
+                profit: contract.profit || same_contract.profit,
+                sell_price: contract.sell_price || same_contract.sell_price,
+            });
+
+            // Log when contract completion status changes
+            if (!wasCompleted && same_contract.is_completed) {
+                console.log('🏁 Contract completed:', {
+                    contract_id: contract.contract_id,
+                    profit: same_contract.profit,
+                    status: same_contract.status
+                });
+            }
+        } else {
+            // Add new contract
+            const newContract = {
+                ...contract,
+                currency: this.currency,
+                is_completed: contract.is_sold || contract.status === 'sold',
+            };
+            this.transactions.unshift(newContract);
+
+            console.log('➕ New contract added:', {
+                contract_id: contract.contract_id,
+                is_completed: newContract.is_completed,
+                profit: newContract.profit
+            });
+        }
+
+        // Always update statistics when contract events occur
+        this.updateStatistics();
+
+        // Store in localStorage with account-specific key
+        if (loginid) {
+            localStorage.setItem(`dbot-transactions-${loginid}`, JSON.stringify(this.transactions));
+        }
+    };
 }
