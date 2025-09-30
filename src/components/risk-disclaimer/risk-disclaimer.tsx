@@ -1,79 +1,80 @@
-import React, { useState } from 'react';
-import Button from '@/components/shared_ui/button';
-import Modal from '@/components/shared_ui/modal';
-import Text from '@/components/shared_ui/text';
+import React from 'react';
+import { observer } from 'mobx-react-lite';
+import { Modal, Text, Button } from '@/components/shared_ui';
+import { localize } from '@deriv-com/translations';
+import { useStore } from '@/hooks/useStore';
 import './risk-disclaimer.scss';
 
-const RiskDisclaimer = () => {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isAcknowledged, setIsAcknowledged] = useState(() => {
-        return localStorage.getItem('risk_disclaimer_acknowledged') === 'true';
-    });
+const RiskDisclaimer = observer(() => {
+    const { ui } = useStore();
+    const { is_risk_disclaimer_modal_visible, setRiskDisclaimerModalVisibility } = ui;
 
-    const handleOpenModal = () => {
-        setIsModalOpen(true);
+    const handleAccept = () => {
+        setRiskDisclaimerModalVisibility(false);
+        // Store acceptance in localStorage
+        localStorage.setItem('risk_disclaimer_accepted', 'true');
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
+    const handleDecline = () => {
+        setRiskDisclaimerModalVisibility(false);
     };
 
-    const handleAcknowledge = () => {
-        setIsAcknowledged(true);
-        localStorage.setItem('risk_disclaimer_acknowledged', 'true');
-        setIsModalOpen(false);
-    };
-
-    if (isAcknowledged) {
-        return (
-            <>
-                <button className='risk-disclaimer-button' onClick={handleOpenModal}>
-                    <Text size='xs' weight='bold' color='colored-background'>
-                        Risk Disclaimer
-                    </Text>
-                </button>
-                {isModalOpen && (
-                    <Modal
-                        is_open={isModalOpen}
-                        toggleModal={handleCloseModal}
-                        title='Risk Disclaimer'
-                        className='risk-disclaimer-modal'
-                    >
-                        <div className='risk-disclaimer-content'>
-                            <Text size='s' line_height='m'>
-                                Deriv offers complex derivatives, such as options and contracts for difference ("CFDs"). These products may not be suitable for all clients, and trading them puts you at risk. Please make sure that you understand the following risks before trading Deriv products: a) you may lose some or all of the money you invest in the trade, b) if your trade involves currency conversion, exchange rates will affect your profit and loss. You should never trade with borrowed money or with money that you cannot afford to lose.
-                            </Text>
-                            <div className='risk-disclaimer-actions'>
-                                <Button primary onClick={handleCloseModal}>
-                                    Close
-                                </Button>
-                            </div>
-                        </div>
-                    </Modal>
-                )}
-            </>
-        );
-    }
+    if (!is_risk_disclaimer_modal_visible) return null;
 
     return (
         <Modal
-            is_open={!isAcknowledged}
-            title='Risk Disclaimer'
-            className='risk-disclaimer-modal'
+            className='risk-disclaimer__modal'
+            is_open={is_risk_disclaimer_modal_visible}
             has_close_icon={false}
+            has_outer_content={false}
+            should_header_stick_body={false}
+            width='44rem'
         >
-            <div className='risk-disclaimer-content'>
-                <Text size='s' line_height='m'>
-                    Deriv offers complex derivatives, such as options and contracts for difference ("CFDs"). These products may not be suitable for all clients, and trading them puts you at risk. Please make sure that you understand the following risks before trading Deriv products: a) you may lose some or all of the money you invest in the trade, b) if your trade involves currency conversion, exchange rates will affect your profit and loss. You should never trade with borrowed money or with money that you cannot afford to lose.
+            <div className='risk-disclaimer__content'>
+                <Text
+                    as='h2'
+                    className='risk-disclaimer__content-title'
+                    weight='bold'
+                    size='l'
+                >
+                    {localize('Risk Disclaimer')}
                 </Text>
-                <div className='risk-disclaimer-actions'>
-                    <Button primary large onClick={handleAcknowledge}>
-                        Risk Disclaimer - Continue
-                    </Button>
+                <div className='risk-disclaimer__content-text'>
+                    <Text size='s' color='general'>
+                        {localize(
+                            'Trading financial products carries significant risk and may result in the loss of all your invested capital. You should not invest money that you cannot afford to lose and should ensure that you fully understand the risks involved.'
+                        )}
+                    </Text>
+                    <br />
+                    <Text size='s' color='general'>
+                        {localize(
+                            'Before using this trading system, please carefully consider your investment objectives, level of experience, and risk tolerance. Past performance is not indicative of future results.'
+                        )}
+                    </Text>
+                    <br />
+                    <Text size='s' color='general'>
+                        {localize(
+                            'By accepting this disclaimer, you acknowledge that you understand these risks and agree to use this platform at your own discretion.'
+                        )}
+                    </Text>
                 </div>
+            </div>
+            <div className='risk-disclaimer__footer'>
+                <Button
+                    className='risk-disclaimer__button risk-disclaimer__button--secondary'
+                    secondary
+                    onClick={handleDecline}
+                    text={localize('Decline')}
+                />
+                <Button
+                    className='risk-disclaimer__button risk-disclaimer__button--primary'
+                    primary
+                    onClick={handleAccept}
+                    text={localize('Accept')}
+                />
             </div>
         </Modal>
     );
-};
+});
 
 export default RiskDisclaimer;
