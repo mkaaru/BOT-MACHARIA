@@ -1,5 +1,6 @@
 
 import { symbolAnalyzer, SymbolAnalysis } from './symbol-analyzer';
+import { historicalDataCache } from './historical-data-cache';
 
 export interface TradeRecommendation {
     symbol: string;
@@ -118,6 +119,7 @@ class MarketAnalyzer {
             this.ws.onopen = () => {
                 console.log('✅ Connected to Deriv WebSocket API');
                 this.reconnectAttempts = 0;
+                this.fetchHistoricalDataForAllSymbols();
                 this.subscribeToSymbols();
             };
 
@@ -214,10 +216,18 @@ class MarketAnalyzer {
             return;
         }
 
+        const price = parseFloat(quote);
+        const time = epoch * 1000;
+
+        // Update cache with new tick (for real-time ticks)
+        if (typeof epoch !== 'undefined') {
+            historicalDataCache.addTick(symbol, price, epoch);
+        }
+
         // Store tick in symbol analyzer
         symbolAnalyzer.addTick(symbol, {
-            time: epoch * 1000,
-            quote: parseFloat(quote)
+            time,
+            quote: price
         });
 
         // Store in local history
@@ -226,9 +236,9 @@ class MarketAnalyzer {
         }
         
         this.tickHistory[symbol].push({
-            time: epoch * 1000,
-            quote: parseFloat(quote),
-            last_digit: this.getLastDigit(parseFloat(quote))
+            time,
+            quote: price,
+            last_digit: this.getLastDigit(price)
         });
 
         // Keep only last 200 ticks
@@ -407,6 +417,113 @@ class MarketAnalyzer {
         }
 
         return recommendations;
+    }
+
+    private async fetchHistoricalDataForAllSymbols() {
+        console.log('📊 Loading market data for fast analysis...');
+        
+        const symbolsToFetch: string[] = [];
+        
+        // Check cache first
+        for (const symbol of this.symbols) {
+            const cachedData = historicalDataCache.getCachedData(symbol);
+            if (cachedData) {
+                // Use cached data immediately
+                cachedData.prices.forEach((price, index) => {
+                    this.processTick({
+                        symbol,
+                        quote: price,
+                        epoch: cachedData.times[index]
+                    });
+                });
+                console.log(`⚡ Used cached data for ${symbol} (${cachedData.prices.length} ticks)`);
+            } else {
+                symbolsToFetch.push(symbol);
+            }
+        }
+        
+        // Fetch missing symbols
+        for (const symbol of symbolsToFetch) {
+            try {
+                await this.fetchHistoricalTicks(symbol);
+            } catch (error) {
+                console.error(`Failed to fetch historical data for ${symbol}:`, error);
+            }
+        }
+        
+        // Perform initial analysis with historical data
+        this.performAnalysis();
+    }
+
+    private fetchHistoricalTicks(symbol: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                reject(new Error('WebSocket not connected'));
+                return;
+            }
+
+            const requestId = `hist_${symbol}_${Date.now()}`;
+            
+            // Request last 500 ticks for immediate analysis
+            const historyRequest = {
+                ticks_history: symbol,
+                count: 500,
+                end: 'latest',
+                style: 'ticks',
+                req_id: requestId
+            };
+
+            const handleMessage = (event: MessageEvent) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.req_id === requestId) {
+                        this.ws?.removeEventListener('message', handleMessage);
+                        
+                        if (data.error) {
+                            reject(new Error(data.error.message));
+                            return;
+                        }
+
+                        if (data.history && data.history.prices) {
+                            // Cache the historical data
+                            historicalDataCache.setCachedData(
+                                symbol, 
+                                data.history.prices, 
+                                data.history.times
+                            );
+                            
+                            // Process historical ticks
+                            data.history.prices.forEach((price: number, index: number) => {
+                                const epoch = data.history.times[index];
+                                this.processTick({
+                                    symbol,
+                                    quote: price,
+                                    epoch
+                                });
+                            });
+
+                            console.log(`📈 Loaded ${data.history.prices.length} historical ticks for ${symbol}`);
+                            resolve();
+                        } else {
+                            reject(new Error('No historical data received'));
+                        }
+                    }
+                } catch (error) {
+                    this.ws?.removeEventListener('message', handleMessage);
+                    reject(error);
+                }
+            };
+
+            this.ws.addEventListener('message', handleMessage);
+            this.ws.send(JSON.stringify(historyRequest));
+            
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                this.ws?.removeEventListener('message', handleMessage);
+                reject(new Error(`Timeout fetching historical data for ${symbol}`));
+            }, 10000);
+        });
     }
 
     private handleError(message: string) {

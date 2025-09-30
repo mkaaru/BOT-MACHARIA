@@ -182,7 +182,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         const initializeScanner = async () => {
             try {
                 setConnectionStatus('connecting');
-                setStatusMessage('Connecting to Deriv WebSocket API...');
+                setStatusMessage('Loading historical market data...');
 
                 // Subscribe to market analyzer updates
                 const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats, o5u4Data) => {
@@ -211,19 +211,19 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
-                    // Enhanced AI scanning phases - Load interface after 5 markets
+                    // Enhanced AI scanning phases - Load interface after 3 markets (faster)
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
 
                     if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
-                        setCurrentAiMessage(aiScanningMessages.initializing[0]);
-                        setStatusMessage('🤖 AI initializing market analysis...');
-                    } else if (readySymbolsCount < 5) {
-                        // Keep scanning state until 5 markets are analyzed
+                        setCurrentAiMessage('📊 Loading historical market data...');
+                        setStatusMessage('🚀 Fast-loading with historical data...');
+                    } else if (readySymbolsCount < 3) {
+                        // Faster loading - show ready after 3 markets
                         setAiScanningPhase('analyzing');
-                        const msgIndex = Math.floor((readySymbolsCount / 5) * aiScanningMessages.analyzing.length);
+                        const msgIndex = Math.floor((readySymbolsCount / 3) * aiScanningMessages.analyzing.length);
                         setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
-                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/5 markets ready`);
+                        setStatusMessage(`⚡ Fast analysis in progress... ${readySymbolsCount}/3 markets ready`);
                         setConnectionStatus('scanning');
 
                         // Show which symbol is being processed
@@ -233,11 +233,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                             const displayName = symbolMap[currentSymbol] || currentSymbol;
                             setProcessingSymbol(displayName);
                         }
-                    } else if (readySymbolsCount === 5) {
-                        // Switch to ready state after 5 markets are analyzed
+                    } else if (readySymbolsCount === 3) {
+                        // Switch to ready state after 3 markets are analyzed
                         setAiScanningPhase('complete');
-                        setCurrentAiMessage('✅ AI analysis ready - 5 markets analyzed, loading interface...');
-                        setStatusMessage('🚀 AI has identified trading opportunities - Interface loading...');
+                        setCurrentAiMessage('⚡ Fast analysis complete - Interface ready!');
+                        setStatusMessage('🎯 Trading opportunities identified - Ready to trade!');
                         setConnectionStatus('ready');
                         setIsScanning(false);
                         setProcessingSymbol('');
