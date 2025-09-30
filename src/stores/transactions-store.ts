@@ -68,15 +68,15 @@ export default class TransactionsStore {
         );
         const statistics = trxs.reduce(
             (stats, { data }) => {
-                const { profit = 0, is_completed = false, buy_price = 0, payout, bid_price, status } = data as TContractInfo;
+                const { profit = 0, is_completed = false, buy_price = 0, payout, bid_price } = data as TContractInfo;
+                
                 if (is_completed) {
-                    // Check multiple conditions to determine if it's a win
-                    const isWin = profit > 0 || status === 'won' || (payout && payout > buy_price);
-                    
-                    if (isWin) {
+                    // Determine win/loss based on profit - this is the most reliable indicator
+                    if (profit > 0) {
                         stats.won_contracts += 1;
                         stats.total_payout += payout ?? bid_price ?? 0;
-                    } else {
+                    } else if (profit < 0) {
+                        // Only count as loss if profit is negative (break-even contracts are not counted)
                         stats.lost_contracts += 1;
                     }
                     stats.total_profit += profit;

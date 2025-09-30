@@ -124,8 +124,9 @@ export const getCancellationPrice = (contract_info: TContractInfo) => {
 export const isEnded = (contract_info: TContractInfo) =>
     !!(
         (contract_info.status && contract_info.status !== 'open') ||
-        contract_info.is_expired ||
-        contract_info.is_settleable
+        contract_info.exit_tick_time ||
+        contract_info.sell_time ||
+        contract_info.is_expired
     );
 
 export const isOpen = (contract_info: TContractInfo) => getContractStatus(contract_info) === 'open';
