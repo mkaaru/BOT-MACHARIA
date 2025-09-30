@@ -400,6 +400,21 @@ const SmartTrader = observer(() => {
 
                                         contractInProgressRef.current = false;
                                         const profit = Number(poc?.profit || 0);
+                                        const buyPrice = Number(poc?.buy_price || effectiveStake);
+                                        const sellPrice = Number(poc?.sell_price || 0);
+                                        
+                                        // Emit trade result to statistics system
+                                        statisticsEmitter.emitTradeResult({
+                                            buy_price: buyPrice,
+                                            sell_price: sellPrice,
+                                            profit: profit,
+                                            currency: account_currency,
+                                            is_win: profit > 0,
+                                            contract_id: poc?.contract_id,
+                                            contract_type: tradeType,
+                                            symbol: symbol,
+                                            stake: effectiveStake
+                                        });
 
                                         if (profit > 0) {
                                             // WIN: Reset to pre-loss state

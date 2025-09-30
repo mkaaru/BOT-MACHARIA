@@ -32,7 +32,7 @@ export default Engine =>
         // Handle trade results from external engines (Smart Trader, ML Trader, etc.)
         handleExternalTradeResult(tradeData) {
             if (!this.accountInfo) return;
-            
+
             const { 
                 sell_price: sellPrice, 
                 buy_price: buyPrice, 
@@ -79,7 +79,7 @@ export default Engine =>
         // Handle run count updates from external engines
         handleExternalTradeRun() {
             if (!this.accountInfo) return;
-            
+
             this.sessionRuns++;
             const accountStat = this.getAccountStat();
             accountStat.totalRuns++;
