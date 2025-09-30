@@ -541,8 +541,8 @@ const MLTrader = observer(() => {
 
             // Default settings
             const defaultStake = 1.0;
-            const defaultDuration = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
-            const defaultDurationUnit = 's'; // seconds
+            const defaultDuration = 1; // 1 tick
+            const defaultDurationUnit = 't'; // ticks
             const martingaleMultiplier = 1.0; // Default martingale multiplier
 
             // Map ML Trader recommendation to Trading Hub style trade type categories
