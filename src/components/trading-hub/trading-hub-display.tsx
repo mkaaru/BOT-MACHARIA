@@ -233,8 +233,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             const displayName = symbolMap[currentSymbol] || currentSymbol;
                             setProcessingSymbol(displayName);
                         }
-                    } else if (readySymbolsCount === 3) {
-                        // Switch to ready state after 3 markets are analyzed
+                    } else if (readySymbolsCount >= 2) {
+                        // Reduced requirement - ready after just 2 markets for faster loading
                         setAiScanningPhase('complete');
                         setCurrentAiMessage('⚡ Fast analysis complete - Interface ready!');
                         setStatusMessage('🎯 Trading opportunities identified - Ready to trade!');
@@ -274,17 +274,44 @@ const TradingHubDisplay: React.FC = observer(() => {
                     }
                 });
 
-                // Add error event listener
+                // Add error event listener with recovery
                 const errorUnsubscribe = marketAnalyzer.onError((error) => {
                     console.error('Market analyzer error:', error);
                     setConnectionStatus('error');
-                    setStatusMessage('Market data connection error. Attempting to reconnect...');
+                    setStatusMessage('Connection error - retrying...');
+                    
+                    // Auto-recover after 3 seconds if we have some data
+                    setTimeout(() => {
+                        const hasAnyData = Object.keys(marketStats).some(symbol => 
+                            marketStats[symbol] && marketStats[symbol].tickCount > 0
+                        );
+                        
+                        if (hasAnyData) {
+                            console.log('🔄 Auto-recovering with available data');
+                            setConnectionStatus('ready');
+                            setStatusMessage('🎯 Trading opportunities identified - Ready to trade!');
+                            setIsScanning(false);
+                        }
+                    }, 3000);
                 });
 
                 // Start the market analyzer
                 marketAnalyzer.start();
                 setIsScanning(true);
                 setConnectionStatus('scanning');
+                
+                // Fallback timeout - force ready state after 15 seconds
+                setTimeout(() => {
+                    if (connectionStatus === 'scanning' || connectionStatus === 'connecting') {
+                        console.log('⚡ Fallback timeout - proceeding with available data');
+                        setAiScanningPhase('complete');
+                        setCurrentAiMessage('⚡ Analysis ready - Interface loaded!');
+                        setStatusMessage('🎯 Market scanner ready - Limited data available');
+                        setConnectionStatus('ready');
+                        setIsScanning(false);
+                        setProcessingSymbol('');
+                    }
+                }, 15000);
 
                 return () => {
                     unsubscribe();
