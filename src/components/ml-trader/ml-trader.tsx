@@ -919,11 +919,20 @@ const MLTrader = observer(() => {
         }
     }, [store.dashboard]);
 
+    // Handle context menu with error protection
+    const handleContextMenu = useCallback((e: React.MouseEvent) => {
+        try {
+            e.preventDefault();
+        } catch (error) {
+            console.warn('Context menu prevention failed:', error);
+        }
+    }, []);
+
     return (
         <div
             className="ml-trader"
             style={{ paddingBottom: '10rem', minHeight: '100vh', overflowY: 'auto' }}
-            onContextMenu={(e) => e.preventDefault()}
+            onContextMenu={handleContextMenu}
         >
             <div className="ml-trader__header">
                 <div className="header-title">
