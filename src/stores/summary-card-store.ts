@@ -125,12 +125,14 @@ export default class SummaryCardStore {
             setValidationErrorMessages: action,
             validateProperty: action,
             registerReactions: action.bound,
+            onMount: action.bound,
+            onStatisticsUpdate: action.bound,
         });
 
         this.root_store = root_store;
         this.core = core;
         this.disposeReactionsFn = this.registerReactions();
-        
+
         // Listen for statistics updates from bot skeleton
         if (typeof window !== 'undefined' && window.observer) {
             window.observer.register('statistics.update', this.onStatisticsUpdate.bind(this));
@@ -432,4 +434,26 @@ export default class SummaryCardStore {
             }
         };
     }
+
+    onMount = () => {
+        const { client } = this.core;
+        reaction(
+            () => client.currency,
+            () => {
+                this.clear();
+            }
+        );
+
+        // Listen for statistics updates from all trading engines
+        if (typeof window !== 'undefined' && window.globalObserver) {
+            window.globalObserver.register('statistics.update', this.onStatisticsUpdate.bind(this));
+        }
+    };
+
+    onStatisticsUpdate = (stats) => {
+        if (stats) {
+            // Update internal statistics if needed
+            console.log('Statistics updated:', stats);
+        }
+    };
 }

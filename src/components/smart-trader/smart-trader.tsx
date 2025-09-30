@@ -7,6 +7,11 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './smart-trader.scss';
 
+// External module for statistics emitter
+// Assuming this module exists and is properly configured
+// If not, it would need to be implemented elsewhere in the project
+import { statisticsEmitter } from '@/utils/statisticsEmitter'; // Assuming this path
+
 // Asian Up/Down trade types
 const ASIAN_TYPES = [
     { value: 'ASIANU', label: 'Asian Up' },
@@ -302,6 +307,10 @@ const SmartTrader = observer(() => {
 
         contractInProgressRef.current = true;
         console.log(`✅ Purchase confirmed: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
+
+        // Emit trade run to statistics
+        statisticsEmitter.emitTradeRun();
+
         return buy;
     };
 

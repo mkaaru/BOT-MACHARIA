@@ -459,6 +459,28 @@ export default class RunPanelStore {
         observer.register('bot.contract', transactions.onBotContractEvent);
         observer.register('Error', this.onError);
         observer.register('bot.recoverOpenPositionLimitExceeded', this.OpenPositionLimitExceededEvent);
+        
+        // Register for external trade events
+        observer.register('external.trade.result', this.onExternalTradeResult);
+        observer.register('external.trade.run', this.onExternalTradeRun);
+        observer.register('statistics.update', this.onStatisticsUpdate);
+    };
+
+    onExternalTradeResult = (tradeResult) => {
+        console.log('🔄 External trade result received:', tradeResult);
+        // Handle external trade results (Smart Trader, ML Trader, etc.)
+        this.setHasOpenContract(false);
+    };
+
+    onExternalTradeRun = () => {
+        console.log('🔄 External trade run received');
+        // Handle external trade runs
+        this.setHasOpenContract(true);
+    };
+
+    onStatisticsUpdate = (stats) => {
+        console.log('📊 Statistics updated:', stats);
+        // Statistics are automatically handled by the transactions store
     };
 
     OpenPositionLimitExceededEvent = () => (this.is_contracy_buying_in_progress = true);
@@ -694,6 +716,9 @@ export default class RunPanelStore {
         observer.unregisterAll('contract.status');
         observer.unregisterAll('bot.contract');
         observer.unregisterAll('Error');
+        observer.unregisterAll('external.trade.result');
+        observer.unregisterAll('external.trade.run');
+        observer.unregisterAll('statistics.update');
     };
 
     setContractStage = (contract_stage: TContractStage) => {

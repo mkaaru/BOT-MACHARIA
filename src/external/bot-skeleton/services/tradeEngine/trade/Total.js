@@ -23,7 +23,105 @@ export default Engine =>
             this.sessionRuns = 0;
             this.sessionProfit = 0;
 
+            // Register for statistics clearing and external trade results
             globalObserver.register('statistics.clear', this.clearStatistics.bind(this));
+            globalObserver.register('external.trade.result', this.handleExternalTradeResult.bind(this));
+            globalObserver.register('external.trade.run', this.handleExternalTradeRun.bind(this));
+        }
+
+        // Handle trade results from external engines (Smart Trader, ML Trader, etc.)
+        handleExternalTradeResult(tradeData) {
+            if (!this.accountInfo) return;
+            
+            const { 
+                sell_price: sellPrice, 
+                buy_price: buyPrice, 
+                currency,
+                profit: providedProfit,
+                is_win
+            } = tradeData;
+
+            // Use provided profit if available, otherwise calculate it
+            const profit = providedProfit !== undefined ? 
+                Number(providedProfit) : 
+                getRoundedNumber(Number(sellPrice || 0) - Number(buyPrice || 0), currency);
+
+            const win = is_win !== undefined ? is_win : profit > 0;
+
+            const accountStat = this.getAccountStat();
+
+            // Update win/loss counts
+            if (win) {
+                accountStat.totalWins += 1;
+            } else {
+                accountStat.totalLosses += 1;
+            }
+
+            // Update session and total profit
+            this.sessionProfit = getRoundedNumber(Number(this.sessionProfit) + profit, currency);
+            accountStat.totalProfit = getRoundedNumber(Number(accountStat.totalProfit) + profit, currency);
+
+            // Update stake and payout totals
+            if (buyPrice) {
+                accountStat.totalStake = getRoundedNumber(Number(accountStat.totalStake) + Number(buyPrice), currency);
+            }
+            if (sellPrice) {
+                accountStat.totalPayout = getRoundedNumber(Number(accountStat.totalPayout) + Number(sellPrice), currency);
+            }
+
+            // Broadcast the information
+            this.broadcastStatistics(profit, tradeData, accountStat, currency);
+
+            // Log the result
+            log(win ? LogTypes.PROFIT : LogTypes.LOST, { currency, profit: Math.abs(profit) });
+        }
+
+        // Handle run count updates from external engines
+        handleExternalTradeRun() {
+            if (!this.accountInfo) return;
+            
+            this.sessionRuns++;
+            const accountStat = this.getAccountStat();
+            accountStat.totalRuns++;
+
+            // Emit statistics update for run count
+            globalObserver.emit('statistics.update', {
+                totalProfit: accountStat.totalProfit,
+                totalWins: accountStat.totalWins,
+                totalLosses: accountStat.totalLosses,
+                totalStake: accountStat.totalStake,
+                totalPayout: accountStat.totalPayout,
+                totalRuns: accountStat.totalRuns,
+                currency: this.accountInfo?.currency || 'USD'
+            });
+
+            return accountStat.totalRuns;
+        }
+
+        // Centralized statistics broadcasting
+        broadcastStatistics(profit, contract, accountStat, currency) {
+            info({
+                profit,
+                contract,
+                accountID: this.accountInfo.loginid,
+                totalProfit: accountStat.totalProfit,
+                totalWins: accountStat.totalWins,
+                totalLosses: accountStat.totalLosses,
+                totalStake: accountStat.totalStake,
+                totalPayout: accountStat.totalPayout,
+                totalRuns: accountStat.totalRuns,
+            });
+
+            // Emit statistics update for run panel
+            globalObserver.emit('statistics.update', {
+                totalProfit: accountStat.totalProfit,
+                totalWins: accountStat.totalWins,
+                totalLosses: accountStat.totalLosses,
+                totalStake: accountStat.totalStake,
+                totalPayout: accountStat.totalPayout,
+                totalRuns: accountStat.totalRuns,
+                currency
+            });
         }
 
         clearStatistics() {
@@ -65,29 +163,8 @@ export default Engine =>
             accountStat.totalStake = getRoundedNumber(Number(accountStat.totalStake) + buyPriceNum, currency);
             accountStat.totalPayout = getRoundedNumber(Number(accountStat.totalPayout) + sellPriceNum, currency);
 
-            // Broadcast the information with actual profit/loss values - ensure we emit to update UI
-            info({
-                profit,
-                contract,
-                accountID: this.accountInfo.loginid,
-                totalProfit: accountStat.totalProfit,
-                totalWins: accountStat.totalWins,
-                totalLosses: accountStat.totalLosses,
-                totalStake: accountStat.totalStake,
-                totalPayout: accountStat.totalPayout,
-                totalRuns: accountStat.totalRuns,
-            });
-
-            // Emit statistics update for run panel
-            globalObserver.emit('statistics.update', {
-                totalProfit: accountStat.totalProfit,
-                totalWins: accountStat.totalWins,
-                totalLosses: accountStat.totalLosses,
-                totalStake: accountStat.totalStake,
-                totalPayout: accountStat.totalPayout,
-                totalRuns: accountStat.totalRuns,
-                currency
-            });
+            // Use centralized broadcasting
+            this.broadcastStatistics(profit, contract, accountStat, currency);
 
             // Log with proper profit/loss indication
             log(win ? LogTypes.PROFIT : LogTypes.LOST, { currency, profit: Math.abs(profit) });
@@ -96,8 +173,20 @@ export default Engine =>
         updateAndReturnTotalRuns() {
             this.sessionRuns++;
             const accountStat = this.getAccountStat();
+            accountStat.totalRuns++;
 
-            return ++accountStat.totalRuns;
+            // Emit statistics update for run count
+            globalObserver.emit('statistics.update', {
+                totalProfit: accountStat.totalProfit,
+                totalWins: accountStat.totalWins,
+                totalLosses: accountStat.totalLosses,
+                totalStake: accountStat.totalStake,
+                totalPayout: accountStat.totalPayout,
+                totalRuns: accountStat.totalRuns,
+                currency: this.accountInfo?.currency || 'USD'
+            });
+
+            return accountStat.totalRuns;
         }
 
         /* eslint-disable class-methods-use-this */

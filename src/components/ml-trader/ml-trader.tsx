@@ -8,6 +8,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { derivVolatilityScanner, ScannerRecommendation, ScannerStatus, VolatilityAnalysis } from '@/services/deriv-volatility-scanner';
 import { tickStreamManager } from '@/services/tick-stream-manager';
+import { statisticsEmitter } from '@/utils/statistics-emitter'; // Assuming statisticsEmitter is available here
 import './ml-trader.scss';
 
 // Enhanced volatility symbols with 1-second indices
@@ -354,6 +355,9 @@ const MLTrader = observer(() => {
                 if (buy_response.buy) {
                     setStatus(`Trade executed: ${recommendation.action} on ${recommendation.displayName} (Contract ID: ${buy_response.buy.contract_id})`);
 
+                    // Emit trade run to statistics
+                    statisticsEmitter.emitTradeRun();
+
                     // Update trading stats
                     setTradingStats(prev => ({
                         ...prev,
@@ -427,7 +431,23 @@ const MLTrader = observer(() => {
 
         setStatus(`${result_emoji} Trade ${result_text}: ${profit.toFixed(2)} ${account_currency}`);
 
-        console.log(`Trade result: ${result_text} ${profit.toFixed(2)} ${account_currency}`);
+        // Emit trade result to centralized statistics
+        statisticsEmitter.emitTradeResult({
+            buy_price: Number(contract.buy_price),
+            sell_price: Number(contract.sell_price),
+            profit: profit,
+            currency: account_currency,
+            is_win: profit > 0,
+            contract_id: contract.contract_id,
+            contract_type: contract.contract_type,
+            symbol: contract.underlying,
+            stake: Number(contract.buy_price)
+        });
+
+        console.log(`🎯 Contract completed:`, contract);
+        console.log(`💰 Profit/Loss: ${profit.toFixed(2)} ${account_currency}`);
+
+        contractInProgressRef.current = false;
     }, [account_currency]);
 
     /**

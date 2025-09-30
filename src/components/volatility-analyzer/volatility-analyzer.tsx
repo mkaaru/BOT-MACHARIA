@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
+import { statisticsEmitter } from '@/utils/statistics-emitter';
 import { Localize } from '@deriv-com/translations';
 import './volatility-analyzer.scss';
 
