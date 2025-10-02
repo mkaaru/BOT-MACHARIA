@@ -590,6 +590,7 @@ const MLTrader = observer(() => {
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="Stake">Stake</variable>
+    <variable id="Initial_Stake">Initial_Stake</variable>
     <variable id="Result_is">Result_is</variable>
     <variable id="Martingale_Multiplier">Martingale_Multiplier</variable>
   </variables>
@@ -646,21 +647,31 @@ const MLTrader = observer(() => {
               </shadow>
             </value>
             <next>
-              <block type="variables_set" id="set_stake">
-                <field name="VAR" id="Stake">Stake</field>
+              <block type="variables_set" id="set_initial_stake">
+                <field name="VAR" id="Initial_Stake">Initial_Stake</field>
                 <value name="VALUE">
-                  <block type="math_number" id="stake_number">
+                  <block type="math_number" id="initial_stake_number">
                     <field name="NUM">${defaultStake}</field>
                   </block>
                 </value>
                 <next>
-                  <block type="variables_set" id="set_martingale">
-                    <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
+                  <block type="variables_set" id="set_stake">
+                    <field name="VAR" id="Stake">Stake</field>
                     <value name="VALUE">
-                      <block type="math_number" id="martingale_number">
-                        <field name="NUM">${martingaleMultiplier}</field>
+                      <block type="variables_get" id="stake_from_initial">
+                        <field name="VAR" id="Initial_Stake">Initial_Stake</field>
                       </block>
                     </value>
+                    <next>
+                      <block type="variables_set" id="set_martingale">
+                        <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="martingale_number">
+                            <field name="NUM">${martingaleMultiplier}</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>
@@ -726,8 +737,8 @@ const MLTrader = observer(() => {
           <block type="variables_set" id="reset_stake_win">
             <field name="VAR" id="Stake">Stake</field>
             <value name="VALUE">
-              <block type="math_number" id="win_stake">
-                <field name="NUM">${defaultStake}</field>
+              <block type="variables_get" id="win_stake">
+                <field name="VAR" id="Initial_Stake">Initial_Stake</field>
               </block>
             </value>
             <next>
