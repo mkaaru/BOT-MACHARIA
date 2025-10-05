@@ -10,6 +10,8 @@ The platform features multiple trading approaches including a visual bot builder
 - **ML Trader Initialization Fix**: Resolved "symbol is not defined" error by moving variable declaration outside try-catch block scope
 - **Historical Data Integration**: Fixed ML Trader to properly fetch and process 500 historical ticks from Deriv API for machine learning model training
 - **Data Format Transformation**: Implemented proper TickData to scanner format conversion (quote→price, epoch→timestamp)
+- **ML Analyzer Import Fix**: Removed duplicate MLTickAnalyzer class and imported the actual implementation from services/ml-tick-analyzer.ts
+- **Immediate Scan Implementation**: Changed scanner to perform immediate full scan after historical data loads instead of waiting 30 seconds
 - **Contract Loss Tracking**: Enhanced win/loss determination to use profit-based classification (profit > 0 = win, profit < 0 = loss)
 - **Contract Completion Detection**: Improved isEnded function to check exit_tick_time, sell_time, status, and is_expired for accurate completion tracking
 - **Server Port Configuration**: Updated Rsbuild config to serve on port 5000 for proper Replit environment compatibility

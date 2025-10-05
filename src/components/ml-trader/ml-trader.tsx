@@ -7,67 +7,9 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { derivVolatilityScanner, ScannerRecommendation, ScannerStatus, VolatilityAnalysis } from '@/services/deriv-volatility-scanner';
 import { tickStreamManager } from '@/services/tick-stream-manager';
-import { statisticsEmitter } from '@/utils/statistics-emitter'; // Assuming statisticsEmitter is available here
+import { mlTickAnalyzer } from '@/services/ml-tick-analyzer';
+import { statisticsEmitter } from '@/utils/statistics-emitter';
 import './ml-trader.scss';
-
-// ML Tick Analyzer Service (Placeholder - Actual implementation would be here)
-// This service would contain the ML model for analyzing tick data.
-class MLTickAnalyzer {
-    private historicalData: Map<string, any[]> = new Map();
-    private predictions: Map<string, any> = new Map();
-    private model: any = null; // Placeholder for the ML model
-
-    constructor() {
-        console.log('MLTickAnalyzer initialized');
-        // Initialize or load the ML model here
-        // For demonstration, we'll simulate model training and prediction
-        this.model = {
-            train: (data: any[]) => {
-                console.log(`Simulating model training with ${data.length} data points.`);
-                // In a real scenario, this would train a model (e.g., LSTM, Transformer)
-                // based on tick data patterns.
-                return {
-                    learning_score: Math.random() * 100,
-                    patterns_matched: Math.floor(Math.random() * 5) + 1
-                };
-            },
-            predict: (symbol: string, data: any[]) => {
-                console.log(`Simulating prediction for ${symbol} with ${data.length} ticks.`);
-                // In a real scenario, this would use the trained model to predict outcomes.
-                if (data.length < 5000) return null; // Need sufficient data for prediction
-                return {
-                    learning_score: Math.random() * 100,
-                    patterns_matched: Math.floor(Math.random() * 5) + 1
-                };
-            }
-        };
-    }
-
-    processBulkHistoricalData(symbol: string, historicalData: any[]) {
-        if (!this.historicalData.has(symbol)) {
-            this.historicalData.set(symbol, []);
-        }
-        this.historicalData.get(symbol)?.push(...historicalData);
-
-        // Simulate training the model if enough data is available
-        if (this.historicalData.get(symbol)?.length >= 5000) {
-            const trainedModelData = this.model.train(this.historicalData.get(symbol)?.slice(-5000)); // Use last 5000 ticks
-            this.predictions.set(symbol, trainedModelData);
-            console.log(`🧠 ML Model trained and prediction generated for ${symbol}`);
-        }
-    }
-
-    predict(symbol: string): any | null {
-        // In a real application, you'd likely want to use the latest ticks for prediction,
-        // not just rely on the bulk training. For this example, we return the prediction
-        // generated during the bulk processing.
-        return this.predictions.get(symbol) || null;
-    }
-
-    // Add other methods for real-time tick processing and prediction if needed
-}
-
-const mlTickAnalyzer = new MLTickAnalyzer();
 
 
 // Enhanced volatility symbols with 1-second indices
