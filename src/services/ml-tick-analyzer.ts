@@ -1,4 +1,3 @@
-
 /**
  * Machine Learning Tick Pattern Analyzer
  * Uses historical tick data to learn patterns and predict trends
@@ -34,11 +33,31 @@ export class MLTickAnalyzer {
         features: TickFeatures[];
         outcomes: number[];
     }> = new Map();
-    
+
     private readonly PATTERN_LENGTH = 20; // Analyze 20-tick patterns
     private readonly MIN_PATTERN_MATCHES = 5; // Minimum matches for confidence
     private readonly LEARNING_WINDOW = 5000; // Use all 5000 historical ticks
-    
+
+    // Placeholder for predictions, as the original code was missing this.
+    // In a real scenario, this would store the result of model.train()
+    private predictions: Map<string, MLPrediction> = new Map();
+    // Placeholder for historical data, as the original code was missing this.
+    private historicalData: Map<string, { price: number; timestamp: number }[]> = new Map();
+    // Placeholder for a mock model, as the original code was missing this.
+    private model = {
+        train: (data: { price: number; timestamp: number }[]) => {
+            // Mock training logic: return a dummy prediction
+            if (data.length === 0) return { direction: 'NEUTRAL', confidence: 0, strength: 0, patterns_matched: 0, learning_score: 0 };
+            const avgPrice = data.reduce((sum, tick) => sum + tick.price, 0) / data.length;
+            const lastPrice = data[data.length - 1].price;
+            let direction: 'RISE' | 'FALL' | 'NEUTRAL' = 'NEUTRAL';
+            if (lastPrice > avgPrice * 1.01) direction = 'RISE';
+            else if (lastPrice < avgPrice * 0.99) direction = 'FALL';
+            return { direction, confidence: Math.random(), strength: Math.random() * 100, patterns_matched: Math.floor(Math.random() * 10), learning_score: Math.random() * 100 };
+        }
+    };
+
+
     // Neural network weights (simplified)
     private weights = {
         momentum: 0.25,
@@ -52,8 +71,18 @@ export class MLTickAnalyzer {
      * Process bulk historical data for training
      */
     processBulkHistoricalData(symbol: string, ticks: Array<{ price: number; timestamp: number }>): void {
+        if (!symbol) {
+            console.error('ML Analyzer: No symbol provided for bulk data processing');
+            return;
+        }
+
+        if (!ticks || ticks.length === 0) {
+            console.warn(`ML Analyzer: No historical data provided for ${symbol}`);
+            return;
+        }
+
         console.log(`🧠 ML Training: Processing ${ticks.length} historical ticks for ${symbol}`);
-        
+
         if (!this.tickHistory.has(symbol)) {
             this.tickHistory.set(symbol, []);
             this.patterns.set(symbol, []);
@@ -74,6 +103,11 @@ export class MLTickAnalyzer {
      * Process individual tick and update learning
      */
     processTick(symbol: string, price: number, timestamp: number): void {
+        if (!symbol) {
+            console.warn('ML Analyzer: No symbol provided for tick processing');
+            return;
+        }
+
         if (!this.tickHistory.has(symbol)) {
             this.tickHistory.set(symbol, []);
             this.patterns.set(symbol, []);
@@ -103,7 +137,7 @@ export class MLTickAnalyzer {
 
         for (let i = 0; i <= prices.length - this.PATTERN_LENGTH; i += 5) {
             const pattern_slice = prices.slice(i, i + this.PATTERN_LENGTH);
-            
+
             // Normalize pattern
             const normalized = this.normalizePattern(pattern_slice);
             const pattern_hash = this.hashPattern(normalized);
@@ -127,7 +161,7 @@ export class MLTickAnalyzer {
         for (let i = this.PATTERN_LENGTH; i < prices.length - 10; i++) {
             const window = prices.slice(i - this.PATTERN_LENGTH, i);
             const features = this.extractFeatures(window);
-            
+
             // Outcome: price direction after pattern (next 10 ticks)
             const future_avg = this.average(prices.slice(i, i + 10));
             const current_price = prices[i];
@@ -166,20 +200,26 @@ export class MLTickAnalyzer {
      * Generate ML-based prediction
      */
     predict(symbol: string): MLPrediction | null {
+        if (!symbol) {
+            console.warn('ML Analyzer: No symbol provided for prediction');
+            return null;
+        }
+
         const history = this.tickHistory.get(symbol);
         if (!history || history.length < this.PATTERN_LENGTH) {
+            console.warn(`ML Analyzer: Insufficient historical data for ${symbol} to make a prediction.`);
             return null;
         }
 
         const recent = history.slice(-this.PATTERN_LENGTH);
         const features = this.extractFeatures(recent);
-        
+
         // Pattern matching
         const matched_patterns = this.findSimilarPatterns(symbol, recent);
-        
+
         // Calculate prediction score
         const score = this.calculatePredictionScore(features);
-        
+
         // Determine direction
         let direction: 'RISE' | 'FALL' | 'NEUTRAL' = 'NEUTRAL';
         if (score > 0.15) direction = 'RISE';
@@ -274,10 +314,10 @@ export class MLTickAnalyzer {
         if (window.length < 2) return 0;
         const recent = window.slice(-10);
         const older = window.slice(-20, -10);
-        
+
         const recent_avg = this.average(recent);
         const older_avg = this.average(older);
-        
+
         return (recent_avg - older_avg) / older_avg;
     }
 
@@ -313,7 +353,7 @@ export class MLTickAnalyzer {
      */
     private calculateAcceleration(window: number[]): number {
         if (window.length < 3) return 0;
-        
+
         const velocities: number[] = [];
         for (let i = 1; i < window.length; i++) {
             velocities.push(window[i] - window[i - 1]);
@@ -496,6 +536,7 @@ export class MLTickAnalyzer {
      * Helper: calculate average
      */
     private average(values: number[]): number {
+        if (values.length === 0) return 0;
         return values.reduce((sum, val) => sum + val, 0) / values.length;
     }
 }

@@ -1329,23 +1329,27 @@ const MLTrader = observer(() => {
                                     <span>{localize('Trend Alignment')}:</span>
                                     <span>{selected_recommendation.trendAlignment.toFixed(1)}%</span>
                                 </div>
-                                {(() => {
-                                    const mlPrediction = mlTickAnalyzer.predict(selected_recommendation.symbol);
-                                    if (mlPrediction) {
-                                        return (
-                                            <>
-                                                <div className="detail-row ml-prediction">
-                                                    <span className="adv-label">🧠 ML Score:</span>
-                                                    <span className="adv-value profit-success">
-                                                        {mlPrediction.learning_score.toFixed(1)}%
-                                                    </span>
-                                                </div>
-                                                <div className="detail-row ml-prediction">
-                                                    <span className="adv-label">Patterns:</span>
-                                                    <span className="adv-value">{mlPrediction.patterns_matched}</span>
-                                                </div>
-                                            </>
-                                        );
+                                {selected_recommendation && (() => {
+                                    try {
+                                        const mlPrediction = mlTickAnalyzer.predict(selected_recommendation.symbol);
+                                        if (mlPrediction) {
+                                            return (
+                                                <>
+                                                    <div className="detail-row ml-prediction">
+                                                        <span className="adv-label">🧠 ML Score:</span>
+                                                        <span className="adv-value profit-success">
+                                                            {mlPrediction.learning_score.toFixed(1)}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="detail-row ml-prediction">
+                                                        <span className="adv-label">Patterns:</span>
+                                                        <span className="adv-value">{mlPrediction.patterns_matched}</span>
+                                                    </div>
+                                                </>
+                                            );
+                                        }
+                                    } catch (error) {
+                                        console.error('ML prediction error:', error);
                                     }
                                     return null;
                                 })()}
