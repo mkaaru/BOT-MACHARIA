@@ -1272,6 +1272,12 @@ const MLTrader = observer(() => {
                                                         <span className="adv-label">Patterns:</span>
                                                         <span className="adv-value">{mlPrediction.patterns_matched}</span>
                                                     </div>
+                                                    <div className="detail-row ml-prediction">
+                                                        <span className="adv-label">Direction:</span>
+                                                        <span className={`adv-value ${mlPrediction.direction.toLowerCase()}`}>
+                                                            {mlPrediction.direction}
+                                                        </span>
+                                                    </div>
                                                 </>
                                             );
                                         }

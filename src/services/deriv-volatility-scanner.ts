@@ -353,8 +353,25 @@ export class DerivVolatilityScanner {
         // Momentum analysis (heavily weighted)
         const momentum = this.analyzeMomentum(momentumHistory, velocityHistory, priceHistory);
 
-        // ML Predictions
-        const mlPrediction = mlTickAnalyzer.predictTrend(priceHistory.map(p => p.price));
+        // ML Predictions - prepare data in correct format
+        const mlData = priceHistory.map(p => ({ price: p.price, timestamp: p.timestamp }));
+        
+        // Train ML model if not already trained
+        if (mlData.length > 0) {
+            try {
+                mlTickAnalyzer.processBulkHistoricalData(symbolInfo.symbol, mlData);
+            } catch (error) {
+                console.error('ML training error:', error);
+            }
+        }
+        
+        const mlPrediction = mlTickAnalyzer.predict(symbolInfo.symbol) || {
+            direction: 'NEUTRAL' as const,
+            confidence: 0,
+            strength: 0,
+            patterns_matched: 0,
+            learning_score: 0
+        };
 
         // Determine recommendation
         const { recommendation, confidence, duration } = this.generateRecommendation(
@@ -713,8 +730,8 @@ export class DerivVolatilityScanner {
         const m5Strong = timeframes.m5.strength >= 70 && timeframes.m5.confidence >= 70;
         const momentumStrong = momentum.strength >= 70 && momentum.score >= 60;
         const cascadeGood = timeframes.cascadeStrength >= 60;
-        const mlBullish = mlPrediction.trend === 'BULLISH' && mlPrediction.confidence > 0.6;
-        const mlBearish = mlPrediction.trend === 'BEARISH' && mlPrediction.confidence > 0.6;
+        const mlBullish = mlPrediction.direction === 'RISE' && mlPrediction.confidence > 60;
+        const mlBearish = mlPrediction.direction === 'FALL' && mlPrediction.confidence > 60;
 
         // Combine traditional analysis with ML predictions
         const bullishSignal = (timeframes.consensus === 'BULLISH' || mlBullish) && momentum.direction === 'INCREASING';
@@ -758,7 +775,7 @@ export class DerivVolatilityScanner {
         const momentumScore = momentum.score * 0.4;
         const confidenceScore = confidence * 0.2;
         const cascadeScore = timeframes.cascadeStrength * 0.1;
-        const mlScore = mlPrediction.confidence * 0.15; // Add ML confidence as a factor
+        const mlScore = (mlPrediction.confidence / 100) * 15; // ML confidence is 0-100, normalize to 0-15
 
         return Math.min(100, alignmentScore + momentumScore + confidenceScore + cascadeScore + mlScore);
     }
