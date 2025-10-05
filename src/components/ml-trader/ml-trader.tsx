@@ -267,10 +267,10 @@ const MLTrader = observer(() => {
 
             // Fetch and process historical data for ML model training
             const historicalDataPromises = DERIV_VOLATILITY_SYMBOLS.map(async (symbolInfo) => {
+                const symbol = symbolInfo.symbol;
                 try {
-                    const symbol = symbolInfo.symbol;
                     // Fetch last 5000 ticks (or adjust as needed)
-                    const historicalData = await tickStreamManager.fetchHistoricalTicks(symbol, 5000); // Fetch 5000 ticks
+                    const historicalData = await tickStreamManager.get500HistoricalTicks(symbol, 5000); // Fetch 5000 ticks
                     if (historicalData && historicalData.length > 0) {
                         // Process bulk data for immediate analysis (volatility scanner and ML)
                         try {
