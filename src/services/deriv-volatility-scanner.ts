@@ -191,12 +191,16 @@ export class DerivVolatilityScanner {
     private statusCallbacks: Set<(status: ScannerStatus) => void> = new Set();
     private recommendationCallbacks: Set<(recommendations: ScannerRecommendation[]) => void> = new Set();
 
+    // Track last candle timestamps for each symbol
+    private lastCandleTimestamps: Map<string, number> = new Map();
+
     constructor() {
         // Initialize data structures
         this.VOLATILITY_SYMBOLS.forEach(sym => {
             this.priceData.set(sym.symbol, []);
             this.momentumData.set(sym.symbol, []);
             this.velocityData.set(sym.symbol, []);
+            this.lastCandleTimestamps.set(sym.symbol, 0);
         });
 
         console.log('🚀 Deriv Volatility Scanner Initialized');
@@ -204,6 +208,7 @@ export class DerivVolatilityScanner {
         console.log('⚡ Momentum Weight: 75% | Direction Weight: 25%');
         console.log('🎯 Focus: 5min → 3min → 1min → 30sec momentum cascade');
         console.log('🔍 Thresholds: Min Confidence 75%, Min Momentum 60%');
+        console.log('🕐 Auto-scan enabled: Updates on new 1-minute candles');
 
         this.scannerStatus.isActive = true;
         this.scannerStatus.symbolsTracked = this.VOLATILITY_SYMBOLS.length;
@@ -219,6 +224,13 @@ export class DerivVolatilityScanner {
         if (!priceHistory) return;
 
         const timestamp = epoch * 1000;
+
+        // Check if we've entered a new 1-minute candle
+        const currentCandleMinute = Math.floor(epoch / 60);
+        const lastCandleTimestamp = this.lastCandleTimestamps.get(symbol) || 0;
+        const lastCandleMinute = Math.floor(lastCandleTimestamp / 60);
+        
+        const isNewCandle = currentCandleMinute > lastCandleMinute && lastCandleTimestamp > 0;
 
         // Store price data
         priceHistory.push({ price: quote, timestamp });
@@ -236,7 +248,16 @@ export class DerivVolatilityScanner {
         // Update analysis cache if we have sufficient data
         if (priceHistory.length >= this.MIN_DATA_POINTS) {
             this.updateAnalysis(symbol);
+            
+            // If this is a new candle, trigger a full scan to update recommendations
+            if (isNewCandle) {
+                console.log(`🕐 New 1-minute candle detected for ${symbol} - triggering recommendation update`);
+                this.performFullScan();
+            }
         }
+
+        // Update last candle timestamp
+        this.lastCandleTimestamps.set(symbol, epoch);
     }
 
     /**

@@ -246,15 +246,16 @@ const MLTrader = observer(() => {
             await derivVolatilityScanner.performFullScan();
             console.log('✅ Initial scan completed');
 
-            // Start periodic scanning for ongoing updates
+            // Start periodic scanning for ongoing updates (backup to candle-based updates)
             const scanInterval = setInterval(() => {
                 if (is_scanner_active) {
-                    console.log('🔍 Performing periodic scan...');
+                    console.log('🔍 Performing periodic scan (backup)...');
                     derivVolatilityScanner.performFullScan();
                 }
-            }, 30000); // Scan every 30 seconds
+            }, 60000); // Scan every 60 seconds as backup
 
             console.log('✅ Volatility scanner initialized');
+            console.log('🕐 Recommendations will update automatically on new 1-minute candles');
 
             // Return cleanup function
             return () => {
