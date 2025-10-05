@@ -1,9 +1,8 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
-import { contract_stages } from '@/constants/contract-stage';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { derivVolatilityScanner, ScannerRecommendation, ScannerStatus, VolatilityAnalysis } from '@/services/deriv-volatility-scanner';
@@ -112,7 +111,6 @@ interface TradingInterface {
 
 const MLTrader = observer(() => {
     const store = useStore();
-    const { run_panel, transactions } = store;
 
     const apiRef = useRef<any>(null);
     const contractInProgressRef = useRef(false);
@@ -144,7 +142,7 @@ const MLTrader = observer(() => {
     const [status, setStatus] = useState<string>('');
     const [selected_recommendation, setSelectedRecommendation] = useState<ScannerRecommendation | null>(null);
     const [show_advanced_view, setShowAdvancedView] = useState(false);
-    const [filter_settings, setFilterSettings] = useState({
+    const [filter_settings] = useState({
         min_confidence: 75,
         min_momentum: 60,
         max_risk: 'HIGH' as 'LOW' | 'MEDIUM' | 'HIGH',
@@ -269,16 +267,22 @@ const MLTrader = observer(() => {
             const historicalDataPromises = DERIV_VOLATILITY_SYMBOLS.map(async (symbolInfo) => {
                 const symbol = symbolInfo.symbol;
                 try {
-                    // Fetch last 5000 ticks (or adjust as needed)
-                    const historicalData = await tickStreamManager.get500HistoricalTicks(symbol, 5000); // Fetch 5000 ticks
+                    // Fetch 500 historical ticks (Deriv API limitation)
+                    const historicalData = await tickStreamManager.get500HistoricalTicks(symbol);
                     if (historicalData && historicalData.length > 0) {
+                        // Transform TickData[] to the format expected by scanner and ML analyzer
+                        const formattedData = historicalData.map(tick => ({
+                            price: tick.quote,
+                            timestamp: tick.epoch * 1000
+                        }));
+
                         // Process bulk data for immediate analysis (volatility scanner and ML)
                         try {
                             // Process through volatility scanner
-                            derivVolatilityScanner.processBulkHistoricalData(symbol, historicalData);
+                            derivVolatilityScanner.processBulkHistoricalData(symbol, formattedData);
 
                             // Train ML model on historical data
-                            mlTickAnalyzer.processBulkHistoricalData(symbol, historicalData);
+                            mlTickAnalyzer.processBulkHistoricalData(symbol, formattedData);
 
                             console.log(`🧠 ML Model trained on ${historicalData.length} ticks for ${symbol}`);
                         } catch (error) {
