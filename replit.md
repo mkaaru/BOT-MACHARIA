@@ -12,6 +12,9 @@ The platform features multiple trading approaches including a visual bot builder
 - **Data Format Transformation**: Implemented proper TickData to scanner format conversion (quote→price, epoch→timestamp)
 - **ML Analyzer Import Fix**: Removed duplicate MLTickAnalyzer class and imported the actual implementation from services/ml-tick-analyzer.ts
 - **Immediate Scan Implementation**: Changed scanner to perform immediate full scan after historical data loads instead of waiting 30 seconds
+- **Auto-Trading Feature**: Implemented automated trading system that continuously purchases contracts every 35 seconds based on ML recommendations
+- **Dynamic Symbol Switching**: Auto-trader automatically switches to new recommended symbols when better opportunities are detected
+- **Auto-Trade Statistics**: Added auto-trade counter to track automated trades separately from manual trades with visual indicators
 - **Contract Loss Tracking**: Enhanced win/loss determination to use profit-based classification (profit > 0 = win, profit < 0 = loss)
 - **Contract Completion Detection**: Improved isEnded function to check exit_tick_time, sell_time, status, and is_expired for accurate completion tracking
 - **Server Port Configuration**: Updated Rsbuild config to serve on port 5000 for proper Replit environment compatibility
