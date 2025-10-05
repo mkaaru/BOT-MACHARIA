@@ -4,6 +4,9 @@
  * Focus: 5-minute trends → 3-minute → 1-minute → 30-second cascade
  */
 
+import { tickStreamManager } from './tick-stream-manager';
+import { mlTickAnalyzer } from './ml-tick-analyzer';
+
 export interface DerivTickData {
     symbol: string;
     quote: number;
@@ -57,6 +60,13 @@ export interface VolatilityAnalysis {
     // Momentum metrics (heavily weighted - 70%)
     momentum: MomentumAnalysis;
 
+    // ML Predictions
+    mlPrediction?: {
+        trend: TimeframeDirection;
+        confidence: number;
+        probability: number;
+    };
+
     // Trading recommendation
     recommendation: 'STRONG_RISE' | 'RISE' | 'STRONG_FALL' | 'FALL' | 'NO_TRADE';
     confidence: number;       // 0-100
@@ -102,6 +112,8 @@ export interface ScannerRecommendation {
     urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
     expectedPayout: number;
     riskReward: number;
+    mlTrend?: TimeframeDirection;
+    mlConfidence?: number;
 }
 
 export interface ScannerStatus {
@@ -341,13 +353,16 @@ export class DerivVolatilityScanner {
         // Momentum analysis (heavily weighted)
         const momentum = this.analyzeMomentum(momentumHistory, velocityHistory, priceHistory);
 
+        // ML Predictions
+        const mlPrediction = mlTickAnalyzer.predictTrend(priceHistory.map(p => p.price));
+
         // Determine recommendation
         const { recommendation, confidence, duration } = this.generateRecommendation(
-            symbolInfo, timeframes, momentum, currentPrice
+            symbolInfo, timeframes, momentum, mlPrediction, currentPrice
         );
 
         // Calculate entry score
-        const entryScore = this.calculateEntryScore(timeframes, momentum, confidence);
+        const entryScore = this.calculateEntryScore(timeframes, momentum, confidence, mlPrediction);
 
         // Assess risk
         const { riskLevel, volatility } = this.assessRisk(symbolInfo, timeframes, momentum);
@@ -362,7 +377,7 @@ export class DerivVolatilityScanner {
         const signals = this.generateTradingSignals(timeframes, momentum, priceHistory);
 
         // Generate entry reason
-        const entryReason = this.generateEntryReason(recommendation, timeframes, momentum);
+        const entryReason = this.generateEntryReason(recommendation, timeframes, momentum, mlPrediction);
 
         return {
             symbol: symbolInfo.symbol,
@@ -371,6 +386,7 @@ export class DerivVolatilityScanner {
             lastUpdate: new Date(),
             timeframes,
             momentum,
+            mlPrediction,
             recommendation,
             confidence,
             contractDuration: duration,
@@ -674,6 +690,7 @@ export class DerivVolatilityScanner {
         symbolInfo: typeof this.VOLATILITY_SYMBOLS[0],
         timeframes: MultiTimeframeAnalysis,
         momentum: MomentumAnalysis,
+        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>,
         currentPrice: number
     ): { recommendation: VolatilityAnalysis['recommendation']; confidence: number; duration: VolatilityAnalysis['contractDuration'] } {
 
@@ -688,7 +705,7 @@ export class DerivVolatilityScanner {
             };
         }
 
-        // Determine recommendation based on 5-minute trend (primary) and momentum
+        // Determine recommendation based on 5-minute trend (primary), momentum, and ML prediction
         let recommendation: VolatilityAnalysis['recommendation'] = 'NO_TRADE';
         let confidence = 50;
         let duration: VolatilityAnalysis['contractDuration'] = '3m';
@@ -696,25 +713,31 @@ export class DerivVolatilityScanner {
         const m5Strong = timeframes.m5.strength >= 70 && timeframes.m5.confidence >= 70;
         const momentumStrong = momentum.strength >= 70 && momentum.score >= 60;
         const cascadeGood = timeframes.cascadeStrength >= 60;
+        const mlBullish = mlPrediction.trend === 'BULLISH' && mlPrediction.confidence > 0.6;
+        const mlBearish = mlPrediction.trend === 'BEARISH' && mlPrediction.confidence > 0.6;
 
-        if (timeframes.consensus === 'BULLISH' && momentum.direction === 'INCREASING') {
+        // Combine traditional analysis with ML predictions
+        const bullishSignal = (timeframes.consensus === 'BULLISH' || mlBullish) && momentum.direction === 'INCREASING';
+        const bearishSignal = (timeframes.consensus === 'BEARISH' || mlBearish) && momentum.direction === 'DECREASING';
+
+        if (bullishSignal) {
             if (m5Strong && momentumStrong && cascadeGood) {
                 recommendation = 'STRONG_RISE';
-                confidence = Math.min(95, 75 + (timeframes.alignment * 0.2) + (momentum.strength * 0.15));
+                confidence = Math.min(95, 75 + (timeframes.alignment * 0.2) + (momentum.strength * 0.15) + (mlPrediction.confidence * 0.1));
                 duration = symbolInfo.baseVolatility >= 75 ? '2m' : '5m';
             } else if (timeframes.m5.direction === 'BULLISH' && momentum.strength >= 55) {
                 recommendation = 'RISE';
-                confidence = Math.min(85, 65 + (timeframes.alignment * 0.15) + (momentum.strength * 0.1));
+                confidence = Math.min(85, 65 + (timeframes.alignment * 0.15) + (momentum.strength * 0.1) + (mlPrediction.confidence * 0.05));
                 duration = symbolInfo.baseVolatility >= 50 ? '1m' : '3m';
             }
-        } else if (timeframes.consensus === 'BEARISH' && momentum.direction === 'DECREASING') {
+        } else if (bearishSignal) {
             if (m5Strong && momentumStrong && cascadeGood) {
                 recommendation = 'STRONG_FALL';
-                confidence = Math.min(95, 75 + (timeframes.alignment * 0.2) + (momentum.strength * 0.15));
+                confidence = Math.min(95, 75 + (timeframes.alignment * 0.2) + (momentum.strength * 0.15) + (mlPrediction.confidence * 0.1));
                 duration = symbolInfo.baseVolatility >= 75 ? '2m' : '5m';
             } else if (timeframes.m5.direction === 'BEARISH' && momentum.strength >= 55) {
                 recommendation = 'FALL';
-                confidence = Math.min(85, 65 + (timeframes.alignment * 0.15) + (momentum.strength * 0.1));
+                confidence = Math.min(85, 65 + (timeframes.alignment * 0.15) + (momentum.strength * 0.1) + (mlPrediction.confidence * 0.05));
                 duration = symbolInfo.baseVolatility >= 50 ? '1m' : '3m';
             }
         }
@@ -728,14 +751,16 @@ export class DerivVolatilityScanner {
     private calculateEntryScore(
         timeframes: MultiTimeframeAnalysis,
         momentum: MomentumAnalysis,
-        confidence: number
+        confidence: number,
+        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>
     ): number {
         const alignmentScore = timeframes.alignment * 0.3;
         const momentumScore = momentum.score * 0.4;
         const confidenceScore = confidence * 0.2;
         const cascadeScore = timeframes.cascadeStrength * 0.1;
+        const mlScore = mlPrediction.confidence * 0.15; // Add ML confidence as a factor
 
-        return Math.min(100, alignmentScore + momentumScore + confidenceScore + cascadeScore);
+        return Math.min(100, alignmentScore + momentumScore + confidenceScore + cascadeScore + mlScore);
     }
 
     /**
@@ -861,7 +886,8 @@ export class DerivVolatilityScanner {
     private generateEntryReason(
         recommendation: VolatilityAnalysis['recommendation'],
         timeframes: MultiTimeframeAnalysis,
-        momentum: MomentumAnalysis
+        momentum: MomentumAnalysis,
+        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>
     ): string {
         if (recommendation === 'NO_TRADE') {
             return 'Insufficient signal strength or alignment for reliable trade';
@@ -872,9 +898,15 @@ export class DerivVolatilityScanner {
         if (recommendation.includes('RISE')) {
             reasons.push(`5-min bullish trend (${timeframes.m5.roc.toFixed(3)}% ROC)`);
             reasons.push(`Positive momentum cascade (${timeframes.cascadeStrength.toFixed(0)}% strength)`);
+            if (mlPrediction.trend === 'BULLISH') {
+                reasons.push(`ML bullish prediction (${mlPrediction.confidence.toFixed(1)}% confidence)`);
+            }
         } else {
             reasons.push(`5-min bearish trend (${timeframes.m5.roc.toFixed(3)}% ROC)`);
             reasons.push(`Negative momentum cascade (${timeframes.cascadeStrength.toFixed(0)}% strength)`);
+            if (mlPrediction.trend === 'BEARISH') {
+                reasons.push(`ML bearish prediction (${mlPrediction.confidence.toFixed(1)}% confidence)`);
+            }
         }
 
         reasons.push(`${timeframes.alignment.toFixed(0)}% timeframe alignment`);
@@ -925,7 +957,9 @@ export class DerivVolatilityScanner {
                     reason: analysis.entryReason,
                     urgency,
                     expectedPayout: this.calculateExpectedPayout(analysis.confidence),
-                    riskReward: this.calculateRiskReward(analysis.confidence, analysis.riskLevel)
+                    riskReward: this.calculateRiskReward(analysis.confidence, analysis.riskLevel),
+                    mlTrend: analysis.mlPrediction?.trend,
+                    mlConfidence: analysis.mlPrediction?.confidence
                 });
             }
         });
