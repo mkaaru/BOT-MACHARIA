@@ -57,6 +57,8 @@ const MLTrader = observer(() => {
     const apiRef = useRef<any>(null);
     const contractInProgressRef = useRef(false);
     const autoTradingRef = useRef(false);
+    const autoTradeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const currentRecommendationRef = useRef<ScannerRecommendation | null>(null);
 
     // Authentication and account state
     const [is_authorized, setIsAuthorized] = useState(false);
@@ -97,7 +99,8 @@ const MLTrader = observer(() => {
         winning_trades: 0,
         losing_trades: 0,
         total_profit: 0,
-        win_rate: 0
+        win_rate: 0,
+        auto_trade_count: 0
     });
 
     useEffect(() => {
@@ -305,11 +308,9 @@ const MLTrader = observer(() => {
     }, []);
 
     /**
-     * Handle auto trading
+     * Handle auto trading - called when new recommendations arrive
      */
     const handleAutoTrading = useCallback(async (recs: ScannerRecommendation[]) => {
-        if (contractInProgressRef.current) return;
-
         // Filter recommendations based on user settings
         const filteredRecs = recs.filter(rec =>
             rec.confidence >= filter_settings.min_confidence &&
@@ -320,17 +321,22 @@ const MLTrader = observer(() => {
              (filter_settings.max_risk === 'LOW' && rec.urgency === 'LOW'))
         );
 
-        if (filteredRecs.length === 0) return;
+        if (filteredRecs.length === 0) {
+            console.log('No recommendations match filter criteria');
+            return;
+        }
 
         // Take the highest confidence recommendation
         const topRec = filteredRecs[0];
-
-        try {
-            await executeTrade(topRec);
-        } catch (error) {
-            console.error('Auto-trading error:', error);
-            setStatus(`Auto-trading error: ${error}`);
-        }
+        
+        // Update current recommendation for auto-trading
+        currentRecommendationRef.current = topRec;
+        setSelectedRecommendation(topRec);
+        
+        // Apply recommendation to trading interface
+        applyRecommendation(topRec);
+        
+        console.log(`🎯 Auto-trade switched to: ${topRec.displayName} - ${topRec.action} (${topRec.confidence.toFixed(1)}% confidence)`);
     }, [filter_settings]);
 
     /**
@@ -377,7 +383,8 @@ const MLTrader = observer(() => {
                 }
 
                 if (buy_response.buy) {
-                    setStatus(`Trade executed: ${recommendation.action} on ${recommendation.displayName} (Contract ID: ${buy_response.buy.contract_id})`);
+                    const isAutoTrade = autoTradingRef.current;
+                    setStatus(`${isAutoTrade ? 'AUTO' : 'MANUAL'} Trade executed: ${recommendation.action} on ${recommendation.displayName} (Contract ID: ${buy_response.buy.contract_id})`);
 
                     // Emit trade run to statistics
                     statisticsEmitter.emitTradeRun();
@@ -385,7 +392,8 @@ const MLTrader = observer(() => {
                     // Update trading stats
                     setTradingStats(prev => ({
                         ...prev,
-                        total_trades: prev.total_trades + 1
+                        total_trades: prev.total_trades + 1,
+                        auto_trade_count: isAutoTrade ? prev.auto_trade_count + 1 : prev.auto_trade_count
                     }));
 
                     // Monitor contract outcome
@@ -503,8 +511,35 @@ const MLTrader = observer(() => {
             is_auto_trading: newState
         }));
 
-        setStatus(newState ? 'Auto-trading enabled' : 'Auto-trading disabled');
-    }, [trading_interface.is_auto_trading]);
+        if (newState) {
+            // Start auto-trading
+            setStatus('🤖 Auto-trading enabled - Waiting for recommendations...');
+            
+            // Start continuous trading interval (every 35 seconds to avoid rate limits)
+            autoTradeIntervalRef.current = setInterval(async () => {
+                const currentRec = currentRecommendationRef.current;
+                
+                if (autoTradingRef.current && currentRec && !contractInProgressRef.current) {
+                    console.log(`🤖 Auto-trading: Executing ${currentRec.action} on ${currentRec.displayName}`);
+                    try {
+                        await executeTrade(currentRec);
+                    } catch (error) {
+                        console.error('Auto-trade execution error:', error);
+                    }
+                }
+            }, 35000); // Trade every 35 seconds
+            
+            console.log('✅ Auto-trading started - Will execute trades every 35 seconds');
+        } else {
+            // Stop auto-trading
+            if (autoTradeIntervalRef.current) {
+                clearInterval(autoTradeIntervalRef.current);
+                autoTradeIntervalRef.current = null;
+            }
+            setStatus('Auto-trading disabled');
+            console.log('⏹️ Auto-trading stopped');
+        }
+    }, [trading_interface.is_auto_trading, executeTrade]);
 
     /**
      * Manual trade execution
@@ -525,6 +560,12 @@ const MLTrader = observer(() => {
     const cleanup = useCallback(() => {
         autoTradingRef.current = false;
         contractInProgressRef.current = false;
+        
+        // Clear auto-trading interval
+        if (autoTradeIntervalRef.current) {
+            clearInterval(autoTradeIntervalRef.current);
+            autoTradeIntervalRef.current = null;
+        }
 
         // Unsubscribe from tick streams
         DERIV_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
@@ -1360,6 +1401,12 @@ const MLTrader = observer(() => {
                     <div className="stat-item">
                         <Text size="xs" color="general">{localize('Total Trades')}</Text>
                         <Text size="sm" weight="bold">{trading_stats.total_trades}</Text>
+                    </div>
+                    <div className="stat-item">
+                        <Text size="xs" color="general">{localize('Auto Trades')}</Text>
+                        <Text size="sm" weight="bold" color={trading_interface.is_auto_trading ? 'profit' : 'general'}>
+                            {trading_stats.auto_trade_count} {trading_interface.is_auto_trading ? '🤖' : ''}
+                        </Text>
                     </div>
                     <div className="stat-item">
                         <Text size="xs" color="general">{localize('Win Rate')}</Text>
