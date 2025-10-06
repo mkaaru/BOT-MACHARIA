@@ -1,6 +1,6 @@
 import { generateDerivApiInstance } from '@/external/bot-skeleton/services/api/appId';
-import { 
-    DerivAPIInstance, 
+import {
+    DerivAPIInstance,
     TickResponse,
     isTickResponse,
     hasAPIError
@@ -31,24 +31,26 @@ export interface SymbolInfo {
     is_1s_volatility: boolean;
 }
 
-// Comprehensive list of volatility indices including all 1-second variants
+// Comprehensive list of volatility indices and step indices
 export const VOLATILITY_SYMBOLS: SymbolInfo[] = [
-    // 1-second volatilities
-    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ15V', display_name: 'Volatility 15 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ30V', display_name: 'Volatility 30 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ90V', display_name: 'Volatility 90 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s_volatility: true },
-    
     // Regular volatilities
     { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s_volatility: false },
     { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s_volatility: false },
     { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s_volatility: false },
     { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s_volatility: false },
     { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s_volatility: false },
+    // 1-second volatilities
+    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s_volatility: true },
+    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s_volatility: true },
+    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s_volatility: true },
+    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s_volatility: true },
+    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s_volatility: true },
+    // Step Indices
+    { symbol: 'STEPINDICES', display_name: 'Step Index 100', is_1s_volatility: false },
+    { symbol: 'stpRNG', display_name: 'Step Index 200', is_1s_volatility: false },
+    { symbol: 'STPRNG', display_name: 'Step Index 300', is_1s_volatility: false },
+    { symbol: 'wldSTEP', display_name: 'Step Index 400', is_1s_volatility: false },
+    { symbol: 'WLDSTEP', display_name: 'Step Index 500', is_1s_volatility: false },
 ];
 
 export class TickStreamManager {
@@ -67,7 +69,7 @@ export class TickStreamManager {
         this.messageHandler = (evt: MessageEvent) => {
             try {
                 const rawData = JSON.parse(evt.data);
-                
+
                 // Handle tick history response
                 if (rawData.msg_type === 'history' && rawData.history) {
                     const symbol = rawData.echo_req?.ticks_history;
@@ -78,7 +80,7 @@ export class TickStreamManager {
 
                     const times = rawData.history.times;
                     const prices = rawData.history.prices;
-                    
+
                     if (!times || !prices) {
                         console.warn(`⚠️ Invalid history data structure for ${symbol}:`, rawData.history);
                         return;
@@ -86,16 +88,16 @@ export class TickStreamManager {
 
                     const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
                     const is1sVolatility = symbolInfo?.is_1s_volatility || false;
-                    
+
                     console.log(`📈 Processing history for ${symbol} (${is1sVolatility ? '1s' : 'regular'}): ${prices.length} ticks`);
-                    
+
                     // Convert to bulk historical data format for immediate processing
                     const historicalData: Array<{ price: number; timestamp: number }> = [];
-                    
+
                     for (let i = 0; i < Math.min(times.length, prices.length); i++) {
                         const price = parseFloat(prices[i]);
                         const timestamp = times[i] * 1000;
-                        
+
                         if (!isNaN(price) && times[i] > 0) {
                             historicalData.push({ price, timestamp });
                         }
@@ -108,7 +110,7 @@ export class TickStreamManager {
                     } catch (error) {
                         console.error(`Error processing bulk historical data for ${symbol}:`, error);
                     }
-                    
+
                     // Also process individual ticks for other systems
                     let processedCount = 0;
                     for (const data of historicalData) {
@@ -118,15 +120,15 @@ export class TickStreamManager {
                             quote: data.price,
                             timestamp: new Date(data.timestamp),
                         };
-                        
+
                         this.notifyTickCallbacks(tickData);
                         processedCount++;
                     }
-                    
+
                     console.log(`✅ Successfully processed ${processedCount}/${prices.length} historical ticks for ${symbol} (immediate analysis ready)`);
                     return;
                 }
-                
+
                 // Handle real-time tick updates
                 if (isTickResponse(rawData)) {
                     const tickData: TickData = {
@@ -135,19 +137,19 @@ export class TickStreamManager {
                         quote: rawData.tick.quote,
                         timestamp: new Date(rawData.tick.epoch * 1000),
                     };
-                    
+
                     const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === tickData.symbol);
                     const is1sVolatility = symbolInfo?.is_1s_volatility || false;
-                    
+
                     // Log 1-second volatility ticks for debugging
                     if (is1sVolatility) {
                         console.log(`🔄 Real-time tick for ${tickData.symbol}: ${tickData.quote.toFixed(5)}`);
                     }
-                    
+
                     this.notifyTickCallbacks(tickData);
                 } else if (hasAPIError(rawData)) {
                     console.error(`❌ TickStreamManager API Error - ${rawData.error.code}: ${rawData.error.message}`);
-                    
+
                     // Log additional context for debugging
                     if (rawData.echo_req?.ticks_history) {
                         console.error(`❌ Error was for symbol: ${rawData.echo_req.ticks_history}`);
@@ -199,11 +201,12 @@ export class TickStreamManager {
         }
 
         try {
-            // Determine if this is a 1-second volatility
+            // Determine if this is a 1-second volatility or Step Index
             const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
             const is1sVolatility = symbolInfo?.is_1s_volatility || false;
-            
-            console.log(`📊 Subscribing to ${symbol} (${is1sVolatility ? '1-second' : 'regular'} volatility)...`);
+            const isStepIndex = symbol.endsWith('STEP') || symbol.startsWith('STEP') || symbol.includes('STP'); // Heuristic for Step Indices
+
+            console.log(`📊 Subscribing to ${symbol} (${is1sVolatility ? '1-second' : isStepIndex ? 'Step Index' : 'regular'} volatility)...`);
 
             // First, get historical ticks using the correct API format
             const historyRequest = {
@@ -215,7 +218,7 @@ export class TickStreamManager {
             };
 
             console.log(`Requesting historical data for ${symbol}:`, historyRequest);
-            
+
             try {
                 const historyResponse = await this.api.send(historyRequest);
 
@@ -228,9 +231,9 @@ export class TickStreamManager {
                 if (historyResponse.history && historyResponse.history.prices) {
                     const times = historyResponse.history.times;
                     const prices = historyResponse.history.prices;
-                    
-                    console.log(`✅ Processing ${prices.length} historical ticks for ${symbol} (${is1sVolatility ? '1s' : 'regular'})`);
-                    
+
+                    console.log(`✅ Processing ${prices.length} historical ticks for ${symbol} (${is1sVolatility ? '1s' : isStepIndex ? 'Step Index' : 'regular'})`);
+
                     // Process each historical tick
                     for (let i = 0; i < prices.length; i++) {
                         const tickData: TickData = {
@@ -242,8 +245,8 @@ export class TickStreamManager {
                         this.notifyTickCallbacks(tickData);
                     }
 
-                    console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for 500-period ROC analysis`);
-                    
+                    console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for analysis`);
+
                     // Store subscription ID for this historical request
                     if (historyResponse.subscription?.id) {
                         this.subscriptions.set(symbol, historyResponse.subscription.id);
@@ -292,46 +295,46 @@ export class TickStreamManager {
     }
 
     async subscribeToAllVolatilities(): Promise<void> {
-        console.log('Subscribing to all volatility indices...');
-        
+        console.log('Subscribing to all volatility and step indices...');
+
         // Wait for connection to be ready
         if (!this.isConnected) {
             console.log('Waiting for WebSocket connection...');
             await this.waitForConnection();
         }
 
-        // Process regular volatilities first, then 1-second volatilities
-        const regularVolatilities = VOLATILITY_SYMBOLS.filter(s => !s.is_1s_volatility);
-        const oneSecondVolatilities = VOLATILITY_SYMBOLS.filter(s => s.is_1s_volatility);
+        // Separate symbols into volatility and step indices
+        const volatilityIndices = VOLATILITY_SYMBOLS.filter(s => !s.symbol.endsWith('STEP') && !s.symbol.startsWith('STEP') && !s.symbol.includes('STP'));
+        const stepIndices = VOLATILITY_SYMBOLS.filter(s => s.symbol.endsWith('STEP') || s.symbol.startsWith('STEP') || s.symbol.includes('STP'));
 
-        console.log(`Subscribing to ${regularVolatilities.length} regular volatilities and ${oneSecondVolatilities.length} 1-second volatilities`);
+        console.log(`Subscribing to ${volatilityIndices.length} volatility indices and ${stepIndices.length} step indices`);
 
         // Subscribe to regular volatilities first
-        const regularPromises = regularVolatilities.map(async (symbolInfo, index) => {
+        const volatilityPromises = volatilityIndices.map(async (symbolInfo, index) => {
             await new Promise(resolve => setTimeout(resolve, index * 100));
-            
+
             return this.subscribeToSymbol(symbolInfo.symbol).catch(error => {
-                console.warn(`Failed to subscribe to regular volatility ${symbolInfo.symbol}:`, error);
+                console.warn(`Failed to subscribe to volatility index ${symbolInfo.symbol}:`, error);
                 return null;
             });
         });
 
-        await Promise.allSettled(regularPromises);
-        console.log(`Completed subscription to regular volatilities`);
+        await Promise.allSettled(volatilityPromises);
+        console.log(`Completed subscription to volatility indices`);
 
-        // Then subscribe to 1-second volatilities with additional delay
-        const oneSecondPromises = oneSecondVolatilities.map(async (symbolInfo, index) => {
-            await new Promise(resolve => setTimeout(resolve, index * 150 + 500)); // Extra delay for 1s volatilities
-            
-            console.log(`Subscribing to 1-second volatility: ${symbolInfo.symbol}`);
+        // Then subscribe to step indices with additional delay
+        const stepIndexPromises = stepIndices.map(async (symbolInfo, index) => {
+            await new Promise(resolve => setTimeout(resolve, index * 150 + 500)); // Extra delay for step indices
+
+            console.log(`Subscribing to step index: ${symbolInfo.symbol}`);
             return this.subscribeToSymbol(symbolInfo.symbol).catch(error => {
-                console.warn(`Failed to subscribe to 1-second volatility ${symbolInfo.symbol}:`, error);
+                console.warn(`Failed to subscribe to step index ${symbolInfo.symbol}:`, error);
                 return null;
             });
         });
 
-        await Promise.allSettled(oneSecondPromises);
-        console.log(`Subscribed to ${this.subscriptions.size} total volatility indices`);
+        await Promise.allSettled(stepIndexPromises);
+        console.log(`Subscribed to ${this.subscriptions.size} total indices`);
     }
 
     private async waitForConnection(timeout: number = 10000): Promise<void> {
@@ -406,12 +409,12 @@ export class TickStreamManager {
     }
 
     /**
-     * Get exactly 500 historical ticks for ROC analysis
+     * Get exactly 500 historical ticks for analysis
      */
     async get500HistoricalTicks(symbol: string): Promise<TickData[]> {
         try {
             console.log(`🔍 Fetching 500 historical ticks for ${symbol}...`);
-            
+
             const historyResponse = await this.api.send({
                 ticks_history: symbol,
                 count: 500,
@@ -428,9 +431,9 @@ export class TickStreamManager {
             if (historyResponse.history && historyResponse.history.prices && historyResponse.history.times) {
                 const times = historyResponse.history.times;
                 const prices = historyResponse.history.prices;
-                
+
                 console.log(`📊 Received ${prices.length} historical ticks for ${symbol}`);
-                
+
                 const ticks: TickData[] = [];
                 for (let i = 0; i < prices.length; i++) {
                     ticks.push({
@@ -440,7 +443,7 @@ export class TickStreamManager {
                         timestamp: new Date(times[i] * 1000),
                     });
                 }
-                
+
                 console.log(`✅ Successfully processed ${ticks.length} historical ticks for ${symbol}`);
                 return ticks;
             } else {

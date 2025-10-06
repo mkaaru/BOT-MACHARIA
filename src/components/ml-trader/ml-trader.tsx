@@ -24,6 +24,10 @@ const DERIV_VOLATILITY_SYMBOLS = [
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true, base_volatility: 50 },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true, base_volatility: 75 },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true, base_volatility: 100 },
+    // Step Indices
+    { symbol: 'STEPINDICES', display_name: 'Step Index', is_1s: false, base_volatility: 0 },
+    { symbol: 'stpRNG', display_name: 'Step Random Number Index', is_1s: false, base_volatility: 0 },
+    { symbol: 'WLDSTEP', display_name: 'World Step Index', is_1s: false, base_volatility: 0 },
 ];
 
 // Contract types for Rise/Fall trading
@@ -328,14 +332,14 @@ const MLTrader = observer(() => {
 
         // Take the highest confidence recommendation
         const topRec = filteredRecs[0];
-        
+
         // Update current recommendation for auto-trading
         currentRecommendationRef.current = topRec;
         setSelectedRecommendation(topRec);
-        
+
         // Apply recommendation to trading interface
         applyRecommendation(topRec);
-        
+
         console.log(`🎯 Auto-trade switched to: ${topRec.displayName} - ${topRec.action} (${topRec.confidence.toFixed(1)}% confidence)`);
     }, [filter_settings]);
 
@@ -514,11 +518,11 @@ const MLTrader = observer(() => {
         if (newState) {
             // Start auto-trading
             setStatus('🤖 Auto-trading enabled - Waiting for recommendations...');
-            
+
             // Start continuous trading interval (every 35 seconds to avoid rate limits)
             autoTradeIntervalRef.current = setInterval(async () => {
                 const currentRec = currentRecommendationRef.current;
-                
+
                 if (autoTradingRef.current && currentRec && !contractInProgressRef.current) {
                     console.log(`🤖 Auto-trading: Executing ${currentRec.action} on ${currentRec.displayName}`);
                     try {
@@ -528,7 +532,7 @@ const MLTrader = observer(() => {
                     }
                 }
             }, 35000); // Trade every 35 seconds
-            
+
             console.log('✅ Auto-trading started - Will execute trades every 35 seconds');
         } else {
             // Stop auto-trading
@@ -560,7 +564,7 @@ const MLTrader = observer(() => {
     const cleanup = useCallback(() => {
         autoTradingRef.current = false;
         contractInProgressRef.current = false;
-        
+
         // Clear auto-trading interval
         if (autoTradeIntervalRef.current) {
             clearInterval(autoTradeIntervalRef.current);
@@ -610,269 +614,61 @@ const MLTrader = observer(() => {
     };
 
     /**
-     * Load recommendation to Bot Builder using Trading Hub loading logic
+     * Load recommendation to Bot Builder
      */
     const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
         try {
             console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
 
-            // Get symbol display name
-            const displayName = recommendation.displayName || recommendation.symbol;
+            // Get display name
+            const displayName = recommendation.displayName;
 
-            // Determine contract type based on strategy (map ML Trader actions to contract types)
-            let contractType = 'DIGITOVER';
-            if (recommendation.action === 'RISE') contractType = 'CALL';
-            else if (recommendation.action === 'FALL') contractType = 'PUT';
+            // Determine market category based on symbol
+            let marketCategory = 'synthetic_index';
+            if (recommendation.symbol.startsWith('STEP') || recommendation.symbol.toLowerCase().includes('step')) {
+                marketCategory = 'step_index';
+            }
 
-            // Default settings
-            const defaultStake = 1.0;
-            const defaultDuration = 1; // 1 tick
-            const defaultDurationUnit = 't'; // ticks
-            const martingaleMultiplier = 1.0; // Default martingale multiplier
+            // Map symbol to market list format
+            let marketSymbol = recommendation.symbol;
 
-            // Map ML Trader recommendation to Trading Hub style trade type categories
-            const getTradeTypeMapping = (action: string) => {
-                switch (action) {
-                    case 'RISE':
-                    case 'FALL':
-                        return {
-                            tradeTypeCategory: 'callput',
-                            tradeTypeList: 'callput',
-                            contractType: action === 'RISE' ? 'CALL' : 'PUT'
-                        };
-                    default:
-                        return {
-                            tradeTypeCategory: 'callput',
-                            tradeTypeList: 'callput',
-                            contractType: 'CALL'
-                        };
-                }
+            // Step Indices mapping for Bot Builder
+            const stepIndexMapping: Record<string, string> = {
+                'STEPINDICES': 'STEPINDICES',
+                'stpRNG': 'STPRNG',
+                'STPRNG': 'STPRNG',
+                'wldSTEP': 'WLDSTEP',
+                'WLDSTEP': 'WLDSTEP'
             };
 
-            const tradeMapping = getTradeTypeMapping(recommendation.action);
+            if (stepIndexMapping[recommendation.symbol]) {
+                marketSymbol = stepIndexMapping[recommendation.symbol];
+            }
 
-            // Generate Bot Builder XML using Trading Hub structure
-            const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-  <variables>
-    <variable id="Stake">Stake</variable>
-    <variable id="Initial_Stake">Initial_Stake</variable>
-    <variable id="Result_is">Result_is</variable>
-    <variable id="Martingale_Multiplier">Martingale_Multiplier</variable>
-  </variables>
-
-  <!-- Trade Definition Block -->
-  <block type="trade_definition" id="trade_definition_main" deletable="false" x="0" y="60">
-    <statement name="TRADE_OPTIONS">
-      <block type="trade_definition_market" id="market_block" deletable="false" movable="false">
-        <field name="MARKET_LIST">synthetic_index</field>
-        <field name="SUBMARKET_LIST">continuous_indices</field>
-        <field name="SYMBOL_LIST">${recommendation.symbol}</field>
-        <next>
-          <block type="trade_definition_tradetype" id="tradetype_block" deletable="false" movable="false">
-            <field name="TRADETYPECAT_LIST">${tradeMapping.tradeTypeCategory}</field>
-            <field name="TRADETYPE_LIST">${tradeMapping.tradeTypeList}</field>
-            <next>
-              <block type="trade_definition_contracttype" id="contracttype_block" deletable="false" movable="false">
-                <field name="TYPE_LIST">${tradeMapping.contractType}</field>
-                <next>
-                  <block type="trade_definition_candleinterval" id="candleinterval_block" deletable="false" movable="false">
-                    <field name="CANDLEINTERVAL_LIST">60</field>
-                    <next>
-                      <block type="trade_definition_restartbuysell" id="restart_block" deletable="false" movable="false">
-                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                        <next>
-                          <block type="trade_definition_restartonerror" id="restartonerror_block" deletable="false" movable="false">
-                            <field name="RESTARTONERROR">TRUE</field>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </statement>
-
-    <!-- Initialization -->
-    <statement name="INITIALIZATION">
-      <block type="text_print" id="init_print">
-        <value name="TEXT">
-          <shadow type="text" id="init_text">
-            <field name="TEXT">ML Trader Strategy Loading...</field>
-          </shadow>
-        </value>
-        <next>
-          <block type="text_print" id="strategy_print">
-            <value name="TEXT">
-              <shadow type="text" id="strategy_text">
-                <field name="TEXT">${displayName} - ${recommendation.action} (${recommendation.confidence.toFixed(1)}% confidence)</field>
-              </shadow>
-            </value>
-            <next>
-              <block type="variables_set" id="set_initial_stake">
-                <field name="VAR" id="Initial_Stake">Initial_Stake</field>
-                <value name="VALUE">
-                  <block type="math_number" id="initial_stake_number">
-                    <field name="NUM">${defaultStake}</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="variables_set" id="set_stake">
-                    <field name="VAR" id="Stake">Stake</field>
-                    <value name="VALUE">
-                      <block type="variables_get" id="stake_from_initial">
-                        <field name="VAR" id="Initial_Stake">Initial_Stake</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="variables_set" id="set_martingale">
-                        <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="martingale_number">
-                            <field name="NUM">${martingaleMultiplier}</field>
-                          </block>
+            // Prepare strategy XML with the recommendation
+            const strategyXml = `
+                <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+                    <variables>
+                        <variable id="stake">stake</variable>
+                    </variables>
+                    <block type="trade_definition" id="trade_definition" deletable="false" x="0" y="0">
+                        <field name="MARKET_LIST">${marketSymbol}</field>
+                        <field name="SUBMARKET_LIST">${marketCategory}</field>
+                        <field name="TRADETYPE_LIST">${recommendation.action === 'RISE' ? 'CALL' : 'PUT'}</field>
+                        <field name="TYPE_LIST">ticks</field>
+                        <value name="DURATION">
+                            <shadow type="math_number">
+                                <field name="NUM">${DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds / 60 || 3}</field>
+                            </shadow>
                         </value>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </statement>
-
-    <!-- Trade Options -->
-    <statement name="SUBMARKET">
-      <block type="trade_definition_tradeoptions" id="trade_options_block">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
-        <field name="DURATIONTYPE_LIST">${defaultDurationUnit}</field>
-        <value name="DURATION">
-          <shadow type="math_number" id="duration_number">
-            <field name="NUM">${defaultDuration}</field>
-          </shadow>
-        </value>
-        <value name="AMOUNT">
-          <shadow type="math_number" id="amount_shadow">
-            <field name="NUM">${defaultStake}</field>
-          </shadow>
-          <block type="variables_get" id="amount_var">
-            <field name="VAR" id="Stake">Stake</field>
-          </block>
-        </value>
-      </block>
-    </statement>
-  </block>
-
-  <!-- Purchase Block -->
-  <block type="before_purchase" id="before_purchase_block" deletable="false" x="267" y="544">
-    <statement name="BEFOREPURCHASE_STACK">
-      <block type="notify" id="notify_block">
-        <field name="NOTIFICATION_TYPE">success</field>
-        <field name="NOTIFICATION_SOUND">silent</field>
-        <value name="MESSAGE">
-          <shadow type="text" id="notify_text">
-            <field name="TEXT">ML Trader Strategy Executing...</field>
-          </shadow>
-        </value>
-        <next>
-          <block type="purchase" id="purchase_block">
-            <field name="PURCHASE_LIST">${tradeMapping.contractType}</field>
-          </block>
-        </next>
-      </block>
-    </statement>
-  </block>
-
-  <!-- After Purchase Block -->
-  <block type="after_purchase" id="after_purchase_block" x="679" y="293">
-    <statement name="AFTERPURCHASE_STACK">
-      <block type="controls_if" id="result_check">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-        <value name="IF0">
-          <block type="contract_check_result" id="check_win">
-            <field name="CHECK_RESULT">win</field>
-          </block>
-        </value>
-        <statement name="DO0">
-          <block type="variables_set" id="reset_stake_win">
-            <field name="VAR" id="Stake">Stake</field>
-            <value name="VALUE">
-              <block type="variables_get" id="win_stake">
-                <field name="VAR" id="Initial_Stake">Initial_Stake</field>
-              </block>
-            </value>
-            <next>
-              <block type="variables_set" id="set_result_win">
-                <field name="VAR" id="Result_is">Result_is</field>
-                <value name="VALUE">
-                  <block type="text" id="result_win_text">
-                    <field name="TEXT">Win</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="trade_again" id="trade_again_win"></block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </statement>
-        <statement name="ELSE">
-          <block type="controls_if" id="loss_check">
-            <value name="IF0">
-              <block type="contract_check_result" id="check_loss">
-                <field name="CHECK_RESULT">loss</field>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="variables_set" id="increase_stake">
-                <field name="VAR" id="Stake">Stake</field>
-                <value name="VALUE">
-                  <block type="math_arithmetic" id="martingale_calc">
-                    <field name="OP">MULTIPLY</field>
-                    <value name="A">
-                      <shadow type="math_number" id="current_stake_shadow">
-                        <field name="NUM">1</field>
-                      </shadow>
-                      <block type="variables_get" id="current_stake">
-                        <field name="VAR" id="Stake">Stake</field>
-                      </block>
-                    </value>
-                    <value name="B">
-                      <shadow type="math_number" id="multiplier_shadow">
-                        <field name="NUM">${martingaleMultiplier}</field>
-                      </shadow>
-                      <block type="variables_get" id="multiplier_var">
-                        <field name="VAR" id="Martingale_Multiplier">Martingale_Multiplier</field>
-                      </block>
-                    </value>
-                  </block>
-                </value>
-                <next>
-                  <block type="variables_set" id="set_result_loss">
-                    <field name="VAR" id="Result_is">Result_is</field>
-                    <value name="VALUE">
-                      <block type="text" id="result_loss_text">
-                        <field name="TEXT">Loss</field>
-                      </block>
-                    </value>
-                  </block>
-                </next>
-              </block>
-            </statement>
-            <next>
-              <block type="trade_again" id="trade_again_loss"></block>
-            </next>
-          </block>
-        </statement>
-      </block>
-    </statement>
-  </block>
-</xml>`;
+                        <value name="AMOUNT">
+                            <shadow type="math_number">
+                                <field name="NUM">1</field>
+                            </shadow>
+                        </value>
+                    </block>
+                </xml>
+            `;
 
             console.log('📄 Loading ML Trader strategy to Bot Builder...');
 
@@ -891,7 +687,7 @@ const MLTrader = observer(() => {
                         console.log('📦 Loading ML Trader strategy to workspace...');
 
                         await load({
-                            block_string: botSkeletonXML,
+                            block_string: strategyXml,
                             file_name: `MLTrader_${displayName}_${recommendation.action}_${Date.now()}`,
                             workspace: window.Blockly.derivWorkspace,
                             from: save_types.UNSAVED,
@@ -913,7 +709,7 @@ const MLTrader = observer(() => {
                         setTimeout(() => {
                             if (window.Blockly?.derivWorkspace) {
                                 window.Blockly.derivWorkspace.clear();
-                                const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                                 window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                                 window.Blockly.derivWorkspace.scrollCenter();
                                 console.log('✅ ML Trader strategy loaded using fallback method');
@@ -927,7 +723,7 @@ const MLTrader = observer(() => {
                     // Final fallback
                     if (window.Blockly?.derivWorkspace) {
                         window.Blockly.derivWorkspace.clear();
-                        const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                         window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                         window.Blockly.derivWorkspace.scrollCenter();
                         console.log('✅ ML Trader strategy loaded using final fallback');

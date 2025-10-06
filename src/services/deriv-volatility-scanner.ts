@@ -126,7 +126,7 @@ export interface ScannerStatus {
 }
 
 export class DerivVolatilityScanner {
-    // Track all Deriv volatility indices
+    // Track all Deriv volatility indices and step indices
     private readonly VOLATILITY_SYMBOLS = [
         { symbol: '1HZ10V', name: 'Volatility 10 (1s) Index', baseVolatility: 10, ticksPerMinute: 60 },
         { symbol: '1HZ25V', name: 'Volatility 25 (1s) Index', baseVolatility: 25, ticksPerMinute: 60 },
@@ -137,7 +137,12 @@ export class DerivVolatilityScanner {
         { symbol: 'R_25', name: 'Volatility 25 Index', baseVolatility: 25, ticksPerMinute: 1 },
         { symbol: 'R_50', name: 'Volatility 50 Index', baseVolatility: 50, ticksPerMinute: 1 },
         { symbol: 'R_75', name: 'Volatility 75 Index', baseVolatility: 75, ticksPerMinute: 1 },
-        { symbol: 'R_100', name: 'Volatility 100 Index', baseVolatility: 100, ticksPerMinute: 1 }
+        { symbol: 'R_100', name: 'Volatility 100 Index', baseVolatility: 100, ticksPerMinute: 1 },
+        { symbol: 'STEPINDICES', name: 'Step Index 100', baseVolatility: 100, ticksPerMinute: 1 },
+        { symbol: 'stpRNG', name: 'Step Index 200', baseVolatility: 200, ticksPerMinute: 1 },
+        { symbol: 'STPRNG', name: 'Step Index 300', baseVolatility: 300, ticksPerMinute: 1 },
+        { symbol: 'wldSTEP', name: 'Step Index 400', baseVolatility: 400, ticksPerMinute: 1 },
+        { symbol: 'WLDSTEP', name: 'Step Index 500', baseVolatility: 500, ticksPerMinute: 1 }
     ];
 
     // Price and momentum storage
