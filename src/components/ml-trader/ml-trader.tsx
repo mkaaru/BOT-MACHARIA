@@ -667,7 +667,7 @@ const MLTrader = observer(() => {
                 <next>
                     <block type="trade_definition_tradetype" deletable="false" movable="false">
                         <field name="TRADETYPECAT_LIST">callput</field>
-                        <field name="TRADETYPE_LIST">${contractType}</field>
+                        <field name="TRADETYPE_LIST">risefall</field>
                         <next>
                             <block type="trade_definition_contracttype" deletable="false" movable="false">
                                 <field name="TYPE_LIST">${contractType}</field>
