@@ -654,37 +654,32 @@ const MLTrader = observer(() => {
             const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
             // Prepare strategy XML with proper trade_definition_market block hierarchy and continuous trading enabled
-            const strategyXml = `
-                <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-                    <variables>
-                        <variable id="stake">stake</variable>
-                    </variables>
-                    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
-                        <statement name="TRADE_OPTIONS">
-                            <block type="trade_definition_market" deletable="false" movable="false">
-                                <field name="MARKET_LIST">${market}</field>
-                                <field name="SUBMARKET_LIST">${submarket}</field>
-                                <field name="SYMBOL_LIST">${symbol}</field>
+            const strategyXml = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="stake">stake</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">${market}</field>
+                <field name="SUBMARKET_LIST">${submarket}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">${contractType}</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">${contractType}</field>
                                 <next>
-                                    <block type="trade_definition_tradetype" deletable="false" movable="false">
-                                        <field name="TRADETYPECAT_LIST">callput</field>
-                                        <field name="TRADETYPE_LIST">${contractType}</field>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
                                         <next>
-                                            <block type="trade_definition_contracttype" deletable="false" movable="false">
-                                                <field name="TYPE_LIST">${contractType}</field>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
                                                 <next>
-                                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                                        <field name="CANDLEINTERVAL_LIST">60</field>
-                                                        <next>
-                                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
-                                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                                                                <next>
-                                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
-                                                                        <field name="RESTARTONERROR">TRUE</field>
-                                                                    </block>
-                                                                </next>
-                                                            </block>
-                                                        </next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
                                                     </block>
                                                 </next>
                                             </block>
@@ -692,39 +687,42 @@ const MLTrader = observer(() => {
                                     </block>
                                 </next>
                             </block>
-                        </statement>
-                        <statement name="SUBMARKET">
-                            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
-                                <field name="DURATIONTYPE_LIST">t</field>
-                                <value name="DURATION">
-                                    <shadow type="math_number">
-                                        <field name="NUM">${defaultDuration}</field>
-                                    </shadow>
-                                </value>
-                                <value name="AMOUNT">
-                                    <shadow type="math_number">
-                                        <field name="NUM">1</field>
-                                    </shadow>
-                                </value>
-                            </block>
-                        </statement>
+                        </next>
                     </block>
-                    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
-                        <statement name="BEFOREPURCHASE_STACK">
-                            <block type="purchase">
-                                <field name="PURCHASE_LIST">${contractType}</field>
-                            </block>
-                        </statement>
-                    </block>
-                    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="600">
-                        <statement name="AFTERPURCHASE_STACK">
-                            <block type="trade_again" deletable="false" movable="false">
-                                <field name="TRADE_AGAIN_TYPE">true</field>
-                            </block>
-                        </statement>
-                    </block>
-                </xml>
-            `;
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultDuration}</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+            </block>
+        </statement>
+    </block>
+    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
+        <statement name="BEFOREPURCHASE_STACK">
+            <block type="purchase">
+                <field name="PURCHASE_LIST">${contractType}</field>
+            </block>
+        </statement>
+    </block>
+    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="600">
+        <statement name="AFTERPURCHASE_STACK">
+            <block type="trade_again" deletable="false" movable="false">
+                <field name="TRADE_AGAIN_TYPE">true</field>
+            </block>
+        </statement>
+    </block>
+</xml>`;
 
             console.log('📄 Loading ML Trader strategy to Bot Builder...');
             return strategyXml;
@@ -733,11 +731,17 @@ const MLTrader = observer(() => {
         try {
             console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
 
+            // First switch to Bot Builder tab
+            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+
+            // Wait for tab to switch
+            await new Promise(resolve => setTimeout(resolve, 300));
+
             const strategyXml = generateBotBuilderXML();
 
             console.log('📦 Loading ML Trader strategy to workspace...');
 
-            // Import bot skeleton functions
+            // Import bot skeleton functions dynamically
             const { load } = await import('@/external/bot-skeleton');
             const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
 
@@ -762,7 +766,7 @@ const MLTrader = observer(() => {
             } else {
                 console.warn('⚠️ Blockly workspace not ready, using fallback method');
 
-                // Fallback method
+                // Fallback method with longer delay
                 setTimeout(() => {
                     if (window.Blockly?.derivWorkspace) {
                         window.Blockly.derivWorkspace.clear();
@@ -771,8 +775,11 @@ const MLTrader = observer(() => {
                         window.Blockly.derivWorkspace.scrollCenter();
                         console.log('✅ ML Trader strategy loaded using fallback method');
                         setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
+                    } else {
+                        console.error('❌ Blockly workspace still not available');
+                        setStatus(`❌ Bot Builder not ready. Please switch to Bot Builder tab first.`);
                     }
-                }, 500);
+                }, 1000);
             }
 
             console.log(`✅ Loaded ${recommendation.displayName} - ${recommendation.action} strategy to Bot Builder`);
@@ -781,7 +788,7 @@ const MLTrader = observer(() => {
             console.error('Error loading recommendation to Bot Builder:', error);
             setStatus(`❌ Error loading strategy: ${error}`);
         }
-    }, [store.dashboard]);
+    }, []);
 
     return (
         <div
