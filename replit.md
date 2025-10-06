@@ -7,26 +7,16 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 6, 2025
-- **CRITICAL FIX - Bot Builder Rise/Fall XML Structure**: Fixed JavaScript parsing error in generated bot code
-  - Root cause: TRADETYPE_LIST was incorrectly set to 'CALL'/'PUT' instead of 'risefall'
-  - Correct Rise/Fall XML structure: TRADETYPECAT_LIST='callput', TRADETYPE_LIST='risefall', TYPE_LIST='CALL'|'PUT'
-  - PURCHASE_LIST should match TYPE_LIST value (CALL or PUT)
-  - This fixes the "Unexpected token (111:22)" JavaScript error when loading bot in Bot Builder
-- **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
-  - Root cause: Step Index symbols are case-sensitive in Deriv API
-  - Correct symbols: stpRNG, stpRNG2, stpRNG3, stpRNG4, stpRNG5 (lowercase 'stp', NOT uppercase 'STPRNG')
-  - Updated all three core files: ml-trader.tsx, deriv-volatility-scanner.ts, tick-stream-manager.ts
-  - Bot Builder detection now uses case-insensitive check: toLowerCase().startsWith('stprng')
-  - This fixes the "Scanning for momentum opportunities..." infinite loop - scanner was rejecting all symbols
-- **ML Trader Step Indices Configuration**: Optimized for rate limit avoidance with Step Indices only
-  - Replaced 10 volatility indices with 5 Step Indices to reduce simultaneous API load by 50%
-  - Step Indices use 1 tick per minute, reducing API calls compared to 1-second volatility indices
-  - System fetches 500 historical ticks for each Step Index using Deriv API
-  - ML Trader generates Rise/Fall recommendations for Step Indices using momentum-based analysis
-- **Bot Builder Market Hierarchy**: Correct Bot Builder XML structure for Step Indices
+- **ML Trader Fix**: Resolved blocking issue preventing recommendations from appearing
+  - Root cause: Step Index symbols (STPRNG, STPRNG2, etc.) were hitting Deriv API errors and not receiving tick data
+  - Scanner waits for ALL symbols to have minimum data before generating recommendations (hasMinimumDataAcrossAllSymbols check)
+  - Solution: Removed Step Index symbols from ml-trader.tsx, deriv-volatility-scanner.ts, and tick-stream-manager.ts
+  - System now analyzes 10 volatility indices only: R_10, R_25, R_50, R_75, R_100, 1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V
+  - Recommendations now generate successfully for available volatility indices
+- **Bot Builder Market Hierarchy**: Maintained correct Bot Builder XML structure for market selection
   - Proper trade_definition block hierarchy with trade_definition_market as child block
   - Populates Market > Submarket > Symbol dropdowns correctly
-  - Automatic market/submarket detection: synthetic_index/step_index for Step Indices
+  - Automatic market/submarket detection for volatility indices: synthetic_index/random_index
 - **Port Configuration**: Server runs correctly on port 5000
 
 ## October 5, 2025
