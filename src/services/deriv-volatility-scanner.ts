@@ -990,6 +990,17 @@ export class DerivVolatilityScanner {
         const recommendations: ScannerRecommendation[] = [];
 
         this.analysisCache.forEach(analysis => {
+            const isStepIndex = analysis.symbol.includes('STEP') || analysis.symbol.includes('STP') || analysis.symbol.includes('stp');
+            
+            if (isStepIndex) {
+                console.log(`🔷 Step Index Check: ${analysis.symbol}`, {
+                    recommendation: analysis.recommendation,
+                    confidence: analysis.confidence,
+                    minConfidence: this.MIN_CONFIDENCE,
+                    passesFilter: analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= this.MIN_CONFIDENCE
+                });
+            }
+            
             if (analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= this.MIN_CONFIDENCE) {
                 const symbolInfo = this.VOLATILITY_SYMBOLS.find(s => s.symbol === analysis.symbol);
                 if (!symbolInfo) return;
