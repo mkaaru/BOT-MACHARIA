@@ -1,0 +1,369 @@
+hangeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for R_25
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for R_25: {momentum: 0.001590153863079097, volatility: 0.0003697951789656869, trend: 0.00014189036343078656, acceleration: 0.057405286223654206, consistency: 0.9404928743708701}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for R_50
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for R_50: {momentum: 0.00022790586667541701, volatility: 0.0006114832560527958, trend: 0.00001749608912267131, acceleration: 0.0031683456853096445, consistency: 0.9959747691028394}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+deriv-volatility-scanner.ts:360 🔷 Updating analysis for Step Index: stpRNG (Step Index 200)
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for stpRNG: {momentum: 0.0002110756098549141, volatility: 0.000040585422734838676, trend: 0.000018667917451677495, acceleration: 0.0072764311904010585, consistency: 0.9924532398595576}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+deriv-volatility-scanner.ts:367 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ25V: 641313.84000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ25V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ25V: {momentum: 0.00000756292292989104, volatility: 0.00002902661618250323, trend: 5.532792891437495e-7, acceleration: 0.9495955423297185, consistency: 0.05036731485188006}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for R_75
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for R_75: {momentum: 0.0006927290075014786, volatility: 0.0005095495865064594, trend: 0.00006822302651845151, acceleration: 0.1519796673192128, consistency: 0.8467498310602608}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ50V: 186892.17000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ50V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ50V: {momentum: 0.00011377717676837365, volatility: 0.0000874478151791906, trend: 0.000009845724855728669, acceleration: 0.9910228980619791, consistency: 0.00876603122121757}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ75V: 4245.69000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ75V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ75V: {momentum: 0.00023379720185021455, volatility: 0.00046219597192121776, trend: 0.0000232024251731031, acceleration: 0.001092514695078328, consistency: 0.9981882897059771}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ10V: 9448.83000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ10V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ10V: {momentum: 0.00016935943013654685, volatility: 0.00003510166935097355, trend: 0.000015044515147792305, acceleration: 0.005178459941623962, consistency: 0.9946020344437407}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for R_100
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for R_100: {momentum: 0.0024749940097909106, volatility: 0.0013318280273635448, trend: 0.00021737663691968735, acceleration: 0.022186452074179176, consistency: 0.9737893492517468}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for R_10
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for R_10: {momentum: 0.0003031238610755436, volatility: 0.00006265144707694169, trend: 0.000028095834289630315, acceleration: 0.02269509210637404, consistency: 0.9769110367511838}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ100V: 839.12000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ100V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ100V: {momentum: 0.0004099574471901235, volatility: 0.0006297635286327518, trend: 0.00004882966717371287, acceleration: 0.0006498668582956617, consistency: 0.9982615824987078}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:209 📊 Subscribing to STPRNG (Step Index volatility)...
+tick-stream-manager.ts:220 Requesting historical data for STPRNG: {ticks_history: 'STPRNG', count: 5000, end: 'latest', style: 'ticks', subscribe: 1}
+tick-stream-manager.ts:209 📊 Subscribing to STEPINDICES (Step Index volatility)...
+tick-stream-manager.ts:220 Requesting historical data for STEPINDICES: {ticks_history: 'STEPINDICES', count: 5000, end: 'latest', style: 'ticks', subscribe: 1}
+tick-stream-manager.ts:209 📊 Subscribing to wldSTEP (Step Index volatility)...
+tick-stream-manager.ts:220 Requesting historical data for wldSTEP: {ticks_history: 'wldSTEP', count: 5000, end: 'latest', style: 'ticks', subscribe: 1}
+tick-stream-manager.ts:209 📊 Subscribing to WLDSTEP (Step Index volatility)...
+tick-stream-manager.ts:220 Requesting historical data for WLDSTEP: {ticks_history: 'WLDSTEP', count: 5000, end: 'latest', style: 'ticks', subscribe: 1}
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:260  ❌ Error getting historical data for STPRNG: {echo_req: {…}, error: {…}, msg_type: 'ticks_history', req_id: 139}
+subscribeToSymbol @ tick-stream-manager.ts:260
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:270 Subscribing to real-time ticks for STPRNG: {ticks: 'STPRNG', subscribe: 1}
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks_history.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:155  ❌ Error was for symbol: STPRNG
+messageHandler @ tick-stream-manager.ts:155
+tick-stream-manager.ts:260  ❌ Error getting historical data for STEPINDICES: {echo_req: {…}, error: {…}, msg_type: 'ticks_history', req_id: 140}
+subscribeToSymbol @ tick-stream-manager.ts:260
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:270 Subscribing to real-time ticks for STEPINDICES: {ticks: 'STEPINDICES', subscribe: 1}
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks_history.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:155  ❌ Error was for symbol: STEPINDICES
+messageHandler @ tick-stream-manager.ts:155
+tick-stream-manager.ts:260  ❌ Error getting historical data for wldSTEP: {echo_req: {…}, error: {…}, msg_type: 'ticks_history', req_id: 141}
+subscribeToSymbol @ tick-stream-manager.ts:260
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:270 Subscribing to real-time ticks for wldSTEP: {ticks: 'wldSTEP', subscribe: 1}
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks_history.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:155  ❌ Error was for symbol: wldSTEP
+messageHandler @ tick-stream-manager.ts:155
+tick-stream-manager.ts:260  ❌ Error getting historical data for WLDSTEP: {echo_req: {…}, error: {…}, msg_type: 'ticks_history', req_id: 142}
+subscribeToSymbol @ tick-stream-manager.ts:260
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:270 Subscribing to real-time ticks for WLDSTEP: {ticks: 'WLDSTEP', subscribe: 1}
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks_history.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:155  ❌ Error was for symbol: WLDSTEP
+messageHandler @ tick-stream-manager.ts:155
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:286  ❌ Error subscribing to STPRNG: {echo_req: {…}, error: {…}, msg_type: 'ticks', req_id: 143}
+subscribeToSymbol @ tick-stream-manager.ts:286
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:288 🔄 Retrying STPRNG subscription in 2 seconds...
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:286  ❌ Error subscribing to STEPINDICES: {echo_req: {…}, error: {…}, msg_type: 'ticks', req_id: 144}
+subscribeToSymbol @ tick-stream-manager.ts:286
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:288 🔄 Retrying STEPINDICES subscription in 2 seconds...
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:286  ❌ Error subscribing to wldSTEP: {echo_req: {…}, error: {…}, msg_type: 'ticks', req_id: 145}
+subscribeToSymbol @ tick-stream-manager.ts:286
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:288 🔄 Retrying wldSTEP subscription in 2 seconds...
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:286  ❌ Error subscribing to WLDSTEP: {echo_req: {…}, error: {…}, msg_type: 'ticks', req_id: 146}
+subscribeToSymbol @ tick-stream-manager.ts:286
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+setTimeout
+subscribeToSymbol @ tick-stream-manager.ts:289
+await in subscribeToSymbol
+(anonymous) @ tick-stream-manager.ts:290
+tick-stream-manager.ts:288 🔄 Retrying WLDSTEP subscription in 2 seconds...
+tick-stream-manager.ts:151  ❌ TickStreamManager API Error - RateLimit: You have reached the rate limit for ticks.
+messageHandler @ tick-stream-manager.ts:151
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ10V: 9448.89000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ10V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ10V: {momentum: 0.00016236408840295037, volatility: 0.00003555139998416656, trend: 0.000014398367402912301, acceleration: 0.004858579468286088, consistency: 0.9949291066759239}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ75V: 4245.40000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ75V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ75V: {momentum: 0.00024110096447438263, volatility: 0.0004644945212542405, trend: 0.00002387511238760794, acceleration: 0.0002212071746709964, consistency: 0.9990493222272128}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ100V: 838.91000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ100V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ100V: {momentum: 0.0004012360814473437, volatility: 0.0006260958196709512, trend: 0.00004793176783981818, acceleration: 0.000678632219899126, consistency: 0.9982461041111428}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ25V: 641225.39000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ25V
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for 1HZ25V: {momentum: 0.000005054224784752273, volatility: 0.000028295709021641606, trend: 3.1632339603668235e-7, acceleration: 0.9512175056323963, consistency: 0.048748828110401335}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+deriv-volatility-scanner.ts:360 🔷 Updating analysis for Step Index: stpRNG (Step Index 200)
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:487 🔧 Updated ML weights for stpRNG: {momentum: 0.00021209331602224535, volatility: 0.000040578222116650075, trend: 0.000018719846707120224, acceleration: 0.007811396863793675, consistency: 0.9919172117513604}
+ml-tick-analyzer.ts:99 ✅ ML Training Complete: 117 patterns learned
+deriv-volatility-scanner.ts:367 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+tick-stream-manager.ts:146 🔄 Real-time tick for 1HZ50V: 186895.94000
+ml-tick-analyzer.ts:84 🧠 ML Training: Processing 600 historical ticks for 1HZ50V
