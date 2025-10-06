@@ -710,14 +710,14 @@ const MLTrader = observer(() => {
     </block>
     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
         <statement name="BEFOREPURCHASE_STACK">
-            <block type="purchase">
+            <block type="purchase" id="purchase">
                 <field name="PURCHASE_LIST">${contractType}</field>
             </block>
         </statement>
     </block>
     <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="600">
         <statement name="AFTERPURCHASE_STACK">
-            <block type="trade_again" deletable="false" movable="false">
+            <block type="trade_again" id="trade_again" deletable="false" movable="false">
                 <field name="TRADE_AGAIN_TYPE">true</field>
             </block>
         </statement>
