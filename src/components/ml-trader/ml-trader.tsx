@@ -655,11 +655,17 @@ const MLTrader = observer(() => {
             // Contract type based on action
             const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
-            // Prepare strategy XML with proper trade_definition_market block hierarchy
+            // Prepare strategy XML with martingale settings (duration: 2 ticks, multiplier: 1, stop loss: 5)
             const strategyXml = `
                 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                     <variables>
                         <variable id="stake">stake</variable>
+                        <variable id="martingale:multiplier">martingale:multiplier</variable>
+                        <variable id="martingale:initialStake">martingale:initialStake</variable>
+                        <variable id="martingale:totalProfit">martingale:totalProfit</variable>
+                        <variable id="martingale:tradeAgain">martingale:tradeAgain</variable>
+                        <variable id="consecutiveLossCount">consecutiveLossCount</variable>
+                        <variable id="maxConsecutiveLoss">maxConsecutiveLoss</variable>
                     </variables>
                     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
                         <statement name="TRADE_OPTIONS">
@@ -695,18 +701,77 @@ const MLTrader = observer(() => {
                                 </next>
                             </block>
                         </statement>
+                        <statement name="INITIALIZATION">
+                            <block type="variables_set">
+                                <field name="VAR" id="martingale:initialStake">martingale:initialStake</field>
+                                <value name="VALUE">
+                                    <shadow type="math_number">
+                                        <field name="NUM">1</field>
+                                    </shadow>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="martingale:multiplier">martingale:multiplier</field>
+                                        <value name="VALUE">
+                                            <shadow type="math_number">
+                                                <field name="NUM">1</field>
+                                            </shadow>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                <value name="VALUE">
+                                                    <shadow type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </shadow>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                                        <value name="VALUE">
+                                                            <shadow type="math_number">
+                                                                <field name="NUM">5</field>
+                                                            </shadow>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
                         <statement name="SUBMARKET">
                             <block type="trade_definition_tradeoptions" deletable="false" movable="false">
                                 <field name="DURATIONTYPE_LIST">t</field>
                                 <value name="DURATION">
                                     <shadow type="math_number">
-                                        <field name="NUM">${defaultDuration}</field>
+                                        <field name="NUM">2</field>
                                     </shadow>
                                 </value>
                                 <value name="AMOUNT">
                                     <shadow type="math_number">
                                         <field name="NUM">1</field>
                                     </shadow>
+                                    <block type="math_arithmetic">
+                                        <field name="OP">MULTIPLY</field>
+                                        <value name="A">
+                                            <shadow type="math_number">
+                                                <field name="NUM">1</field>
+                                            </shadow>
+                                            <block type="variables_get">
+                                                <field name="VAR" id="martingale:multiplier">martingale:multiplier</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <shadow type="math_number">
+                                                <field name="NUM">1</field>
+                                            </shadow>
+                                            <block type="variables_get">
+                                                <field name="VAR" id="martingale:initialStake">martingale:initialStake</field>
+                                            </block>
+                                        </value>
+                                    </block>
                                 </value>
                             </block>
                         </statement>
@@ -720,8 +785,102 @@ const MLTrader = observer(() => {
                     </block>
                     <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="600">
                         <statement name="AFTERPURCHASE_STACK">
-                            <block type="trade_again" id="trade_again" deletable="false" movable="false">
-                                <field name="TRADE_AGAIN_TYPE">true</field>
+                            <block type="controls_if">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                <value name="IF0">
+                                    <block type="contract_check_result">
+                                        <field name="CHECK_RESULT">win</field>
+                                    </block>
+                                </value>
+                                <statement name="DO0">
+                                    <block type="variables_set">
+                                        <field name="VAR" id="martingale:multiplier">martingale:multiplier</field>
+                                        <value name="VALUE">
+                                            <shadow type="math_number">
+                                                <field name="NUM">1</field>
+                                            </shadow>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                <value name="VALUE">
+                                                    <shadow type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </shadow>
+                                                </value>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </statement>
+                                <statement name="ELSE">
+                                    <block type="variables_set">
+                                        <field name="VAR" id="martingale:multiplier">martingale:multiplier</field>
+                                        <value name="VALUE">
+                                            <block type="math_arithmetic">
+                                                <field name="OP">MULTIPLY</field>
+                                                <value name="A">
+                                                    <shadow type="math_number">
+                                                        <field name="NUM">1</field>
+                                                    </shadow>
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="martingale:multiplier">martingale:multiplier</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <shadow type="math_number">
+                                                        <field name="NUM">1</field>
+                                                    </shadow>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="math_change">
+                                                <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                <value name="DELTA">
+                                                    <shadow type="math_number">
+                                                        <field name="NUM">1</field>
+                                                    </shadow>
+                                                </value>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </statement>
+                                <next>
+                                    <block type="controls_if">
+                                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                        <value name="IF0">
+                                            <block type="logic_compare">
+                                                <field name="OP">LT</field>
+                                                <value name="A">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <statement name="DO0">
+                                            <block type="trade_again" id="trade_again" deletable="false" movable="false">
+                                                <field name="TRADE_AGAIN_TYPE">true</field>
+                                            </block>
+                                        </statement>
+                                        <statement name="ELSE">
+                                            <block type="notify">
+                                                <field name="NOTIFICATION_TYPE">error</field>
+                                                <field name="NOTIFICATION_SOUND">silent</field>
+                                                <value name="MESSAGE">
+                                                    <shadow type="text">
+                                                        <field name="TEXT">Stop loss triggered: 5 consecutive losses reached</field>
+                                                    </shadow>
+                                                </value>
+                                            </block>
+                                        </statement>
+                                    </block>
+                                </next>
                             </block>
                         </statement>
                     </block>
