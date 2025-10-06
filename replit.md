@@ -6,6 +6,13 @@ The platform features multiple trading approaches including a visual bot builder
 
 # Recent Changes
 
+## October 6, 2025
+- **Step Indices Integration**: Added Step Index 100, 200, 300, 400, and 500 to ML Trader analysis alongside volatility indices
+- **Step Indices Historical Data**: System fetches and analyzes 500 historical ticks for all step indices using Deriv API
+- **Unified Analysis**: Step indices receive same momentum-based volatility analysis as regular volatility indices
+- **Step Indices Recommendations**: ML Trader now generates trading recommendations for step indices with confidence scores
+- **Bot Builder Market Selection**: Fixed market dropdown structure to properly populate Derived > Step Indices > specific step index when loading recommendations
+
 ## October 5, 2025
 - **ML Trader Initialization Fix**: Resolved "symbol is not defined" error by moving variable declaration outside try-catch block scope
 - **Historical Data Integration**: Fixed ML Trader to properly fetch and process 500 historical ticks from Deriv API for machine learning model training
