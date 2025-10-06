@@ -7,6 +7,11 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 6, 2025
+- **CRITICAL FIX - Bot Builder Rise/Fall XML Structure**: Fixed JavaScript parsing error in generated bot code
+  - Root cause: TRADETYPE_LIST was incorrectly set to 'CALL'/'PUT' instead of 'risefall'
+  - Correct Rise/Fall XML structure: TRADETYPECAT_LIST='callput', TRADETYPE_LIST='risefall', TYPE_LIST='CALL'|'PUT'
+  - PURCHASE_LIST should match TYPE_LIST value (CALL or PUT)
+  - This fixes the "Unexpected token (111:22)" JavaScript error when loading bot in Bot Builder
 - **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
   - Root cause: Step Index symbols are case-sensitive in Deriv API
   - Correct symbols: stpRNG, stpRNG2, stpRNG3, stpRNG4, stpRNG5 (lowercase 'stp', NOT uppercase 'STPRNG')
