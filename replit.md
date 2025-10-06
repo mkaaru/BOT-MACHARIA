@@ -7,17 +7,17 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 6, 2025
-- **Step Indices Integration**: Successfully added Step Index 100, 200, 300, 400, and 500 to ML Trader analysis
-  - Correct symbols: STPRNG, STPRNG2, STPRNG3, STPRNG4, STPRNG5
-  - Symbols consistently defined across deriv-volatility-scanner.ts, tick-stream-manager.ts, and ml-trader.tsx
-  - System fetches 500 historical ticks for each Step Index using Deriv API
-  - ML Trader generates recommendations for Step Indices using same momentum-based analysis as volatility indices
-- **Bot Builder Market Hierarchy**: Fixed Bot Builder XML structure to properly configure market selection
-  - Implemented correct trade_definition block hierarchy with trade_definition_market as child block
-  - Properly populates Market > Submarket > Symbol dropdowns (e.g., Derived > Step Indices > Step Index 300)
-  - Automatic market/submarket detection: synthetic_index/random_index for volatility indices, synthetic_index/step_index for Step Indices
-  - Complete trade parameter blocks: market, trade type, contract type, candle interval, error handling, and trade options
-- **Port Configuration**: Resolved duplicate server process issue, server now runs correctly on port 5000
+- **ML Trader Fix**: Resolved blocking issue preventing recommendations from appearing
+  - Root cause: Step Index symbols (STPRNG) were not available/supported on Deriv API but were blocking the scanner
+  - Scanner waits for ALL symbols to have minimum data before generating recommendations
+  - Solution: Removed Step Index symbols from all arrays (deriv-volatility-scanner.ts, tick-stream-manager.ts, ml-trader.tsx)
+  - System now analyzes 10 volatility indices only: R_10, R_25, R_50, R_75, R_100, 1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V
+  - Recommendations now generate successfully for available volatility indices
+- **Bot Builder Market Hierarchy**: Maintained correct Bot Builder XML structure for market selection
+  - Proper trade_definition block hierarchy with trade_definition_market as child block
+  - Populates Market > Submarket > Symbol dropdowns correctly
+  - Automatic market/submarket detection for volatility indices: synthetic_index/random_index
+- **Port Configuration**: Server runs correctly on port 5000
 
 ## October 5, 2025
 - **ML Trader Initialization Fix**: Resolved "symbol is not defined" error by moving variable declaration outside try-catch block scope
