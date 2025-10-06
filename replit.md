@@ -7,18 +7,21 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 6, 2025
+- **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
+  - Root cause: Step Index symbols are case-sensitive in Deriv API
+  - Correct symbols: stpRNG, stpRNG2, stpRNG3, stpRNG4, stpRNG5 (lowercase 'stp', NOT uppercase 'STPRNG')
+  - Updated all three core files: ml-trader.tsx, deriv-volatility-scanner.ts, tick-stream-manager.ts
+  - Bot Builder detection now uses case-insensitive check: toLowerCase().startsWith('stprng')
+  - This fixes the "Scanning for momentum opportunities..." infinite loop - scanner was rejecting all symbols
 - **ML Trader Step Indices Configuration**: Optimized for rate limit avoidance with Step Indices only
   - Replaced 10 volatility indices with 5 Step Indices to reduce simultaneous API load by 50%
-  - Symbols: STPRNG (100), STPRNG2 (200), STPRNG3 (300), STPRNG4 (400), STPRNG5 (500)
   - Step Indices use 1 tick per minute, reducing API calls compared to 1-second volatility indices
-  - Updated consistently across ml-trader.tsx, deriv-volatility-scanner.ts, and tick-stream-manager.ts
   - System fetches 500 historical ticks for each Step Index using Deriv API
   - ML Trader generates Rise/Fall recommendations for Step Indices using momentum-based analysis
 - **Bot Builder Market Hierarchy**: Correct Bot Builder XML structure for Step Indices
   - Proper trade_definition block hierarchy with trade_definition_market as child block
   - Populates Market > Submarket > Symbol dropdowns correctly
   - Automatic market/submarket detection: synthetic_index/step_index for Step Indices
-  - Step Index detection: Uses recommendation.symbol.startsWith('STPRNG') to identify Step Indices
 - **Port Configuration**: Server runs correctly on port 5000
 
 ## October 5, 2025
