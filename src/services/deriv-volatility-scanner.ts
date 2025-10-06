@@ -128,16 +128,11 @@ export interface ScannerStatus {
 export class DerivVolatilityScanner {
     // Track all Deriv volatility indices and step indices
     private readonly VOLATILITY_SYMBOLS = [
-        { symbol: 'R_10', name: 'Volatility 10 Index', baseVolatility: 10, ticksPerMinute: 1 },
-        { symbol: 'R_25', name: 'Volatility 25 Index', baseVolatility: 25, ticksPerMinute: 1 },
-        { symbol: 'R_50', name: 'Volatility 50 Index', baseVolatility: 50, ticksPerMinute: 1 },
-        { symbol: 'R_75', name: 'Volatility 75 Index', baseVolatility: 75, ticksPerMinute: 1 },
-        { symbol: 'R_100', name: 'Volatility 100 Index', baseVolatility: 100, ticksPerMinute: 1 },
-        { symbol: '1HZ10V', name: 'Volatility 10 (1s) Index', baseVolatility: 10, ticksPerMinute: 60 },
-        { symbol: '1HZ25V', name: 'Volatility 25 (1s) Index', baseVolatility: 25, ticksPerMinute: 60 },
-        { symbol: '1HZ50V', name: 'Volatility 50 (1s) Index', baseVolatility: 50, ticksPerMinute: 60 },
-        { symbol: '1HZ75V', name: 'Volatility 75 (1s) Index', baseVolatility: 75, ticksPerMinute: 60 },
-        { symbol: '1HZ100V', name: 'Volatility 100 (1s) Index', baseVolatility: 100, ticksPerMinute: 60 },
+        { symbol: 'stpRNG', name: 'Step Index 100', baseVolatility: 100, ticksPerMinute: 1 },
+        { symbol: 'stpRNG2', name: 'Step Index 200', baseVolatility: 200, ticksPerMinute: 1 },
+        { symbol: 'stpRNG3', name: 'Step Index 300', baseVolatility: 300, ticksPerMinute: 1 },
+        { symbol: 'stpRNG4', name: 'Step Index 400', baseVolatility: 400, ticksPerMinute: 1 },
+        { symbol: 'stpRNG5', name: 'Step Index 500', baseVolatility: 500, ticksPerMinute: 1 },
     ];
 
     // Price and momentum storage

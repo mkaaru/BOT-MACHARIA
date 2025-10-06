@@ -33,20 +33,11 @@ export interface SymbolInfo {
 
 // Comprehensive list of volatility indices
 export const VOLATILITY_SYMBOLS: SymbolInfo[] = [
-    // Regular volatilities
-    { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s_volatility: false },
-    { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s_volatility: false },
-    { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s_volatility: false },
-    { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s_volatility: false },
-    { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s_volatility: false },
-    // 1-second volatilities
-    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s_volatility: true },
-    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s_volatility: true },
-    // Step indices (added back with rate-limited subscription)
-    { symbol: 'STPRNG', display_name: 'Step Index', is_1s_volatility: false },
+    { symbol: 'stpRNG', display_name: 'Step Index 100', is_1s_volatility: false },
+    { symbol: 'stpRNG2', display_name: 'Step Index 200', is_1s_volatility: false },
+    { symbol: 'stpRNG3', display_name: 'Step Index 300', is_1s_volatility: false },
+    { symbol: 'stpRNG4', display_name: 'Step Index 400', is_1s_volatility: false },
+    { symbol: 'stpRNG5', display_name: 'Step Index 500', is_1s_volatility: false },
 ];
 
 export class TickStreamManager {

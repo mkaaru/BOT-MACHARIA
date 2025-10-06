@@ -287,22 +287,22 @@ class DBot {
         return `
             var BinaryBotPrivateInit;
             var BinaryBotPrivateStart;
-            var BinaryBotPrivateBeforePurchase; 
+            var BinaryBotPrivateBeforePurchase;
             var BinaryBotPrivateDuringPurchase;
             var BinaryBotPrivateAfterPurchase;
             var BinaryBotPrivateLastTickTime;
             var BinaryBotPrivateTickAnalysisList = [];
             var BinaryBotPrivateHasCalledTradeOptions = false;
 
-           
+
             function recursiveList(list, final_list){
                 for(var i=0; i < list.length; i++){
                     if(typeof(list[i]) === 'object'){
                         recursiveList(list[i], final_list);
                     }
                     if(typeof(list[i]) == 'number'){
-                        final_list.push(list[i]);   
-                                  
+                        final_list.push(list[i]);
+
                     }
                 }
                 return final_list;
@@ -326,7 +326,7 @@ class DBot {
                 for (var BinaryBotPrivateI = 0; BinaryBotPrivateI < BinaryBotPrivateTickAnalysisList.length; BinaryBotPrivateI++) {
                     BinaryBotPrivateRun(BinaryBotPrivateTickAnalysisList[BinaryBotPrivateI]);
                 }
-                
+
                 // Handle trade each tick functionality
                 if (Bot.tradeEngine && Bot.tradeEngine.tradeEachTick && !Bot.tradeEngine.contractId) {
                     BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
@@ -336,7 +336,6 @@ class DBot {
             ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
             BinaryBotPrivateRun(BinaryBotPrivateInit);
             while (true) {
-                BinaryBotPrivateTickAnalysis();
                 BinaryBotPrivateRun(BinaryBotPrivateStart);
                 if (!BinaryBotPrivateHasCalledTradeOptions) {
                     sleep(1);
@@ -351,11 +350,15 @@ class DBot {
                     BinaryBotPrivateRun(BinaryBotPrivateDuringPurchase);
                 }
                 BinaryBotPrivateTickAnalysis();
-                if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
+                const shouldContinue = BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
+                // Continue trading unless explicitly stopped or trade_again returns false
+                if (shouldContinue === false) {
                     break;
                 }
+                // Small delay to prevent rate limiting
+                sleep(0.5);
             }
-            
+
             `;
     }
 

@@ -14,17 +14,11 @@ import './ml-trader.scss';
 
 // Enhanced volatility symbols with 1-second indices and Step Indices
 const DERIV_VOLATILITY_SYMBOLS = [
-    { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s: false, base_volatility: 10 },
-    { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s: false, base_volatility: 25 },
-    { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s: false, base_volatility: 50 },
-    { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s: false, base_volatility: 75 },
-    { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s: false, base_volatility: 100 },
-    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s: true, base_volatility: 10 },
-    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s: true, base_volatility: 25 },
-    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true, base_volatility: 50 },
-    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true, base_volatility: 75 },
-    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true, base_volatility: 100 },
-    { symbol: 'STPRNG', display_name: 'Step Index', is_1s: false, base_volatility: 10 },
+    { symbol: 'stpRNG', display_name: 'Step Index 100', is_1s: false, base_volatility: 100 },
+    { symbol: 'stpRNG2', display_name: 'Step Index 200', is_1s: false, base_volatility: 200 },
+    { symbol: 'stpRNG3', display_name: 'Step Index 300', is_1s: false, base_volatility: 300 },
+    { symbol: 'stpRNG4', display_name: 'Step Index 400', is_1s: false, base_volatility: 400 },
+    { symbol: 'stpRNG5', display_name: 'Step Index 500', is_1s: false, base_volatility: 500 },
 ];
 
 // Contract types for Rise/Fall trading
@@ -119,6 +113,27 @@ const MLTrader = observer(() => {
             // Initialize API connection
             const api = generateDerivApiInstance();
             apiRef.current = api;
+
+            // Query available Step Index symbols from Deriv API
+            setStatus('Querying available Step Index symbols...');
+            const { active_symbols, error: symbolsError } = await api.send({ active_symbols: 'brief' });
+            if (symbolsError) {
+                console.error('Error fetching active symbols:', symbolsError);
+            } else {
+                const stepIndexSymbols = (active_symbols || [])
+                    .filter((s: any) => 
+                        s.display_name?.toLowerCase().includes('step index') || 
+                        s.symbol?.toLowerCase().includes('step') ||
+                        s.submarket === 'step_index'
+                    );
+
+                console.log('🔍 Found Step Index symbols:', stepIndexSymbols.map((s: any) => `${s.symbol} (${s.display_name})`));
+
+                if (stepIndexSymbols.length === 0) {
+                    console.warn('⚠️ No Step Index symbols found! Using volatility indices instead.');
+                    setStatus('No Step Indices available - this environment may not support them');
+                }
+            }
 
             // Check authorization
             const client_id = V2GetActiveClientId();
@@ -614,18 +629,16 @@ const MLTrader = observer(() => {
      * Load recommendation to Bot Builder
      */
     const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
-        try {
-            console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
-
-            // Get display name
+        
+        const generateBotBuilderXML = () => {
             const displayName = recommendation.displayName;
 
             // Determine market and submarket based on symbol
             let market = 'synthetic_index';
             let submarket = 'random_index';
 
-            // Check if it's a Step Index (STPRNG, STPRNG2, STPRNG3, STPRNG4, STPRNG5)
-            const isStepIndex = recommendation.symbol.startsWith('STPRNG');
+            // Check if it's a Step Index (stpRNG, stpRNG2, stpRNG3, stpRNG4, stpRNG5)
+            const isStepIndex = recommendation.symbol.toLowerCase().startsWith('stprng');
 
             if (isStepIndex) {
                 submarket = 'step_index';
@@ -640,7 +653,7 @@ const MLTrader = observer(() => {
             // Contract type based on action
             const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
-            // Prepare strategy XML with proper trade_definition_market block hierarchy
+            // Prepare strategy XML with proper trade_definition_market block hierarchy and continuous trading enabled
             const strategyXml = `
                 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                     <variables>
@@ -703,72 +716,66 @@ const MLTrader = observer(() => {
                             </block>
                         </statement>
                     </block>
+                    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="600">
+                        <statement name="AFTERPURCHASE_STACK">
+                            <block type="trade_again" deletable="false" movable="false">
+                                <field name="TRADE_AGAIN_TYPE">true</field>
+                            </block>
+                        </statement>
+                    </block>
                 </xml>
             `;
 
             console.log('📄 Loading ML Trader strategy to Bot Builder...');
+            return strategyXml;
+        };
 
-            // Switch to Bot Builder tab
-            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+        try {
+            console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
 
-            // Wait for tab switch and load the strategy
-            setTimeout(async () => {
-                try {
-                    // Import bot skeleton functions
-                    const { load } = await import('@/external/bot-skeleton');
-                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+            const strategyXml = generateBotBuilderXML();
 
-                    // Load to workspace
-                    if (window.Blockly?.derivWorkspace) {
-                        console.log('📦 Loading ML Trader strategy to workspace...');
+            console.log('📦 Loading ML Trader strategy to workspace...');
 
-                        await load({
-                            block_string: strategyXml,
-                            file_name: `MLTrader_${displayName}_${recommendation.action}_${Date.now()}`,
-                            workspace: window.Blockly.derivWorkspace,
-                            from: save_types.UNSAVED,
-                            drop_event: null,
-                            strategy_id: null,
-                            showIncompatibleStrategyDialog: null,
-                        });
+            // Import bot skeleton functions
+            const { load } = await import('@/external/bot-skeleton');
+            const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
 
-                        // Center workspace
-                        window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ ML Trader strategy loaded to workspace');
+            // Load to workspace
+            if (window.Blockly?.derivWorkspace) {
+                await load({
+                    block_string: strategyXml,
+                    file_name: `MLTrader_${recommendation.displayName}_${recommendation.action}_${Date.now()}`,
+                    workspace: window.Blockly.derivWorkspace,
+                    from: save_types.UNSAVED,
+                    drop_event: null,
+                    strategy_id: null,
+                    showIncompatibleStrategyDialog: null,
+                });
 
-                        setStatus(`✅ Loaded ${recommendation.action} strategy for ${displayName} to Bot Builder`);
+                // Center workspace
+                window.Blockly.derivWorkspace.scrollCenter();
+                console.log('✅ ML Trader strategy loaded to workspace');
 
-                    } else {
-                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+                setStatus(`✅ Loaded ${recommendation.action} strategy for ${recommendation.displayName} to Bot Builder`);
 
-                        // Fallback method
-                        setTimeout(() => {
-                            if (window.Blockly?.derivWorkspace) {
-                                window.Blockly.derivWorkspace.clear();
-                                const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
-                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
-                                window.Blockly.derivWorkspace.scrollCenter();
-                                console.log('✅ ML Trader strategy loaded using fallback method');
-                                setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
-                            }
-                        }, 500);
-                    }
-                } catch (loadError) {
-                    console.error('❌ Error loading ML Trader strategy:', loadError);
+            } else {
+                console.warn('⚠️ Blockly workspace not ready, using fallback method');
 
-                    // Final fallback
+                // Fallback method
+                setTimeout(() => {
                     if (window.Blockly?.derivWorkspace) {
                         window.Blockly.derivWorkspace.clear();
                         const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                         window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ ML Trader strategy loaded using final fallback');
-                        setStatus(`✅ Loaded ${recommendation.action} strategy using final fallback`);
+                        console.log('✅ ML Trader strategy loaded using fallback method');
+                        setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
                     }
-                }
-            }, 300);
+                }, 500);
+            }
 
-            console.log(`✅ Loaded ${displayName} - ${recommendation.action} strategy to Bot Builder`);
+            console.log(`✅ Loaded ${recommendation.displayName} - ${recommendation.action} strategy to Bot Builder`);
 
         } catch (error) {
             console.error('Error loading recommendation to Bot Builder:', error);
