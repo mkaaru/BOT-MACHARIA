@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
-import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-bot-skeleton/services/api/appId';
+import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { derivVolatilityScanner, ScannerRecommendation, ScannerStatus, VolatilityAnalysis } from '@/services/deriv-volatility-scanner';
