@@ -59,13 +59,20 @@ export class MLTickAnalyzer {
 
 
     // Neural network weights (simplified)
-    private weights = {
-        momentum: 0.25,
-        volatility: 0.20,
-        trend: 0.30,
-        acceleration: 0.15,
-        consistency: 0.10
-    };
+    private weights: Map<string, {
+        momentum: number;
+        volatility: number;
+        trend: number;
+        acceleration: number;
+        consistency: number;
+    }> = new Map();
+
+
+    // Added a method to check if weights exist for a symbol
+    private weightsExist(symbol: string): boolean {
+        return this.weights.has(symbol);
+    }
+
 
     /**
      * Process bulk historical data for training
@@ -243,12 +250,15 @@ export class MLTickAnalyzer {
      * Calculate prediction score using learned weights
      */
     private calculatePredictionScore(features: TickFeatures): number {
+        const symbolWeights = this.weights.get("default"); // Assuming default weights if symbol-specific are not found
+        if (!symbolWeights) return 0; // Return 0 if no weights are available
+
         return (
-            features.momentum * this.weights.momentum +
-            features.trend_slope * this.weights.trend +
-            features.price_acceleration * this.weights.acceleration +
-            features.pattern_consistency * this.weights.consistency -
-            features.volatility * this.weights.volatility * 0.5
+            features.momentum * symbolWeights.momentum +
+            features.trend_slope * symbolWeights.trend +
+            features.price_acceleration * symbolWeights.acceleration +
+            features.pattern_consistency * symbolWeights.consistency -
+            features.volatility * symbolWeights.volatility * 0.5
         );
     }
 
@@ -477,14 +487,16 @@ export class MLTickAnalyzer {
         // Normalize and update weights
         const total = Object.values(correlations).reduce((sum, val) => sum + Math.abs(val), 0);
         if (total > 0) {
-            this.weights.momentum = Math.abs(correlations.momentum) / total;
-            this.weights.volatility = Math.abs(correlations.volatility) / total;
-            this.weights.trend = Math.abs(correlations.trend) / total;
-            this.weights.acceleration = Math.abs(correlations.acceleration) / total;
-            this.weights.consistency = Math.abs(correlations.consistency) / total;
+            this.weights.set(symbol, {
+                momentum: Math.abs(correlations.momentum) / total,
+                volatility: Math.abs(correlations.volatility) / total,
+                trend: Math.abs(correlations.trend) / total,
+                acceleration: Math.abs(correlations.acceleration) / total,
+                consistency: Math.abs(correlations.consistency) / total,
+            });
         }
 
-        console.log(`🔧 Updated ML weights for ${symbol}:`, this.weights);
+        console.log(`🔧 Updated ML weights for ${symbol}:`, this.weights.get(symbol));
     }
 
     /**
@@ -518,17 +530,24 @@ export class MLTickAnalyzer {
     getStatistics(symbol: string): {
         patterns_learned: number;
         training_samples: number;
-        weights: typeof this.weights;
+        weights: {
+            momentum: number;
+            volatility: number;
+            trend: number;
+            acceleration: number;
+            consistency: number;
+        } | undefined;
     } | null {
         const patterns = this.patterns.get(symbol);
         const learningData = this.learningData.get(symbol);
+        const symbolWeights = this.weights.get(symbol);
 
         if (!patterns || !learningData) return null;
 
         return {
             patterns_learned: patterns.length,
             training_samples: learningData.features.length,
-            weights: { ...this.weights }
+            weights: symbolWeights
         };
     }
 
@@ -543,3 +562,12 @@ export class MLTickAnalyzer {
 
 // Create singleton instance
 export const mlTickAnalyzer = new MLTickAnalyzer();
+
+// Initialize default weights if not already present
+mlTickAnalyzer['weights'].set("default", {
+    momentum: 0.25,
+    volatility: 0.20,
+    trend: 0.30,
+    acceleration: 0.15,
+    consistency: 0.10
+});

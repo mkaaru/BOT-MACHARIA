@@ -60,9 +60,133 @@ export class TickStreamManager {
     private messageHandler: ((evt: MessageEvent) => void) | null = null;
     private isConnected: boolean = false;
 
+    private requestQueue: Array<{ symbol: string; resolve: () => void }> = [];
+    private isProcessingQueue = false;
+    private readonly REQUEST_DELAY = 1000; // 1 second between requests
+
     constructor() {
         this.api = generateDerivApiInstance();
         this.setupMessageHandler();
+    }
+
+    private async processRequestQueue(): Promise<void> {
+        if (this.isProcessingQueue || this.requestQueue.length === 0) return;
+
+        this.isProcessingQueue = true;
+
+        while (this.requestQueue.length > 0) {
+            const request = this.requestQueue.shift();
+            if (request) {
+                await this.subscribeToSymbolDirect(request.symbol);
+                request.resolve();
+                // Wait before next request to avoid rate limiting
+                if (this.requestQueue.length > 0) {
+                    await new Promise(resolve => setTimeout(resolve, this.REQUEST_DELAY));
+                }
+            }
+        }
+
+        this.isProcessingQueue = false;
+    }
+
+    async subscribeToSymbol(symbol: string): Promise<void> {
+        if (this.subscriptions.has(symbol)) {
+            console.log(`Already subscribed to ${symbol}`);
+            return;
+        }
+
+        // Add to queue instead of immediate subscription
+        return new Promise((resolve) => {
+            this.requestQueue.push({ symbol, resolve });
+            this.processRequestQueue();
+        });
+    }
+
+    private async subscribeToSymbolDirect(symbol: string): Promise<void> {
+        console.log(`📊 Subscribing to ${symbol} (Step Index volatility)...`);
+
+        try {
+            // Request historical data with reduced count to avoid rate limits
+            console.log(`Requesting historical data for ${symbol}:`, {
+                ticks_history: symbol,
+                count: 1000, // Reduced from 5000
+                end: 'latest',
+                style: 'ticks',
+                subscribe: 1
+            });
+
+            const historyResponse = await this.api.send({
+                ticks_history: symbol,
+                count: 1000, // Reduced to avoid rate limits
+                end: 'latest',
+                style: 'ticks',
+                subscribe: 1
+            });
+
+            if (historyResponse.error) {
+                console.error(`❌ API Error for ${symbol}:`, historyResponse.error);
+                throw new Error(`Failed to get history for ${symbol}: ${historyResponse.error.message} (Code: ${historyResponse.error.code})`);
+            }
+
+            // Process historical ticks immediately
+            if (historyResponse.history && historyResponse.history.prices) {
+                const times = historyResponse.history.times;
+                const prices = historyResponse.history.prices;
+
+                const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
+                const is1sVolatility = symbolInfo?.is_1s_volatility || false;
+                const isStepIndex = symbol.endsWith('STEP') || symbol.startsWith('STEP') || symbol.includes('STP');
+
+                console.log(`✅ Processing ${prices.length} historical ticks for ${symbol} (${is1sVolatility ? '1s' : isStepIndex ? 'Step Index' : 'regular'})`);
+
+                // Process each historical tick
+                for (let i = 0; i < prices.length; i++) {
+                    const tickData: TickData = {
+                        symbol,
+                        epoch: times[i],
+                        quote: parseFloat(prices[i]),
+                        timestamp: new Date(times[i] * 1000),
+                    };
+                    this.notifyTickCallbacks(tickData);
+                }
+
+                console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for analysis`);
+
+                // Store subscription ID for this historical request
+                if (historyResponse.subscription?.id) {
+                    this.subscriptions.set(symbol, historyResponse.subscription.id);
+                    console.log(`📈 Historical subscription active for ${symbol} with ID: ${historyResponse.subscription.id}`);
+                    return; // We're already subscribed through the history request
+                }
+            } else {
+                console.warn(`⚠️ No historical data received for ${symbol}`);
+            }
+        } catch (error) {
+            console.error(`❌ Error getting historical data for ${symbol}:`, error);
+            // Continue to try regular subscription if history fails
+        }
+
+        // Now subscribe for real-time updates
+        const subscribeRequest = {
+            ticks: symbol,
+            subscribe: 1
+        };
+
+        console.log(`Subscribing to real-time ticks for ${symbol}:`, subscribeRequest);
+        const subscribeResponse = await this.api.send(subscribeRequest);
+
+        if (subscribeResponse.error) {
+            console.error(`❌ Subscription API Error for ${symbol}:`, subscribeResponse.error);
+            throw new Error(`Failed to subscribe to ${symbol}: ${subscribeResponse.error.message} (Code: ${subscribeResponse.error.code})`);
+        }
+
+        // Store subscription ID for real-time updates
+        if (subscribeResponse.subscription?.id) {
+            this.subscriptions.set(symbol, subscribeResponse.subscription.id);
+            console.log(`🔄 Successfully subscribed to ${symbol} with ID: ${subscribeResponse.subscription.id}`);
+        } else {
+            console.warn(`⚠️ No subscription ID received for ${symbol}`);
+        }
     }
 
     private setupMessageHandler(): void {
@@ -194,105 +318,8 @@ export class TickStreamManager {
         }
     }
 
-    async subscribeToSymbol(symbol: string): Promise<void> {
-        if (this.subscriptions.has(symbol)) {
-            console.log(`Already subscribed to ${symbol}`);
-            return;
-        }
-
-        try {
-            // Determine if this is a 1-second volatility or Step Index
-            const symbolInfo = VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
-            const is1sVolatility = symbolInfo?.is_1s_volatility || false;
-            const isStepIndex = symbol.endsWith('STEP') || symbol.startsWith('STEP') || symbol.includes('STP'); // Heuristic for Step Indices
-
-            console.log(`📊 Subscribing to ${symbol} (${is1sVolatility ? '1-second' : isStepIndex ? 'Step Index' : 'regular'} volatility)...`);
-
-            // First, get historical ticks using the correct API format
-            const historyRequest = {
-                ticks_history: symbol,
-                count: 5000,
-                end: 'latest',
-                style: 'ticks',
-                subscribe: 1
-            };
-
-            console.log(`Requesting historical data for ${symbol}:`, historyRequest);
-
-            try {
-                const historyResponse = await this.api.send(historyRequest);
-
-                if (historyResponse.error) {
-                    console.error(`❌ API Error for ${symbol}:`, historyResponse.error);
-                    throw new Error(`Failed to get history for ${symbol}: ${historyResponse.error.message} (Code: ${historyResponse.error.code})`);
-                }
-
-                // Process historical ticks immediately
-                if (historyResponse.history && historyResponse.history.prices) {
-                    const times = historyResponse.history.times;
-                    const prices = historyResponse.history.prices;
-
-                    console.log(`✅ Processing ${prices.length} historical ticks for ${symbol} (${is1sVolatility ? '1s' : isStepIndex ? 'Step Index' : 'regular'})`);
-
-                    // Process each historical tick
-                    for (let i = 0; i < prices.length; i++) {
-                        const tickData: TickData = {
-                            symbol,
-                            epoch: times[i],
-                            quote: parseFloat(prices[i]),
-                            timestamp: new Date(times[i] * 1000),
-                        };
-                        this.notifyTickCallbacks(tickData);
-                    }
-
-                    console.log(`🎯 ${symbol}: Historical data loaded (${prices.length} ticks), ready for analysis`);
-
-                    // Store subscription ID for this historical request
-                    if (historyResponse.subscription?.id) {
-                        this.subscriptions.set(symbol, historyResponse.subscription.id);
-                        console.log(`📈 Historical subscription active for ${symbol} with ID: ${historyResponse.subscription.id}`);
-                        return; // We're already subscribed through the history request
-                    }
-                } else {
-                    console.warn(`⚠️ No historical data received for ${symbol}`);
-                }
-            } catch (error) {
-                console.error(`❌ Error getting historical data for ${symbol}:`, error);
-                // Continue to try regular subscription if history fails
-            }
-
-            // Now subscribe for real-time updates
-            const subscribeRequest = {
-                ticks: symbol,
-                subscribe: 1
-            };
-
-            console.log(`Subscribing to real-time ticks for ${symbol}:`, subscribeRequest);
-            const subscribeResponse = await this.api.send(subscribeRequest);
-
-            if (subscribeResponse.error) {
-                console.error(`❌ Subscription API Error for ${symbol}:`, subscribeResponse.error);
-                throw new Error(`Failed to subscribe to ${symbol}: ${subscribeResponse.error.message} (Code: ${subscribeResponse.error.code})`);
-            }
-
-            // Store subscription ID for real-time updates
-            if (subscribeResponse.subscription?.id) {
-                this.subscriptions.set(symbol, subscribeResponse.subscription.id);
-                console.log(`🔄 Successfully subscribed to ${symbol} with ID: ${subscribeResponse.subscription.id}`);
-            } else {
-                console.warn(`⚠️ No subscription ID received for ${symbol}`);
-            }
-        } catch (error) {
-            console.error(`❌ Error subscribing to ${symbol}:`, error);
-            // Don't throw the error to prevent stopping other subscriptions
-            console.log(`🔄 Retrying ${symbol} subscription in 2 seconds...`);
-            setTimeout(() => {
-                this.subscribeToSymbol(symbol).catch(retryError => {
-                    console.error(`❌ Retry failed for ${symbol}:`, retryError);
-                });
-            }, 2000);
-        }
-    }
+    // Removed the original subscribeToSymbol and replaced with batched version above
+    // Removed the original subscribeToSymbolDirect and replaced with the one above
 
     async subscribeToAllVolatilities(): Promise<void> {
         console.log('Subscribing to all volatility and step indices...');
