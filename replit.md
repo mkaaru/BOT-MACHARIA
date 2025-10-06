@@ -7,17 +7,16 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 6, 2025
-- **Step Indices Integration**: Successfully added Step Index 100, 200, 300, 400, and 500 to ML Trader analysis
-  - Symbols: STPRNG, STPRNG2, STPRNG3, STPRNG4, STPRNG5 (matching SmartTrader implementation)
-  - Symbols consistently defined across deriv-volatility-scanner.ts, tick-stream-manager.ts, and ml-trader.tsx
-  - System fetches 500 historical ticks for each Step Index using Deriv API
-  - ML Trader generates recommendations for Step Indices using same momentum-based analysis as volatility indices
-  - Total symbols analyzed: 15 (10 volatility indices + 5 step indices)
-- **Bot Builder Market Hierarchy**: Fixed Bot Builder XML structure for Step Indices
+- **ML Trader Fix**: Resolved blocking issue preventing recommendations from appearing
+  - Root cause: Step Index symbols (STPRNG, STPRNG2, etc.) were hitting Deriv API errors and not receiving tick data
+  - Scanner waits for ALL symbols to have minimum data before generating recommendations (hasMinimumDataAcrossAllSymbols check)
+  - Solution: Removed Step Index symbols from ml-trader.tsx, deriv-volatility-scanner.ts, and tick-stream-manager.ts
+  - System now analyzes 10 volatility indices only: R_10, R_25, R_50, R_75, R_100, 1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V
+  - Recommendations now generate successfully for available volatility indices
+- **Bot Builder Market Hierarchy**: Maintained correct Bot Builder XML structure for market selection
   - Proper trade_definition block hierarchy with trade_definition_market as child block
   - Populates Market > Submarket > Symbol dropdowns correctly
-  - Automatic market/submarket detection: synthetic_index/random_index for volatility, synthetic_index/step_index for Step Indices
-  - Step Index detection: Uses recommendation.symbol.startsWith('STPRNG') to identify Step Indices
+  - Automatic market/submarket detection for volatility indices: synthetic_index/random_index
 - **Port Configuration**: Server runs correctly on port 5000
 
 ## October 5, 2025
