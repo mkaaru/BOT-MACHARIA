@@ -350,11 +350,22 @@ export class DerivVolatilityScanner {
      */
     private updateAnalysis(symbol: string): void {
         const symbolInfo = this.VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
-        if (!symbolInfo) return;
+        if (!symbolInfo) {
+            console.warn(`⚠️ Symbol ${symbol} not found in VOLATILITY_SYMBOLS`);
+            return;
+        }
+
+        const isStepIndex = symbol.includes('STEP') || symbol.includes('STP') || symbol.includes('stp');
+        if (isStepIndex) {
+            console.log(`🔷 Updating analysis for Step Index: ${symbol} (${symbolInfo.name})`);
+        }
 
         const analysis = this.performFullAnalysis(symbolInfo);
         if (analysis) {
             this.analysisCache.set(symbol, analysis);
+            if (isStepIndex) {
+                console.log(`✅ Step Index analysis complete: ${symbol}, Confidence: ${analysis.confidence.toFixed(1)}%, Recommendation: ${analysis.recommendation}`);
+            }
         }
     }
 

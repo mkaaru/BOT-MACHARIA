@@ -24,10 +24,12 @@ const DERIV_VOLATILITY_SYMBOLS = [
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true, base_volatility: 50 },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true, base_volatility: 75 },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true, base_volatility: 100 },
-    // Step Indices
-    { symbol: 'STEPINDICES', display_name: 'Step Index', is_1s: false, base_volatility: 0 },
-    { symbol: 'stpRNG', display_name: 'Step Random Number Index', is_1s: false, base_volatility: 0 },
-    { symbol: 'WLDSTEP', display_name: 'World Step Index', is_1s: false, base_volatility: 0 },
+    // Step Indices - using correct Deriv API symbols
+    { symbol: 'STEPINDICES', display_name: 'Step Index 100', is_1s: false, base_volatility: 100 },
+    { symbol: 'stpRNG', display_name: 'Step Index 200', is_1s: false, base_volatility: 200 },
+    { symbol: 'STPRNG', display_name: 'Step Index 300', is_1s: false, base_volatility: 300 },
+    { symbol: 'wldSTEP', display_name: 'Step Index 400', is_1s: false, base_volatility: 400 },
+    { symbol: 'WLDSTEP', display_name: 'Step Index 500', is_1s: false, base_volatility: 500 },
 ];
 
 // Contract types for Rise/Fall trading
@@ -625,14 +627,19 @@ const MLTrader = observer(() => {
 
             // Determine market category based on symbol
             let marketCategory = 'synthetic_index';
-            if (recommendation.symbol.startsWith('STEP') || recommendation.symbol.toLowerCase().includes('step')) {
-                marketCategory = 'step_index';
+            let submarketList = 'random_index';
+            
+            // Check if it's a Step Index
+            const isStepIndex = recommendation.symbol.includes('STEP') || recommendation.symbol.includes('STP') || recommendation.symbol.includes('stp');
+            
+            if (isStepIndex) {
+                submarketList = 'step_index';
             }
 
             // Map symbol to market list format
             let marketSymbol = recommendation.symbol;
 
-            // Step Indices mapping for Bot Builder
+            // Step Indices mapping for Bot Builder - ensure uppercase for API
             const stepIndexMapping: Record<string, string> = {
                 'STEPINDICES': 'STEPINDICES',
                 'stpRNG': 'STPRNG',
@@ -653,7 +660,7 @@ const MLTrader = observer(() => {
                     </variables>
                     <block type="trade_definition" id="trade_definition" deletable="false" x="0" y="0">
                         <field name="MARKET_LIST">${marketSymbol}</field>
-                        <field name="SUBMARKET_LIST">${marketCategory}</field>
+                        <field name="SUBMARKET_LIST">${submarketList}</field>
                         <field name="TRADETYPE_LIST">${recommendation.action === 'RISE' ? 'CALL' : 'PUT'}</field>
                         <field name="TYPE_LIST">ticks</field>
                         <value name="DURATION">
