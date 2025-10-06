@@ -1,0 +1,467 @@
+at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+3content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:7165 Content limit: 600211531.1999999
+content_script.js:7165 Content limit: 585661665
+content_script.js:7165 Content limit: 604373788.1999999
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+api-base.ts:148 connection state:  1
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+tick-stream-manager.ts:286 TickStreamManager disconnected from WebSocket
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 603263490.6
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:7165 Content limit: 583911108.6
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:7165 Content limit: 583223345.4
+content_script.js:7165 Content limit: 602759365.8
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
