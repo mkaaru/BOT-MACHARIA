@@ -636,43 +636,55 @@ const MLTrader = observer(() => {
                 submarketList = 'step_index';
             }
 
-            // Map symbol to market list format
-            let marketSymbol = recommendation.symbol;
+            // Map symbol to the exact symbol code
+            let symbolCode = recommendation.symbol;
 
-            // Step Indices mapping for Bot Builder - ensure uppercase for API
-            const stepIndexMapping: Record<string, string> = {
-                'STEPINDICES': 'STEPINDICES',
-                'stpRNG': 'STPRNG',
-                'STPRNG': 'STPRNG',
-                'wldSTEP': 'WLDSTEP',
-                'WLDSTEP': 'WLDSTEP'
-            };
+            // Calculate duration in minutes for the blocks
+            const durationInMinutes = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds / 60 || 3;
 
-            if (stepIndexMapping[recommendation.symbol]) {
-                marketSymbol = stepIndexMapping[recommendation.symbol];
-            }
-
-            // Prepare strategy XML with the recommendation
+            // Prepare strategy XML with the recommendation using trade_definition_market block
             const strategyXml = `
                 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                     <variables>
                         <variable id="stake">stake</variable>
                     </variables>
                     <block type="trade_definition" id="trade_definition" deletable="false" x="0" y="0">
-                        <field name="MARKET_LIST">${marketSymbol}</field>
-                        <field name="SUBMARKET_LIST">${submarketList}</field>
-                        <field name="TRADETYPE_LIST">${recommendation.action === 'RISE' ? 'CALL' : 'PUT'}</field>
-                        <field name="TYPE_LIST">ticks</field>
-                        <value name="DURATION">
-                            <shadow type="math_number">
-                                <field name="NUM">${DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds / 60 || 3}</field>
-                            </shadow>
-                        </value>
-                        <value name="AMOUNT">
-                            <shadow type="math_number">
-                                <field name="NUM">1</field>
-                            </shadow>
-                        </value>
+                        <statement name="TRADE_OPTIONS">
+                            <block type="trade_definition_market">
+                                <field name="MARKET_LIST">${marketCategory}</field>
+                                <field name="SUBMARKET_LIST">${submarketList}</field>
+                                <field name="SYMBOL_LIST">${symbolCode}</field>
+                            </block>
+                        </statement>
+                        <statement name="SUBMARKET">
+                            <block type="trade_definition_contracttype">
+                                <field name="SUBMARKET_LIST">${submarketList}</field>
+                                <field name="TRADETYPE_LIST">${recommendation.action === 'RISE' ? 'callput' : 'callput'}</field>
+                                <field name="TYPE_LIST">${recommendation.action === 'RISE' ? 'CALL' : 'PUT'}</field>
+                            </block>
+                        </statement>
+                        <statement name="CANDLEINTERVAL">
+                            <block type="trade_definition_candleinterval">
+                                <field name="CANDLEINTERVAL_LIST">60</field>
+                            </block>
+                        </statement>
+                        <statement name="RESTARTONERROR">
+                            <block type="trade_definition_restartonerror"></block>
+                        </statement>
+                        <statement name="RESTARTSELL">
+                            <block type="trade_definition_restartsell"></block>
+                        </statement>
+                    </block>
+                    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="300">
+                        <statement name="BEFOREPURCHASE_STACK">
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${recommendation.action === 'RISE' ? 'CALL' : 'PUT'}</field>
+                            </block>
+                        </statement>
+                    </block>
+                    <block type="during_purchase" id="during_purchase" deletable="false" x="0" y="400">
+                    </block>
+                    <block type="after_purchase" id="after_purchase" deletable="false" x="0" y="500">
                     </block>
                 </xml>
             `;
