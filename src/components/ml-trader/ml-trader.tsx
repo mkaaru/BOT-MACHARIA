@@ -14,17 +14,11 @@ import './ml-trader.scss';
 
 // Enhanced volatility symbols with 1-second indices and Step Indices
 const DERIV_VOLATILITY_SYMBOLS = [
-    { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s: false, base_volatility: 10 },
-    { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s: false, base_volatility: 25 },
-    { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s: false, base_volatility: 50 },
-    { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s: false, base_volatility: 75 },
-    { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s: false, base_volatility: 100 },
-    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s: true, base_volatility: 10 },
-    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s: true, base_volatility: 25 },
-    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true, base_volatility: 50 },
-    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true, base_volatility: 75 },
-    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true, base_volatility: 100 },
-    { symbol: 'STPRNG', display_name: 'Step Index', is_1s: false, base_volatility: 10 },
+    { symbol: 'STPRNG', display_name: 'Step Index 100', is_1s: false, base_volatility: 100 },
+    { symbol: 'STPRNG2', display_name: 'Step Index 200', is_1s: false, base_volatility: 200 },
+    { symbol: 'STPRNG3', display_name: 'Step Index 300', is_1s: false, base_volatility: 300 },
+    { symbol: 'STPRNG4', display_name: 'Step Index 400', is_1s: false, base_volatility: 400 },
+    { symbol: 'STPRNG5', display_name: 'Step Index 500', is_1s: false, base_volatility: 500 },
 ];
 
 // Contract types for Rise/Fall trading
