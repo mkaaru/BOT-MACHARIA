@@ -126,9 +126,9 @@ const MLTrader = observer(() => {
                         s.symbol?.toLowerCase().includes('step') ||
                         s.submarket === 'step_index'
                     );
-                
+
                 console.log('🔍 Found Step Index symbols:', stepIndexSymbols.map((s: any) => `${s.symbol} (${s.display_name})`));
-                
+
                 if (stepIndexSymbols.length === 0) {
                     console.warn('⚠️ No Step Index symbols found! Using volatility indices instead.');
                     setStatus('No Step Indices available - this environment may not support them');
@@ -713,15 +713,22 @@ const MLTrader = observer(() => {
                     </block>
                     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
                         <statement name="BEFOREPURCHASE_STACK">
-                            <block type="purchase">
+                            <block type="purchase" id="purchase">
                                 <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </statement>
+                    </block>
+                    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="600">
+                        <statement name="AFTERPURCHASE_STACK">
+                            <block type="trade_again" id="trade_again" deletable="false" movable="false">
+                                <field name="TRADE_AGAIN_TYPE">true</field>
                             </block>
                         </statement>
                     </block>
                 </xml>
             `;
 
-            console.log('📄 Loading ML Trader strategy to Bot Builder...');
+            console.log('📄 Loading ML Trader strategy with continuous trading to Bot Builder...');
 
             // Switch to Bot Builder tab
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
