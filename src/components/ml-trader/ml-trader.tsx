@@ -114,6 +114,27 @@ const MLTrader = observer(() => {
             const api = generateDerivApiInstance();
             apiRef.current = api;
 
+            // Query available Step Index symbols from Deriv API
+            setStatus('Querying available Step Index symbols...');
+            const { active_symbols, error: symbolsError } = await api.send({ active_symbols: 'brief' });
+            if (symbolsError) {
+                console.error('Error fetching active symbols:', symbolsError);
+            } else {
+                const stepIndexSymbols = (active_symbols || [])
+                    .filter((s: any) => 
+                        s.display_name?.toLowerCase().includes('step index') || 
+                        s.symbol?.toLowerCase().includes('step') ||
+                        s.submarket === 'step_index'
+                    );
+                
+                console.log('🔍 Found Step Index symbols:', stepIndexSymbols.map((s: any) => `${s.symbol} (${s.display_name})`));
+                
+                if (stepIndexSymbols.length === 0) {
+                    console.warn('⚠️ No Step Index symbols found! Using volatility indices instead.');
+                    setStatus('No Step Indices available - this environment may not support them');
+                }
+            }
+
             // Check authorization
             const client_id = V2GetActiveClientId();
             const token = V2GetActiveToken();

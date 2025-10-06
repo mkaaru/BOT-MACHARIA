@@ -1,0 +1,2254 @@
+oad requests were throttled while the tab was in background, and no request was sent from the queue in the last 1 minute. This means previously requested in-flight requests haven't received any response from servers. See https://www.chromestatus.com/feature/5527160148197376 for more details
+content_script.js:40227 content-script-dev: downloader-gv-edge
+blur-manager.js:1  Document was unhidden due to timeout
+warn @ blur-manager.js:1
+(anonymous) @ blur-manager.js:1
+setTimeout
+G @ blur-manager.js:1
+(anonymous) @ blur-manager.js:1
+le @ blur-manager.js:1
+(anonymous) @ blur-manager.js:1
+await in (anonymous)
+(anonymous) @ blur-manager.js:1
+(anonymous) @ blur-manager.js:1
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
+xml-dom-quick-strategy.ts:37 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+content_script.js:40078 check services
+hmr.js:173 [HMR] connected.
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 288, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:288:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 288 |     display: flex;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 289:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+onMessage @ hmr.js:196
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 289, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:289:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 289 |     align-items: $align-items;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 290:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+onMessage @ hmr.js:196
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 290, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:290:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 290 |     justify-content: $justify-content;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 291:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+onMessage @ hmr.js:196
+App.tsx:120 Service Worker registered with scope: https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+generateDerivApiInstance @ appId.js:8
+init @ api-base.ts:98
+initializeApi @ app-root.tsx:45
+(anonymous) @ app-root.tsx:51
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+generateDerivApiInstance @ appId.js:8
+(anonymous) @ chart-api.js:16
+init @ api-base.ts:117
+await in init
+initializeApi @ app-root.tsx:45
+(anonymous) @ app-root.tsx:51
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+journal-store.ts:234  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: JournalStore@10.unfiltered_messages
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+prepareNewValue_ @ mobx.esm.js:1416
+setObservablePropValue_ @ mobx.esm.js:4979
+set @ mobx.esm.js:5460
+disposeJournalMessageListener.fireImmediately @ journal-store.ts:234
+await in disposeJournalMessageListener.fireImmediately
+executeAction @ mobx.esm.js:1265
+Reaction@12 @ mobx.esm.js:1250
+reactionRunner @ mobx.esm.js:2890
+(anonymous) @ mobx.esm.js:2867
+runReaction_ @ mobx.esm.js:2459
+runReactionsHelper @ mobx.esm.js:2655
+reactionScheduler @ mobx.esm.js:2632
+(anonymous) @ mobx.esm.js:2665
+batchedUpdates$1 @ react-dom.development.js:26179
+reactionScheduler @ mobx.esm.js:2664
+runReactions @ mobx.esm.js:2639
+endBatch @ mobx.esm.js:2272
+_endAction @ mobx.esm.js:1320
+executeAction @ mobx.esm.js:1270
+setLoginId @ mobx.esm.js:1250
+(anonymous) @ CoreStoreProvider.tsx:52
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+(index):1  Uncaught (in promise) _.Lc {message: 'Missing required parameter client_id.', stack: 'Error: Missing required parameter client_id.\n    a…k0wa.pike.replit.dev/static/js/index.js:27480:140', type: 'missing_required_parameter'}
+Promise.then
+(anonymous) @ google-drive-store.ts:68
+setTimeout
+GoogleDriveStore @ google-drive-store.ts:67
+RootStore @ root-store.ts:71
+initializeStore @ useStore.tsx:19
+(anonymous) @ useStore.tsx:29
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+content_script.js:40227 content-script-dev: downloader-gv-edge
+content_script.js:40078 check services
+deriv-volatility-scanner.ts:201 🚀 Deriv Volatility Scanner Initialized
+deriv-volatility-scanner.ts:202 📊 Tracking: 5 volatility indices
+deriv-volatility-scanner.ts:203 ⚡ Momentum Weight: 75% | Direction Weight: 25%
+deriv-volatility-scanner.ts:204 🎯 Focus: 5min → 3min → 1min → 30sec momentum cascade
+deriv-volatility-scanner.ts:205 🔍 Thresholds: Min Confidence 75%, Min Momentum 60%
+deriv-volatility-scanner.ts:206 🕐 Auto-scan enabled: Updates on new 1-minute candles
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+generateDerivApiInstance @ appId.js:8
+TickStreamManager @ tick-stream-manager.ts:55
+./src/services/tick-stream-manager.ts @ tick-stream-manager.ts:493
+__webpack_require__ @ xml-dom-quick-strategy.ts:37
+fn @ xml-dom-quick-strategy.ts:37
+./src/components/ml-trader/ml-trader.tsx @ index.ts:3
+__webpack_require__ @ xml-dom-quick-strategy.ts:37
+fn @ xml-dom-quick-strategy.ts:37
+./src/components/ml-trader/index.ts @ matrix-loading.tsx:114
+__webpack_require__ @ xml-dom-quick-strategy.ts:37
+fn @ xml-dom-quick-strategy.ts:37
+./src/pages/main/main.tsx @ index.ts:4
+__webpack_require__ @ xml-dom-quick-strategy.ts:37
+fn @ xml-dom-quick-strategy.ts:37
+./src/pages/main/index.ts @ stop-bot-modal.tsx:26
+__webpack_require__ @ xml-dom-quick-strategy.ts:37
+fn @ xml-dom-quick-strategy.ts:37
+./src/app/app-content.jsx @ rudderstack-quick-strategy.ts:38
+__webpack_require__ @ xml-dom-quick-strategy.ts:37
+fn @ xml-dom-quick-strategy.ts:37
+Promise.then
+(anonymous) @ app-root.tsx:12
+lazyInitializer @ react.development.js:1357
+mountLazyComponent @ react-dom.development.js:19973
+beginWork @ react-dom.development.js:21632
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+tick-based-candle-engine.ts:48 🎯 TickBasedCandleEngine initialized with 20 ticks per candle
+tick-based-candle-engine.ts:48 🎯 TickBasedCandleEngine initialized with 5 ticks per candle
+tick-based-candle-engine.ts:48 🎯 TickBasedCandleEngine initialized with 1 ticks per candle
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+updateMemoComponent @ react-dom.development.js:19303
+mountLazyComponent @ react-dom.development.js:20025
+beginWork @ react-dom.development.js:21632
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopConcurrent @ react-dom.development.js:26582
+renderRootConcurrent @ react-dom.development.js:26544
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+splash-screen.tsx:10 SplashScreen component rendered
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+splash-screen.tsx:10 SplashScreen component rendered
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+splash-screen.tsx:10 SplashScreen component rendered
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+5splash-screen.tsx:10 SplashScreen component rendered
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+splash-screen.tsx:10 SplashScreen component rendered
+tick-stream-manager.ts:282 TickStreamManager connected to WebSocket
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+splash-screen.tsx:10 SplashScreen component rendered
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+24splash-screen.tsx:10 SplashScreen component rendered
+content_script.js:7165 Content limit: 612032839.68
+41splash-screen.tsx:10 SplashScreen component rendered
+tracking.js:1 [LiveChat] Current domain is not added to the allowed domains. LiveChat has been disabled.
+2splash-screen.tsx:10 SplashScreen component rendered
+splash-screen.tsx:10 SplashScreen component rendered
+2splash-screen.tsx:10 SplashScreen component rendered
+content_script.js:7165 Content limit: 612032839.68
+6splash-screen.tsx:10 SplashScreen component rendered
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+react-dom.development.js:86  Warning: Invalid DOM property `fill-rule`. Did you mean `fillRule`?
+    at path
+    at svg
+    at BotBuilderIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21098:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21196:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23478:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+validateProperty$1 @ react-dom.development.js:3749
+warnUnknownProperties @ react-dom.development.js:3803
+validateProperties$2 @ react-dom.development.js:3827
+validatePropertiesInDevelopment @ react-dom.development.js:9541
+setInitialProperties @ react-dom.development.js:9830
+finalizeInitialChildren @ react-dom.development.js:10950
+completeWork @ react-dom.development.js:22232
+completeUnitOfWork @ react-dom.development.js:26635
+performUnitOfWork @ react-dom.development.js:26607
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linecap`. Did you mean `strokeLinecap`?
+    at path
+    at svg
+    at AnalysisToolIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21098:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21196:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23478:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+validateProperty$1 @ react-dom.development.js:3749
+warnUnknownProperties @ react-dom.development.js:3803
+validateProperties$2 @ react-dom.development.js:3827
+validatePropertiesInDevelopment @ react-dom.development.js:9541
+setInitialProperties @ react-dom.development.js:9830
+finalizeInitialChildren @ react-dom.development.js:10950
+completeWork @ react-dom.development.js:22232
+completeUnitOfWork @ react-dom.development.js:26635
+performUnitOfWork @ react-dom.development.js:26607
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-width`. Did you mean `strokeWidth`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21098:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21196:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23478:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+validateProperty$1 @ react-dom.development.js:3749
+warnUnknownProperties @ react-dom.development.js:3803
+validateProperties$2 @ react-dom.development.js:3827
+validatePropertiesInDevelopment @ react-dom.development.js:9541
+setInitialProperties @ react-dom.development.js:9830
+finalizeInitialChildren @ react-dom.development.js:10950
+completeWork @ react-dom.development.js:22232
+completeUnitOfWork @ react-dom.development.js:26635
+performUnitOfWork @ react-dom.development.js:26607
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linejoin`. Did you mean `strokeLinejoin`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21098:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21196:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23478:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+validateProperty$1 @ react-dom.development.js:3749
+warnUnknownProperties @ react-dom.development.js:3803
+validateProperties$2 @ react-dom.development.js:3827
+validatePropertiesInDevelopment @ react-dom.development.js:9541
+setInitialProperties @ react-dom.development.js:9830
+finalizeInitialChildren @ react-dom.development.js:10950
+completeWork @ react-dom.development.js:22232
+completeUnitOfWork @ react-dom.development.js:26635
+performUnitOfWork @ react-dom.development.js:26607
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+generateDerivApiInstance @ appId.js:8
+(anonymous) @ ml-trader.tsx:114
+(anonymous) @ ml-trader.tsx:102
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+main.tsx:269 Successfully loaded: Upgraded Candlemine.xml
+main.tsx:269 Successfully loaded: Super Elite.xml
+main.tsx:269 Successfully loaded: AUTO C4 PRO Version.xml
+ml-trader.tsx:301  Failed to get account info: {echo_req: {…}, error: {…}, msg_type: 'balance', req_id: 1}
+(anonymous) @ ml-trader.tsx:301
+await in (anonymous)
+(anonymous) @ ml-trader.tsx:123
+(anonymous) @ ml-trader.tsx:102
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+ml-trader.tsx:148 🔄 Initializing tick streams for ML Trader...
+tick-stream-manager.ts:316 Subscribing to all volatility and step indices...
+tick-stream-manager.ts:328 Subscribing to 0 volatility indices and 5 step indices
+tick-stream-manager.ts:341 Completed subscription to volatility indices
+main.tsx:269 Successfully loaded: Mkorean SV4.xml
+main.tsx:284 Loaded 4 bots total
+main.tsx:285 Successful: 4
+main.tsx:286 Placeholders: 0
+content_script.js:40227 content-script-dev: downloader-gv-edge
+content_script.js:40078 check services
+tick-stream-manager.ts:347 Subscribing to step index: STPRNG
+tick-stream-manager.ts:93 📊 Subscribing to STPRNG...
+tick-stream-manager.ts:101 Requesting historical data for STPRNG: {ticks_history: 'STPRNG', count: 500, end: 'latest', style: 'ticks', subscribe: 1}
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+tick-stream-manager.ts:156  ❌ Error getting historical data for STPRNG: {echo_req: {…}, error: {…}, msg_type: 'ticks_history', req_id: 1}
+subscribeToSymbolDirect @ tick-stream-manager.ts:156
+await in subscribeToSymbolDirect
+processRequestQueue @ tick-stream-manager.ts:67
+(anonymous) @ tick-stream-manager.ts:88
+subscribeToSymbol @ tick-stream-manager.ts:86
+(anonymous) @ tick-stream-manager.ts:348
+await in (anonymous)
+subscribeToAllVolatilities @ tick-stream-manager.ts:344
+await in subscribeToAllVolatilities
+(anonymous) @ ml-trader.tsx:151
+(anonymous) @ ml-trader.tsx:128
+await in (anonymous)
+(anonymous) @ ml-trader.tsx:102
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+tick-stream-manager.ts:166 Subscribing to real-time ticks for STPRNG: {ticks: 'STPRNG', subscribe: 1}
+tick-stream-manager.ts:266  ❌ TickStreamManager API Error - InvalidSymbol: Symbol STPRNG is invalid.
+messageHandler @ tick-stream-manager.ts:266
+tick-stream-manager.ts:270  ❌ Error was for symbol: STPRNG
+messageHandler @ tick-stream-manager.ts:270
+tick-stream-manager.ts:347 Subscribing to step index: STPRNG2
+tick-stream-manager.ts:347 Subscribing to step index: STPRNG3
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:266  ❌ TickStreamManager API Error - InvalidSymbol: Symbol STPRNG is invalid.
+messageHandler @ tick-stream-manager.ts:266
+tick-stream-manager.ts:77  Uncaught (in promise) {echo_req: {…}, error: {…}, msg_type: 'tick', req_id: 2}
+processRequestQueue @ tick-stream-manager.ts:77
+await in processRequestQueue
+(anonymous) @ tick-stream-manager.ts:88
+subscribeToSymbol @ tick-stream-manager.ts:86
+(anonymous) @ tick-stream-manager.ts:348
+await in (anonymous)
+subscribeToAllVolatilities @ tick-stream-manager.ts:344
+await in subscribeToAllVolatilities
+(anonymous) @ ml-trader.tsx:151
+(anonymous) @ ml-trader.tsx:128
+await in (anonymous)
+(anonymous) @ ml-trader.tsx:102
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+tick-stream-manager.ts:347 Subscribing to step index: STPRNG4
+tick-stream-manager.ts:347 Subscribing to step index: STPRNG5
+useTrackjs.ts:16  TrackJS: missing token
+warn @ index.esm.js:60
+install @ index.esm.js:51
+(anonymous) @ index.esm.js:35
+initTrackJS @ useTrackjs.ts:16
+(anonymous) @ app-content.jsx:50
+(anonymous) @ observer.js:44
+(anonymous) @ useObserver.js:80
+trackDerivedFunction @ mobx.esm.js:1902
+track @ mobx.esm.js:2493
+useObserver @ useObserver.js:78
+(anonymous) @ observer.js:44
+renderWithHooks @ react-dom.development.js:15486
+updateFunctionComponent @ react-dom.development.js:19617
+updateSimpleMemoComponent @ react-dom.development.js:19454
+beginWork @ react-dom.development.js:21717
+beginWork$1 @ react-dom.development.js:27465
+performUnitOfWork @ react-dom.development.js:26596
+workLoopSync @ react-dom.development.js:26505
+renderRootSync @ react-dom.development.js:26473
+performConcurrentWorkOnRoot @ react-dom.development.js:25777
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+lang_getSlice @ content_script.js:6359
+(anonymous) @ content_script.js:14169
+getSetters @ content_script.js:14169
+Store @ content_script.js:40038
+await in Store
+checkServices @ content_script.js:40122
+onContentLoaded @ content_script.js:40240
+(anonymous) @ content_script.js:40246
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+3content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+5content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+3content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
