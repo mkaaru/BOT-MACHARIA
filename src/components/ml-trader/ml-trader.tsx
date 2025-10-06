@@ -624,60 +624,86 @@ const MLTrader = observer(() => {
             // Get display name
             const displayName = recommendation.displayName;
 
-            // Determine market category based on symbol
-            let marketCategory = 'synthetic_index';
-            let submarketList = 'random_index';
+            // Determine market and submarket based on symbol
+            let market = 'synthetic_index';
+            let submarket = 'random_index';
 
-            // Check if it's a Step Index
-            const isStepIndex = recommendation.symbol.includes('STEP') || recommendation.symbol.includes('STP') || recommendation.symbol.includes('stp');
+            // Check if it's a Step Index (STPRNG, STPRNG2, STPRNG3, STPRNG4, STPRNG5)
+            const isStepIndex = recommendation.symbol.startsWith('STPRNG');
 
             if (isStepIndex) {
-                submarketList = 'step_index';
+                submarket = 'step_index';
             }
 
-            // Map symbol to market list format
-            let marketSymbol = recommendation.symbol;
-
-            // Step Indices mapping for Bot Builder - ensure uppercase for API
-            const stepIndexMapping: Record<string, string> = {
-                'STEPINDICES': 'STEPINDICES',
-                'stpRNG': 'STPRNG',
-                'WLDSTEP': 'WLDSTEP',
-            };
-
-            if (stepIndexMapping[recommendation.symbol]) {
-                marketSymbol = stepIndexMapping[recommendation.symbol];
-            }
+            // Use the symbol directly (already uppercase from DERIV_VOLATILITY_SYMBOLS)
+            const symbol = recommendation.symbol;
 
             // Set default duration to 2 ticks
             const defaultDuration = 2;
 
-            // Prepare strategy XML with the recommendation using trade_definition_market block
+            // Contract type based on action
+            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
+
+            // Prepare strategy XML with proper trade_definition_market block hierarchy
             const strategyXml = `
                 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                     <variables>
                         <variable id="stake">stake</variable>
                     </variables>
-                    <block type="trade_definition" id="trade_definition" deletable="false" x="0" y="0">
-                        <field name="MARKET_LIST">${marketSymbol}</field>
-                        <field name="SUBMARKET_LIST">${submarketList}</field>
-                        <field name="TRADETYPE_LIST">${recommendation.action === 'RISE' ? 'CALL' : 'PUT'}</field>
-                        <field name="TYPE_LIST">ticks</field>
-                        <value name="DURATION">
-                            <shadow type="math_number" id="duration_number">
-                                <field name="NUM">${defaultDuration}</field>
-                            </shadow>
-                        </value>
-                        <value name="AMOUNT">
-                            <shadow type="math_number" id="stake_number">
-                                <field name="NUM">1</field>
-                            </shadow>
-                        </value>
+                    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+                        <statement name="TRADE_OPTIONS">
+                            <block type="trade_definition_market" deletable="false" movable="false">
+                                <field name="MARKET_LIST">${market}</field>
+                                <field name="SUBMARKET_LIST">${submarket}</field>
+                                <field name="SYMBOL_LIST">${symbol}</field>
+                                <next>
+                                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                                        <field name="TRADETYPECAT_LIST">callput</field>
+                                        <field name="TRADETYPE_LIST">${contractType}</field>
+                                        <next>
+                                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                                <field name="TYPE_LIST">${contractType}</field>
+                                                <next>
+                                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                                        <next>
+                                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                                <next>
+                                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                                    </block>
+                                                                </next>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                        <statement name="SUBMARKET">
+                            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                                <field name="DURATIONTYPE_LIST">t</field>
+                                <value name="DURATION">
+                                    <shadow type="math_number">
+                                        <field name="NUM">${defaultDuration}</field>
+                                    </shadow>
+                                </value>
+                                <value name="AMOUNT">
+                                    <shadow type="math_number">
+                                        <field name="NUM">1</field>
+                                    </shadow>
+                                </value>
+                            </block>
+                        </statement>
                     </block>
-                    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="200">
+                    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
                         <statement name="BEFOREPURCHASE_STACK">
-                            <block type="purchase" id="purchase">
-                                <field name="PURCHASE_LIST">${recommendation.action === 'RISE' ? 'CALL' : 'PUT'}</field>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
                             </block>
                         </statement>
                     </block>
