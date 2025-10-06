@@ -7,11 +7,6 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 6, 2025
-- **CRITICAL FIX - Load to Bot Builder Button**: Fixed two issues preventing bot loading functionality
-  - Issue 1: TRADETYPE_LIST was accidentally reverted to '${contractType}' (CALL/PUT) instead of 'risefall'
-  - Issue 2: Tab switching code (setActiveTab) was accidentally removed in previous edits
-  - Fixed both: Restored TRADETYPE_LIST='risefall' and added back tab switching with 300ms delay
-  - Bot Builder now properly switches tabs and loads Step Index strategies without JavaScript errors
 - **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
   - Root cause: Step Index symbols are case-sensitive in Deriv API
   - Correct symbols: stpRNG, stpRNG2, stpRNG3, stpRNG4, stpRNG5 (lowercase 'stp', NOT uppercase 'STPRNG')
