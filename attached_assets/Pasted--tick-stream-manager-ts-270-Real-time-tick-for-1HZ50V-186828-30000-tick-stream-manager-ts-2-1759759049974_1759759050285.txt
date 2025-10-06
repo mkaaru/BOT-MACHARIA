@@ -1,0 +1,240 @@
+
+﻿
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186828.30000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4247.57000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9448.04000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.96000
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9448.33000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4247.70000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.94000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640912.98000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186850.40000
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 841.11000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4247.42000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9448.53000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186852.73000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640895.27000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4247.07000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9448.86000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.71000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186884.19000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640902.55000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186900.40000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640906.44000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4246.82000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9449.13000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.47000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640964.04000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186881.29000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9449.21000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4246.60000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.50000
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.16000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4247.00000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9449.54000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640978.55000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186897.23000
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640968.10000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186885.79000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4247.56000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9449.59000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.26000
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 840.02000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4247.51000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9449.53000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186896.69000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640922.02000
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+content_script.js:10815 
+ Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 186883.57000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(186834.09000, 186900.40000, 186828.30000, 186896.69000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(186834.09000, 186900.40000, 186828.30000, 186896.69000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65222.16250, 65269.59320, 65222.16250, 65257.54860) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65222.16250, 65269.59320, 65222.16250, 65257.54860) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2586.31600, 2586.51900, 2586.31600, 2586.43900) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2586.31600, 2586.51900, 2586.31600, 2586.43900) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 640939.43000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(640853.35000, 640978.55000, 640853.35000, 640922.02000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(640853.35000, 640978.55000, 640853.35000, 640922.02000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for stpRNG: OHLC(8169.80000, 8170.00000, 8169.70000, 8169.70000) with 10 ticks
+﻿

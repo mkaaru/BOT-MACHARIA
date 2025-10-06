@@ -8,6 +8,7 @@ The platform features multiple trading approaches including a visual bot builder
 
 ## October 6, 2025
 - **Step Indices Integration**: Added Step Index 100, 200, 300, 400, and 500 to ML Trader analysis alongside volatility indices
+- **Step Indices Symbol Fix**: Corrected invalid symbols (STEPINDICES→STPRNG, stpRNG→STPRNG2, STPRNG→STPRNG3, wldSTEP→STPRNG4, WLDSTEP→STPRNG5)
 - **Step Indices Historical Data**: System fetches and analyzes 500 historical ticks for all step indices using Deriv API
 - **Unified Analysis**: Step indices receive same momentum-based volatility analysis as regular volatility indices
 - **Step Indices Recommendations**: ML Trader now generates trading recommendations for step indices with confidence scores
