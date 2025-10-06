@@ -668,7 +668,7 @@ const MLTrader = observer(() => {
                                 <next>
                                     <block type="trade_definition_tradetype" deletable="false" movable="false">
                                         <field name="TRADETYPECAT_LIST">callput</field>
-                                        <field name="TRADETYPE_LIST">${contractType}</field>
+                                        <field name="TRADETYPE_LIST">risefall</field>
                                         <next>
                                             <block type="trade_definition_contracttype" deletable="false" movable="false">
                                                 <field name="TYPE_LIST">${contractType}</field>
@@ -732,6 +732,12 @@ const MLTrader = observer(() => {
 
         try {
             console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
+
+            // First switch to Bot Builder tab
+            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+
+            // Wait for tab to switch
+            await new Promise(resolve => setTimeout(resolve, 300));
 
             const strategyXml = generateBotBuilderXML();
 
