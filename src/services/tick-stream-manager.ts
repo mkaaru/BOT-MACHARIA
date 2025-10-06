@@ -45,6 +45,8 @@ export const VOLATILITY_SYMBOLS: SymbolInfo[] = [
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s_volatility: true },
+    // Step indices (added back with rate-limited subscription)
+    { symbol: 'STPRNG', display_name: 'Step Index', is_1s_volatility: false },
 ];
 
 export class TickStreamManager {
@@ -97,13 +99,17 @@ export class TickStreamManager {
     }
 
     private async subscribeToSymbolDirect(symbol: string): Promise<void> {
-        console.log(`📊 Subscribing to ${symbol} (Step Index volatility)...`);
+        console.log(`📊 Subscribing to ${symbol}...`);
+
+        // Determine if this is a step index - use even smaller count to avoid rate limits
+        const isStepIndex = symbol.startsWith('STPRNG') || symbol.includes('STEP') || symbol.includes('STP');
+        const historyCount = isStepIndex ? 500 : 1000; // Step indices get only 500 ticks
 
         try {
             // Request historical data with reduced count to avoid rate limits
             console.log(`Requesting historical data for ${symbol}:`, {
                 ticks_history: symbol,
-                count: 1000, // Reduced from 5000
+                count: historyCount,
                 end: 'latest',
                 style: 'ticks',
                 subscribe: 1
@@ -111,7 +117,7 @@ export class TickStreamManager {
 
             const historyResponse = await this.api.send({
                 ticks_history: symbol,
-                count: 1000, // Reduced to avoid rate limits
+                count: historyCount,
                 end: 'latest',
                 style: 'ticks',
                 subscribe: 1
@@ -325,14 +331,14 @@ export class TickStreamManager {
         }
 
         // Separate symbols into volatility and step indices
-        const volatilityIndices = VOLATILITY_SYMBOLS.filter(s => !s.symbol.endsWith('STEP') && !s.symbol.startsWith('STEP') && !s.symbol.includes('STP'));
-        const stepIndices = VOLATILITY_SYMBOLS.filter(s => s.symbol.endsWith('STEP') || s.symbol.startsWith('STEP') || s.symbol.includes('STP'));
+        const volatilityIndices = VOLATILITY_SYMBOLS.filter(s => !s.symbol.endsWith('STEP') && !s.symbol.startsWith('STEP') && !s.symbol.includes('STP') && !s.symbol.startsWith('STPRNG'));
+        const stepIndices = VOLATILITY_SYMBOLS.filter(s => s.symbol.endsWith('STEP') || s.symbol.startsWith('STEP') || s.symbol.includes('STP') || s.symbol.startsWith('STPRNG'));
 
         console.log(`Subscribing to ${volatilityIndices.length} volatility indices and ${stepIndices.length} step indices`);
 
-        // Subscribe to regular volatilities first
+        // Subscribe to regular volatilities first with increased delay
         const volatilityPromises = volatilityIndices.map(async (symbolInfo, index) => {
-            await new Promise(resolve => setTimeout(resolve, index * 100));
+            await new Promise(resolve => setTimeout(resolve, index * 200)); // Increased from 100ms to 200ms
 
             return this.subscribeToSymbol(symbolInfo.symbol).catch(error => {
                 console.warn(`Failed to subscribe to volatility index ${symbolInfo.symbol}:`, error);
@@ -343,9 +349,9 @@ export class TickStreamManager {
         await Promise.allSettled(volatilityPromises);
         console.log(`Completed subscription to volatility indices`);
 
-        // Then subscribe to step indices with additional delay
+        // Then subscribe to step indices with even longer delay to avoid rate limiting
         const stepIndexPromises = stepIndices.map(async (symbolInfo, index) => {
-            await new Promise(resolve => setTimeout(resolve, index * 150 + 500)); // Extra delay for step indices
+            await new Promise(resolve => setTimeout(resolve, index * 500 + 2000)); // Increased delay: 2s base + 500ms per symbol
 
             console.log(`Subscribing to step index: ${symbolInfo.symbol}`);
             return this.subscribeToSymbol(symbolInfo.symbol).catch(error => {

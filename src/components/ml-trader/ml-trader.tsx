@@ -24,6 +24,7 @@ const DERIV_VOLATILITY_SYMBOLS = [
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true, base_volatility: 50 },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true, base_volatility: 75 },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true, base_volatility: 100 },
+    { symbol: 'STPRNG', display_name: 'Step Index', is_1s: false, base_volatility: 10 },
 ];
 
 // Contract types for Rise/Fall trading
