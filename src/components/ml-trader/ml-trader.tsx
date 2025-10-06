@@ -14,11 +14,11 @@ import './ml-trader.scss';
 
 // Enhanced volatility symbols with 1-second indices and Step Indices
 const DERIV_VOLATILITY_SYMBOLS = [
-    { symbol: 'STPRNG', display_name: 'Step Index 100', is_1s: false, base_volatility: 100 },
-    { symbol: 'STPRNG2', display_name: 'Step Index 200', is_1s: false, base_volatility: 200 },
-    { symbol: 'STPRNG3', display_name: 'Step Index 300', is_1s: false, base_volatility: 300 },
-    { symbol: 'STPRNG4', display_name: 'Step Index 400', is_1s: false, base_volatility: 400 },
-    { symbol: 'STPRNG5', display_name: 'Step Index 500', is_1s: false, base_volatility: 500 },
+    { symbol: 'stpRNG', display_name: 'Step Index 100', is_1s: false, base_volatility: 100 },
+    { symbol: 'stpRNG2', display_name: 'Step Index 200', is_1s: false, base_volatility: 200 },
+    { symbol: 'stpRNG3', display_name: 'Step Index 300', is_1s: false, base_volatility: 300 },
+    { symbol: 'stpRNG4', display_name: 'Step Index 400', is_1s: false, base_volatility: 400 },
+    { symbol: 'stpRNG5', display_name: 'Step Index 500', is_1s: false, base_volatility: 500 },
 ];
 
 // Contract types for Rise/Fall trading
@@ -639,8 +639,8 @@ const MLTrader = observer(() => {
             let market = 'synthetic_index';
             let submarket = 'random_index';
 
-            // Check if it's a Step Index (STPRNG, STPRNG2, STPRNG3, STPRNG4, STPRNG5)
-            const isStepIndex = recommendation.symbol.startsWith('STPRNG');
+            // Check if it's a Step Index (stpRNG, stpRNG2, stpRNG3, stpRNG4, stpRNG5)
+            const isStepIndex = recommendation.symbol.toLowerCase().startsWith('stprng');
 
             if (isStepIndex) {
                 submarket = 'step_index';

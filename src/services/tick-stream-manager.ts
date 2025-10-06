@@ -33,11 +33,11 @@ export interface SymbolInfo {
 
 // Comprehensive list of volatility indices
 export const VOLATILITY_SYMBOLS: SymbolInfo[] = [
-    { symbol: 'STPRNG', display_name: 'Step Index 100', is_1s_volatility: false },
-    { symbol: 'STPRNG2', display_name: 'Step Index 200', is_1s_volatility: false },
-    { symbol: 'STPRNG3', display_name: 'Step Index 300', is_1s_volatility: false },
-    { symbol: 'STPRNG4', display_name: 'Step Index 400', is_1s_volatility: false },
-    { symbol: 'STPRNG5', display_name: 'Step Index 500', is_1s_volatility: false },
+    { symbol: 'stpRNG', display_name: 'Step Index 100', is_1s_volatility: false },
+    { symbol: 'stpRNG2', display_name: 'Step Index 200', is_1s_volatility: false },
+    { symbol: 'stpRNG3', display_name: 'Step Index 300', is_1s_volatility: false },
+    { symbol: 'stpRNG4', display_name: 'Step Index 400', is_1s_volatility: false },
+    { symbol: 'stpRNG5', display_name: 'Step Index 500', is_1s_volatility: false },
 ];
 
 export class TickStreamManager {
