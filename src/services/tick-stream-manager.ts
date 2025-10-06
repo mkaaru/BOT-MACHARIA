@@ -45,12 +45,6 @@ export const VOLATILITY_SYMBOLS: SymbolInfo[] = [
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s_volatility: true },
-    // Step Indices
-    { symbol: 'STPRNG', display_name: 'Step Index 100', is_1s_volatility: false },
-    { symbol: 'STPRNG2', display_name: 'Step Index 200', is_1s_volatility: false },
-    { symbol: 'STPRNG3', display_name: 'Step Index 300', is_1s_volatility: false },
-    { symbol: 'STPRNG4', display_name: 'Step Index 400', is_1s_volatility: false },
-    { symbol: 'STPRNG5', display_name: 'Step Index 500', is_1s_volatility: false },
 ];
 
 export class TickStreamManager {

@@ -7,14 +7,8 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 6, 2025
-- **Step Indices Integration**: Added Step Index 100, 200, 300, 400, and 500 to ML Trader analysis alongside volatility indices
-- **Step Indices Symbol Fix**: Corrected invalid symbols across all services (scanner, tick stream manager, ML Trader component)
-  - Correct symbols: STPRNG (100), STPRNG2 (200), STPRNG3 (300), STPRNG4 (400), STPRNG5 (500)
-  - Fixed symbol mismatch that was preventing recommendations from appearing
-- **Step Indices Historical Data**: System fetches and analyzes 500 historical ticks for all step indices using Deriv API
-- **Unified Analysis**: Step indices receive same momentum-based volatility analysis as regular volatility indices
-- **Step Indices Recommendations**: ML Trader now generates trading recommendations for step indices with confidence scores
-- **Bot Builder Market Selection**: Fixed market dropdown structure to properly populate Derived > Step Indices > specific step index when loading recommendations
+- **System Restore**: Reverted Step Indices integration due to API compatibility issues
+- **Working Configuration**: Restored to volatility indices only (R_10, R_25, R_50, R_75, R_100, 1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V)
 - **Port Configuration**: Resolved duplicate server process issue, server now runs correctly on port 5000
 
 ## October 5, 2025
