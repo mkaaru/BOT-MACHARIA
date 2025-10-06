@@ -1,0 +1,1887 @@
+{ticks_history: '1HZ100V', count: 1000, end: 'latest', style: 'ticks', subscribe: 1}
+tick-stream-manager.ts:140 ✅ Processing 1000 historical ticks for 1HZ100V (1s)
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.33000, 860.57000, 860.07000, 860.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.33000, 860.57000, 860.07000, 860.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.19000, 860.47000, 860.07000, 860.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.19000, 860.47000, 860.07000, 860.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.60000, 860.63000, 860.20000, 860.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.60000, 860.63000, 860.20000, 860.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.61000, 860.97000, 860.38000, 860.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.61000, 860.97000, 860.38000, 860.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.21000, 861.58000, 860.98000, 861.58000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.21000, 861.58000, 860.98000, 861.58000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.53000, 862.34000, 861.53000, 862.34000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.53000, 862.34000, 861.53000, 862.34000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.40000, 862.40000, 861.90000, 862.12000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.40000, 862.40000, 861.90000, 862.12000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.26000, 862.26000, 861.54000, 861.61000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.26000, 862.26000, 861.54000, 861.61000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.69000, 861.88000, 861.51000, 861.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.69000, 861.88000, 861.51000, 861.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.84000, 862.09000, 861.15000, 861.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.84000, 862.09000, 861.15000, 861.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.55000, 861.56000, 860.97000, 861.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.55000, 861.56000, 860.97000, 861.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.44000, 862.20000, 861.44000, 862.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.44000, 862.20000, 861.44000, 862.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.14000, 862.75000, 862.02000, 862.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.14000, 862.75000, 862.02000, 862.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.65000, 862.65000, 861.93000, 862.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.65000, 862.65000, 861.93000, 862.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.90000, 861.90000, 861.51000, 861.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.90000, 861.90000, 861.51000, 861.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.03000, 862.56000, 861.93000, 862.06000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.03000, 862.56000, 861.93000, 862.06000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.04000, 862.41000, 862.04000, 862.41000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.04000, 862.41000, 862.04000, 862.41000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.75000, 862.18000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.75000, 862.18000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.65000, 862.30000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.65000, 862.30000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.43000, 862.87000, 862.42000, 862.82000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.43000, 862.87000, 862.42000, 862.82000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.09000, 863.35000, 862.70000, 862.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.09000, 863.35000, 862.70000, 862.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.54000, 862.98000, 862.54000, 862.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.54000, 862.98000, 862.54000, 862.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.26000, 863.93000, 863.26000, 863.77000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.26000, 863.93000, 863.26000, 863.77000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.93000, 864.16000, 863.82000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.93000, 864.16000, 863.82000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.90000, 864.25000, 863.90000, 864.15000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.90000, 864.25000, 863.90000, 864.15000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.32000, 864.67000, 864.21000, 864.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.32000, 864.67000, 864.21000, 864.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.49000, 864.81000, 864.09000, 864.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.49000, 864.81000, 864.09000, 864.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.51000, 864.06000, 864.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.51000, 864.06000, 864.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.17000, 864.17000, 863.37000, 863.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.17000, 864.17000, 863.37000, 863.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.67000, 863.87000, 863.48000, 863.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.67000, 863.87000, 863.48000, 863.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.45000, 863.72000, 863.26000, 863.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.45000, 863.72000, 863.26000, 863.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.95000, 864.60000, 863.91000, 864.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.95000, 864.60000, 863.91000, 864.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.71000, 864.41000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.71000, 864.41000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 865.31000, 864.65000, 865.21000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 865.31000, 864.65000, 865.21000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.12000, 865.36000, 864.59000, 864.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.12000, 865.36000, 864.59000, 864.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.70000, 864.98000, 864.34000, 864.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.70000, 864.98000, 864.34000, 864.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.00000, 865.28000, 864.91000, 865.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.00000, 865.28000, 864.91000, 865.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.38000, 865.38000, 864.95000, 865.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.38000, 865.38000, 864.95000, 865.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.15000, 865.15000, 864.26000, 864.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.15000, 865.15000, 864.26000, 864.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.68000, 864.98000, 864.43000, 864.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.68000, 864.98000, 864.43000, 864.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 864.66000, 864.14000, 864.14000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 864.66000, 864.14000, 864.14000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.11000, 864.20000, 863.89000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.11000, 864.20000, 863.89000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.22000, 864.33000, 863.89000, 863.90000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.22000, 864.33000, 863.89000, 863.90000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.88000, 863.91000, 863.61000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.88000, 863.91000, 863.61000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.05000, 864.51000, 863.93000, 864.51000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.05000, 864.51000, 863.93000, 864.51000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.52000, 864.91000, 864.52000, 864.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.52000, 864.91000, 864.52000, 864.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.89000, 865.63000, 864.87000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.89000, 865.63000, 864.87000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.36000, 865.78000, 865.36000, 865.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.36000, 865.78000, 865.36000, 865.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.82000, 866.01000, 865.36000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.82000, 866.01000, 865.36000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.47000, 866.50000, 865.47000, 866.50000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.47000, 866.50000, 865.47000, 866.50000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.41000, 866.73000, 866.09000, 866.09000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.41000, 866.73000, 866.09000, 866.09000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.19000, 866.72000, 866.19000, 866.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.19000, 866.72000, 866.19000, 866.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.71000, 867.00000, 866.63000, 866.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.71000, 867.00000, 866.63000, 866.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.90000, 867.92000, 866.90000, 867.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.90000, 867.92000, 866.90000, 867.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.07000, 867.35000, 867.36000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.07000, 867.35000, 867.36000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.54000, 868.10000, 867.50000, 868.05000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.54000, 868.10000, 867.50000, 868.05000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.41000, 868.41000, 868.07000, 868.35000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.41000, 868.41000, 868.07000, 868.35000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.44000, 868.50000, 868.23000, 868.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.44000, 868.50000, 868.23000, 868.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.41000, 868.00000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.41000, 868.00000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.29000, 868.63000, 867.82000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.29000, 868.63000, 867.82000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.22000, 868.61000, 868.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.22000, 868.61000, 868.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.02000, 868.53000, 868.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.02000, 868.53000, 868.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.79000, 869.04000, 868.65000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.79000, 869.04000, 868.65000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.18000, 869.35000, 868.98000, 868.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.18000, 869.35000, 868.98000, 868.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.08000, 869.08000, 868.38000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.08000, 869.08000, 868.38000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.72000, 867.74000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.72000, 867.74000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.82000, 868.27000, 867.82000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.82000, 868.27000, 867.82000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.43000, 867.54000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.43000, 867.54000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.56000, 868.10000, 867.56000, 867.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.56000, 868.10000, 867.56000, 867.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.27000, 868.58000, 868.27000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.27000, 868.58000, 868.27000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.03000, 868.34000, 867.56000, 867.62000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.03000, 868.34000, 867.56000, 867.62000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.43000, 867.78000, 867.40000, 867.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.43000, 867.78000, 867.40000, 867.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.92000, 868.19000, 867.75000, 867.86000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.92000, 868.19000, 867.75000, 867.86000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.18000, 868.56000, 868.06000, 868.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.18000, 868.56000, 868.06000, 868.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.31000, 868.51000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.31000, 868.51000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.86000, 868.95000, 868.44000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.86000, 868.95000, 868.44000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.17000, 868.53000, 869.02000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.17000, 868.53000, 869.02000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.06000, 869.06000, 868.01000, 868.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.06000, 869.06000, 868.01000, 868.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.75000, 867.75000, 866.95000, 866.95000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.75000, 867.75000, 866.95000, 866.95000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.11000, 866.54000, 866.64000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.11000, 866.54000, 866.64000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.08000, 866.63000, 867.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.08000, 866.63000, 867.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.45000, 867.45000, 866.08000, 866.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.45000, 867.45000, 866.08000, 866.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.98000, 865.98000, 865.13000, 865.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.98000, 865.98000, 865.13000, 865.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.55000, 865.55000, 864.91000, 864.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.55000, 865.55000, 864.91000, 864.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.94000, 865.02000, 864.67000, 865.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.94000, 865.02000, 864.67000, 865.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.21000, 865.36000, 864.87000, 864.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.21000, 865.36000, 864.87000, 864.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.96000, 864.96000, 864.61000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.96000, 864.96000, 864.61000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.61000, 864.61000, 864.30000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.61000, 864.61000, 864.30000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.36000, 864.36000, 863.95000, 864.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.36000, 864.36000, 863.95000, 864.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.07000, 864.42000, 863.90000, 864.42000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.07000, 864.42000, 863.90000, 864.42000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.37000, 864.87000, 864.37000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.37000, 864.87000, 864.37000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.40000, 864.74000, 864.30000, 864.30000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.40000, 864.74000, 864.30000, 864.30000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.55000, 865.59000, 864.46000, 865.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.55000, 865.59000, 864.46000, 865.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.63000, 865.63000, 865.23000, 865.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.63000, 865.63000, 865.23000, 865.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.99000, 865.48000, 864.81000, 865.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.99000, 865.48000, 864.81000, 865.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.37000, 865.45000, 865.09000, 865.45000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.37000, 865.45000, 865.09000, 865.45000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.44000, 865.88000, 865.23000, 865.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.44000, 865.88000, 865.23000, 865.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.23000, 865.49000, 864.99000, 864.99000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.23000, 865.49000, 864.99000, 864.99000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.09000, 865.53000, 865.09000, 865.53000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.09000, 865.53000, 865.09000, 865.53000) with 10 ticks
+tick-stream-manager.ts:153 🎯 1HZ100V: Historical data loaded (1000 ticks), ready for analysis
+tick-stream-manager.ts:158 📈 Historical subscription active for 1HZ100V with ID: 8ae5fc21-715f-10b7-f166-ffa88f7b2102
+tick-stream-manager.ts:350 Completed subscription to volatility indices
+tick-stream-manager.ts:216 📈 Processing history for 1HZ100V (1s): 1000 ticks
+deriv-volatility-scanner.ts:278 📊 Processing 1000 historical ticks for 1HZ100V...
+deriv-volatility-scanner.ts:309 ✅ Processed 600 price points, 599 momentum points for 1HZ100V
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for 1HZ100V
+ml-tick-analyzer.ts:499 🔧 Updated ML weights for 1HZ100V: {momentum: 0.00044232502668205227, volatility: 0.00016405334787570046, trend: 0.00003500816019107716, acceleration: 2.87211420635704e-16, consistency: 0.9993586134652508}
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+deriv-volatility-scanner.ts:314 🎯 1HZ100V: Analysis ready with 600 data points
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.42000, 865.96000, 865.42000, 865.79000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.42000, 865.96000, 865.42000, 865.79000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.33000, 860.57000, 860.07000, 860.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.33000, 860.57000, 860.07000, 860.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.19000, 860.47000, 860.07000, 860.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.19000, 860.47000, 860.07000, 860.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.60000, 860.63000, 860.20000, 860.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.60000, 860.63000, 860.20000, 860.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.61000, 860.97000, 860.38000, 860.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(860.61000, 860.97000, 860.38000, 860.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.21000, 861.58000, 860.98000, 861.58000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.21000, 861.58000, 860.98000, 861.58000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.53000, 862.34000, 861.53000, 862.34000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.53000, 862.34000, 861.53000, 862.34000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.40000, 862.40000, 861.90000, 862.12000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.40000, 862.40000, 861.90000, 862.12000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.26000, 862.26000, 861.54000, 861.61000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.26000, 862.26000, 861.54000, 861.61000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.69000, 861.88000, 861.51000, 861.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.69000, 861.88000, 861.51000, 861.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.84000, 862.09000, 861.15000, 861.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.84000, 862.09000, 861.15000, 861.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.55000, 861.56000, 860.97000, 861.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.55000, 861.56000, 860.97000, 861.56000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.44000, 862.20000, 861.44000, 862.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.44000, 862.20000, 861.44000, 862.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.14000, 862.75000, 862.02000, 862.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.14000, 862.75000, 862.02000, 862.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.65000, 862.65000, 861.93000, 862.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.65000, 862.65000, 861.93000, 862.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.90000, 861.90000, 861.51000, 861.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(861.90000, 861.90000, 861.51000, 861.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.03000, 862.56000, 861.93000, 862.06000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.03000, 862.56000, 861.93000, 862.06000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.04000, 862.41000, 862.04000, 862.41000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.04000, 862.41000, 862.04000, 862.41000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.75000, 862.18000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.75000, 862.18000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.65000, 862.30000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.58000, 862.65000, 862.30000, 862.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.43000, 862.87000, 862.42000, 862.82000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.43000, 862.87000, 862.42000, 862.82000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.09000, 863.35000, 862.70000, 862.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.09000, 863.35000, 862.70000, 862.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.54000, 862.98000, 862.54000, 862.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(862.54000, 862.98000, 862.54000, 862.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.26000, 863.93000, 863.26000, 863.77000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.26000, 863.93000, 863.26000, 863.77000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.93000, 864.16000, 863.82000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.93000, 864.16000, 863.82000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.90000, 864.25000, 863.90000, 864.15000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.90000, 864.25000, 863.90000, 864.15000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.32000, 864.67000, 864.21000, 864.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.32000, 864.67000, 864.21000, 864.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.49000, 864.81000, 864.09000, 864.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.49000, 864.81000, 864.09000, 864.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.51000, 864.06000, 864.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.51000, 864.06000, 864.07000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.17000, 864.17000, 863.37000, 863.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.17000, 864.17000, 863.37000, 863.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.67000, 863.87000, 863.48000, 863.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.67000, 863.87000, 863.48000, 863.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.45000, 863.72000, 863.26000, 863.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.45000, 863.72000, 863.26000, 863.72000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.95000, 864.60000, 863.91000, 864.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.95000, 864.60000, 863.91000, 864.47000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.71000, 864.41000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.41000, 864.71000, 864.41000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 865.31000, 864.65000, 865.21000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 865.31000, 864.65000, 865.21000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.12000, 865.36000, 864.59000, 864.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.12000, 865.36000, 864.59000, 864.59000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.70000, 864.98000, 864.34000, 864.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.70000, 864.98000, 864.34000, 864.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.00000, 865.28000, 864.91000, 865.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.00000, 865.28000, 864.91000, 865.20000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.38000, 865.38000, 864.95000, 865.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.38000, 865.38000, 864.95000, 865.10000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.15000, 865.15000, 864.26000, 864.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.15000, 865.15000, 864.26000, 864.75000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.68000, 864.98000, 864.43000, 864.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.68000, 864.98000, 864.43000, 864.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 864.66000, 864.14000, 864.14000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.66000, 864.66000, 864.14000, 864.14000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.11000, 864.20000, 863.89000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.11000, 864.20000, 863.89000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.22000, 864.33000, 863.89000, 863.90000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.22000, 864.33000, 863.89000, 863.90000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.88000, 863.91000, 863.61000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(863.88000, 863.91000, 863.61000, 863.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.05000, 864.51000, 863.93000, 864.51000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.05000, 864.51000, 863.93000, 864.51000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.52000, 864.91000, 864.52000, 864.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.52000, 864.91000, 864.52000, 864.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.89000, 865.63000, 864.87000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.89000, 865.63000, 864.87000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.36000, 865.78000, 865.36000, 865.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.36000, 865.78000, 865.36000, 865.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.82000, 866.01000, 865.36000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.82000, 866.01000, 865.36000, 865.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.47000, 866.50000, 865.47000, 866.50000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.47000, 866.50000, 865.47000, 866.50000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.41000, 866.73000, 866.09000, 866.09000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.41000, 866.73000, 866.09000, 866.09000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.19000, 866.72000, 866.19000, 866.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.19000, 866.72000, 866.19000, 866.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.71000, 867.00000, 866.63000, 866.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.71000, 867.00000, 866.63000, 866.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.90000, 867.92000, 866.90000, 867.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.90000, 867.92000, 866.90000, 867.92000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.07000, 867.35000, 867.36000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.07000, 867.35000, 867.36000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.54000, 868.10000, 867.50000, 868.05000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.54000, 868.10000, 867.50000, 868.05000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.41000, 868.41000, 868.07000, 868.35000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.41000, 868.41000, 868.07000, 868.35000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.44000, 868.50000, 868.23000, 868.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.44000, 868.50000, 868.23000, 868.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.41000, 868.00000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.00000, 868.41000, 868.00000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.29000, 868.63000, 867.82000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.29000, 868.63000, 867.82000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.22000, 868.61000, 868.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.22000, 868.61000, 868.96000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.02000, 868.53000, 868.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.02000, 868.53000, 868.89000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.79000, 869.04000, 868.65000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.79000, 869.04000, 868.65000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.18000, 869.35000, 868.98000, 868.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.18000, 869.35000, 868.98000, 868.98000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.08000, 869.08000, 868.38000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.08000, 869.08000, 868.38000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.72000, 867.74000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.72000, 867.74000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.82000, 868.27000, 867.82000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.82000, 868.27000, 867.82000, 868.27000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.43000, 867.54000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.22000, 868.22000, 867.43000, 867.54000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.56000, 868.10000, 867.56000, 867.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.56000, 868.10000, 867.56000, 867.97000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.27000, 868.58000, 868.27000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.27000, 868.58000, 868.27000, 868.38000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.03000, 868.34000, 867.56000, 867.62000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.03000, 868.34000, 867.56000, 867.62000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.43000, 867.78000, 867.40000, 867.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.43000, 867.78000, 867.40000, 867.78000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.92000, 868.19000, 867.75000, 867.86000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.92000, 868.19000, 867.75000, 867.86000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.18000, 868.56000, 868.06000, 868.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.18000, 868.56000, 868.06000, 868.43000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.31000, 868.51000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.61000, 869.31000, 868.51000, 868.93000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.86000, 868.95000, 868.44000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.86000, 868.95000, 868.44000, 868.63000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.17000, 868.53000, 869.02000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(868.80000, 869.17000, 868.53000, 869.02000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.06000, 869.06000, 868.01000, 868.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(869.06000, 869.06000, 868.01000, 868.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.75000, 867.75000, 866.95000, 866.95000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.75000, 867.75000, 866.95000, 866.95000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.11000, 866.54000, 866.64000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.11000, 866.54000, 866.64000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.08000, 866.63000, 867.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.88000, 867.08000, 866.63000, 867.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.45000, 867.45000, 866.08000, 866.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(867.45000, 867.45000, 866.08000, 866.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.98000, 865.98000, 865.13000, 865.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.98000, 865.98000, 865.13000, 865.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.55000, 865.55000, 864.91000, 864.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.55000, 865.55000, 864.91000, 864.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.94000, 865.02000, 864.67000, 865.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.94000, 865.02000, 864.67000, 865.01000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.21000, 865.36000, 864.87000, 864.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.21000, 865.36000, 864.87000, 864.87000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.96000, 864.96000, 864.61000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.96000, 864.96000, 864.61000, 864.65000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.61000, 864.61000, 864.30000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.61000, 864.61000, 864.30000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.36000, 864.36000, 863.95000, 864.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.36000, 864.36000, 863.95000, 864.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.07000, 864.42000, 863.90000, 864.42000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.07000, 864.42000, 863.90000, 864.42000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.37000, 864.87000, 864.37000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.37000, 864.87000, 864.37000, 864.46000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.40000, 864.74000, 864.30000, 864.30000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.40000, 864.74000, 864.30000, 864.30000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.55000, 865.59000, 864.46000, 865.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.55000, 865.59000, 864.46000, 865.52000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.63000, 865.63000, 865.23000, 865.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.63000, 865.63000, 865.23000, 865.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.99000, 865.48000, 864.81000, 865.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(864.99000, 865.48000, 864.81000, 865.03000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.37000, 865.45000, 865.09000, 865.45000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.37000, 865.45000, 865.09000, 865.45000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.44000, 865.88000, 865.23000, 865.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.44000, 865.88000, 865.23000, 865.29000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.23000, 865.49000, 864.99000, 864.99000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.23000, 865.49000, 864.99000, 864.99000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.09000, 865.53000, 865.09000, 865.53000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.09000, 865.53000, 865.09000, 865.53000) with 10 ticks
+tick-stream-manager.ts:252 ✅ Successfully processed 1000/1000 historical ticks for 1HZ100V (immediate analysis ready)
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4229.18000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4228.98000, 4229.43000, 4227.51000, 4228.74000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4228.98000, 4229.43000, 4227.51000, 4228.74000) with 10 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.82000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9440.68000, 9441.73000, 9440.68000, 9441.73000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9440.68000, 9441.73000, 9440.68000, 9441.73000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(987.15000, 987.36000, 987.09000, 987.36000) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(987.15000, 987.36000, 987.09000, 987.36000) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.53700, 5888.53700, 5888.31500, 5888.31500) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.53700, 5888.53700, 5888.31500, 5888.31500) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 866.04000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.42000, 865.96000, 865.42000, 865.79000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.42000, 865.96000, 865.42000, 865.79000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65501.71950, 65501.71950, 65470.29250, 65480.68470) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65501.71950, 65501.71950, 65470.29250, 65480.68470) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187557.87000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187586.34000, 187586.34000, 187535.86000, 187569.54000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187586.34000, 187586.34000, 187535.86000, 187569.54000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2560.58900, 2561.25700, 2560.45000, 2561.25400) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2560.58900, 2561.25700, 2560.45000, 2561.25400) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.86170, 124.86750, 124.84790, 124.86750) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.86170, 124.86750, 124.84790, 124.86750) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 642992.75000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(643180.20000, 643180.20000, 643002.91000, 643002.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(643180.20000, 643180.20000, 643002.91000, 643002.91000) with 10 ticks
+tick-stream-manager.ts:356 Subscribing to step index: STPRNG
+tick-stream-manager.ts:106 📊 Subscribing to STPRNG (Step Index volatility)...
+tick-stream-manager.ts:110 Requesting historical data for STPRNG: {ticks_history: 'STPRNG', count: 1000, end: 'latest', style: 'ticks', subscribe: 1}
+tick-stream-manager.ts:356 Subscribing to step index: STPRNG2
+tick-stream-manager.ts:356 Subscribing to step index: STPRNG3
+tick-stream-manager.ts:165  ❌ Error getting historical data for STPRNG: {echo_req: {…}, error: {…}, msg_type: 'ticks_history', req_id: 11}
+subscribeToSymbolDirect @ tick-stream-manager.ts:165
+await in subscribeToSymbolDirect
+processRequestQueue @ tick-stream-manager.ts:80
+(anonymous) @ tick-stream-manager.ts:101
+subscribeToSymbol @ tick-stream-manager.ts:99
+(anonymous) @ tick-stream-manager.ts:357
+await in (anonymous)
+subscribeToAllVolatilities @ tick-stream-manager.ts:353
+tick-stream-manager.ts:175 Subscribing to real-time ticks for STPRNG: {ticks: 'STPRNG', subscribe: 1}
+tick-stream-manager.ts:275  ❌ TickStreamManager API Error - InvalidSymbol: Symbol STPRNG is invalid.
+messageHandler @ tick-stream-manager.ts:275
+tick-stream-manager.ts:279  ❌ Error was for symbol: STPRNG
+messageHandler @ tick-stream-manager.ts:279
+tick-stream-manager.ts:356 Subscribing to step index: STPRNG4
+tick-stream-manager.ts:356 Subscribing to step index: STPRNG5
+tick-stream-manager.ts:275  ❌ TickStreamManager API Error - InvalidSymbol: Symbol STPRNG is invalid.
+messageHandler @ tick-stream-manager.ts:275
+tick-stream-manager.ts:90  Uncaught (in promise) {echo_req: {…}, error: {…}, msg_type: 'tick', req_id: 12}
+processRequestQueue @ tick-stream-manager.ts:90
+await in processRequestQueue
+(anonymous) @ tick-stream-manager.ts:101
+subscribeToSymbol @ tick-stream-manager.ts:99
+(anonymous) @ tick-stream-manager.ts:357
+await in (anonymous)
+subscribeToAllVolatilities @ tick-stream-manager.ts:353
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 866.24000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.32000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4229.11000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187570.22000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643007.89000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.14000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4230.47000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 866.09000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187556.68000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643034.16000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643028.19000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187579.72000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.87000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.99000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4229.88000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643023.20000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187555.48000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.75000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.12000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4229.72000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187547.29000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643042.68000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.65000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.89000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4229.54000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.02000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4229.30000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.52000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187538.99000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643053.72000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4229.48000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.95000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.19000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187524.10000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643048.65000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187520.16000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643052.85000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.84000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.68000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.34000
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643043.68000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187520.57000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.31000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.91000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.40000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65449.51960, 65449.51960, 65408.41530, 65416.33890) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65449.51960, 65449.51960, 65408.41530, 65416.33890) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187540.76000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187557.87000, 187579.72000, 187520.16000, 187520.57000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187557.87000, 187579.72000, 187520.16000, 187520.57000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2561.63700, 2561.86900, 2561.63700, 2561.71800) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2561.63700, 2561.86900, 2561.63700, 2561.71800) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.87460, 124.90990, 124.87430, 124.90990) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.87460, 124.90990, 124.87430, 124.90990) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643027.98000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(642992.75000, 643053.72000, 642992.75000, 643043.68000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(642992.75000, 643053.72000, 642992.75000, 643043.68000) with 10 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.33000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4229.18000, 4230.47000, 4228.40000, 4228.40000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4229.18000, 4230.47000, 4228.40000, 4228.40000) with 10 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.96000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9441.82000, 9442.32000, 9441.82000, 9441.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9441.82000, 9442.32000, 9441.82000, 9441.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(987.60000, 988.33000, 987.60000, 988.33000) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(987.60000, 988.33000, 987.60000, 988.33000) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.53000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.04000, 866.24000, 865.19000, 865.31000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(866.04000, 866.24000, 865.19000, 865.31000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.35200, 5888.61100, 5888.35200, 5888.61100) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.35200, 5888.61100, 5888.35200, 5888.61100) with 5 ticks
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643009.84000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187551.34000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.60000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.99000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.22000
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187540.11000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643050.71000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.08000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.80000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.53000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643007.90000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187533.54000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.67000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.63000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.13000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.64000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.39000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.81000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643041.28000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187512.06000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.52000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.06000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4227.85000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643068.48000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187494.93000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.57000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.77000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4227.21000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187512.40000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643067.36000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643046.83000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187497.87000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.72000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4226.37000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.67000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643047.31000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187533.70000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.81000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.78000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4226.58000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643001.77000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187518.23000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.83000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.00000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.73000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.67100, 5888.92500, 5888.29700, 5888.29700) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.67100, 5888.92500, 5888.29700, 5888.29700) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.68000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.53000, 865.81000, 865.52000, 865.73000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.53000, 865.81000, 865.52000, 865.73000) with 10 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.36000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4228.33000, 4228.80000, 4226.37000, 4228.00000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4228.33000, 4228.80000, 4226.37000, 4228.00000) with 10 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.89000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9441.96000, 9442.08000, 9441.63000, 9441.83000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9441.96000, 9442.08000, 9441.63000, 9441.83000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(988.31000, 988.59000, 988.31000, 988.59000) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(988.31000, 988.59000, 988.31000, 988.59000) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65420.43500, 65451.61250, 65420.43500, 65434.18740) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65420.43500, 65451.61250, 65420.43500, 65434.18740) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187493.94000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187540.76000, 187551.34000, 187494.93000, 187518.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187540.76000, 187551.34000, 187494.93000, 187518.23000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.92350, 124.96550, 124.92140, 124.96550) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.92350, 124.96550, 124.92140, 124.96550) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643003.52000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(643027.98000, 643068.48000, 643001.77000, 643001.77000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(643027.98000, 643068.48000, 643001.77000, 643001.77000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2561.78200, 2561.89300, 2561.62700, 2561.62700) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2561.78200, 2561.89300, 2561.62700, 2561.62700) with 5 ticks
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.73000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.07000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.76000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643012.17000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187484.79000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 642977.35000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187489.28000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4227.75000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.90000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.63000
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.16000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.16000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.52000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643001.40000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187483.99000
+3content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.61000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.54000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.31000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187508.04000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643066.14000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643078.40000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187528.29000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4228.10000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.22000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.49000
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4226.97000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.27000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.51000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187563.16000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643085.13000
+3content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643080.42000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187563.11000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.14000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4227.91000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.55000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+3content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187549.03000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643153.66000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.80000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.14000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4226.74000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.80000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4225.91000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 866.08000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187553.00000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643162.99000
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.80000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.68000, 866.08000, 865.49000, 866.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ100V: OHLC(865.68000, 866.08000, 865.49000, 866.08000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.37900, 5888.37900, 5888.19800, 5888.31500) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_10: OHLC(5888.37900, 5888.37900, 5888.19800, 5888.31500) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(988.11000, 988.55000, 988.11000, 988.12000) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_100: OHLC(988.11000, 988.55000, 988.11000, 988.12000) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.90000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9441.89000, 9442.31000, 9441.76000, 9441.80000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ10V: OHLC(9441.89000, 9442.31000, 9441.76000, 9441.80000) with 10 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4225.64000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4228.36000, 4228.54000, 4225.91000, 4225.91000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ75V: OHLC(4228.36000, 4228.54000, 4225.91000, 4225.91000) with 10 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187549.18000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187493.94000, 187563.16000, 187483.99000, 187553.00000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ50V: OHLC(187493.94000, 187563.16000, 187483.99000, 187553.00000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65461.37040, 65474.28450, 65451.13340, 65451.13340) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_75: OHLC(65461.37040, 65474.28450, 65451.13340, 65451.13340) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643155.93000
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(643003.52000, 643162.99000, 642977.35000, 643162.99000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for 1HZ25V: OHLC(643003.52000, 643162.99000, 642977.35000, 643162.99000) with 10 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.96590, 125.01050, 124.96590, 125.00420) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_50: OHLC(124.96590, 125.01050, 124.96590, 125.00420) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2561.53400, 2561.64800, 2561.38700, 2561.64800) with 5 ticks
+ehlers-predictive-system.ts:123 📊 10s candle for R_25: OHLC(2561.53400, 2561.64800, 2561.38700, 2561.64800) with 5 ticks
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.20000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4225.28000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.90000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187551.27000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643134.05000
+2content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643150.83000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187549.54000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.92000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4225.26000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.01000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187557.69000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643139.72000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9441.87000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4225.83000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.75000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+content_script.js:7165 Content limit: 612032839.68
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ25V: 643122.26000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ50V: 187562.74000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ100V: 865.81000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ75V: 4224.78000
+tick-stream-manager.ts:270 🔄 Real-time tick for 1HZ10V: 9442.13000
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
+content_script.js:10815  Uncaught (in promise) TypeError: codes.forEach is not a function
+    at LanguageUtil.getBestMatchFromCodes (content_script.js:10815:11)
+    at setLng (content_script.js:12037:79)
+    at I18n.changeLanguage (content_script.js:12058:7)
+    at content_script.js:6343:16
+getBestMatchFromCodes @ content_script.js:10815
+setLng @ content_script.js:12037
+changeLanguage @ content_script.js:12058
+(anonymous) @ content_script.js:6343
+await in (anonymous)
+(anonymous) @ content_script.js:4120
+dispatch @ content_script.js:4088
+get_sync_action @ content_script.js:4935
+await in get_sync_action
+(anonymous) @ content_script.js:4120
+(anonymous) @ content_script.js:6358
+(anonymous) @ content_script.js:4499
+globalStorageListener @ content_script.js:4499
+v3MessagesDispatcher @ content_script.js:4239
