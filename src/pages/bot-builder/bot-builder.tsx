@@ -1,10 +1,9 @@
-
 import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message } from '@/components/bot-notification/bot-notification-utils';
-import { useStore } from '@/hooks/useStore';
+import { useStore } from '@/hooks/use-store';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { TBlocklyEvents } from 'Types';
@@ -100,19 +99,56 @@ const BotBuilder = observer(() => {
         });
     };
 
+    // Error boundary component for Bot Builder
+    class ErrorBoundary extends React.Component {
+        constructor(props: { children: React.ReactNode }) {
+            super(props);
+            this.state = { hasError: false, errorMessage: '' };
+        }
+
+        static getDerivedStateFromError(error: Error) {
+            return { hasError: true, errorMessage: error.message };
+        }
+
+        componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+            console.error('Error caught by boundary:', error, errorInfo);
+            const { setBlocklyErrorMessage } = blockly_store;
+            setBlocklyErrorMessage(error.message);
+        }
+
+        render() {
+            const { hasError, errorMessage } = this.state as { hasError: boolean; errorMessage: string };
+            const { is_blockly_error } = blockly_store;
+
+            if (hasError || is_blockly_error) {
+                return (
+                    <div className='bot-builder-error'>
+                        <p>{localize('Sorry for the interruption')}</p>
+                        <p>{errorMessage || localize('An unexpected error occurred. Please refresh the page.')}</p>
+                        <button onClick={() => window.location.reload()}>{localize('Refresh')}</button>
+                    </div>
+                );
+            }
+
+            return this.props.children;
+        }
+    }
+
     return (
         <>
-            <div
-                className={classNames('bot-builder', {
-                    'bot-builder--active': active_tab === 1 && !is_preview_on_popup,
-                    'bot-builder--inactive': is_preview_on_popup,
-                    'bot-builder--tour-active': active_tour,
-                })}
-            >
-                <div id='scratch_div' ref={el_ref}>
-                    <WorkspaceWrapper />
+            <ErrorBoundary>
+                <div
+                    className={classNames('bot-builder', {
+                        'bot-builder--active': active_tab === 1 && !is_preview_on_popup,
+                        'bot-builder--inactive': is_preview_on_popup,
+                        'bot-builder--tour-active': active_tour,
+                    })}
+                >
+                    <div id='scratch_div' ref={el_ref}>
+                        <WorkspaceWrapper />
+                    </div>
                 </div>
-            </div>
+            </ErrorBoundary>
             {active_tab === 1 && <BotBuilderTourHandler is_mobile={!isDesktop} />}
             <LoadModal />
             <SaveModal />
