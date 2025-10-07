@@ -30,7 +30,6 @@ interface ROCRecommendation {
 const rocAnalyzer = (() => {
     const tickData: Record<string, { price: number; timestamp: number }[]> = {};
     const rocCache: Record<string, { roc5: number; roc3: number; roc1: number }> = {};
-    const historicalDataLength: Record<string, number> = {}; // To store the number of ticks processed
 
     const TICK_COUNTS = {
         '5min': 300, // 5 minutes * 60 seconds/min = 300 ticks (assuming 1 tick per second)
@@ -166,7 +165,6 @@ const rocAnalyzer = (() => {
     const reset = () => {
         Object.keys(tickData).forEach(key => tickData[key] = []);
         Object.keys(rocCache).forEach(key => rocCache[key] = { roc5: 0, roc3: 0, roc1: 0 });
-        historicalDataLength = {};
     };
 
     return {
