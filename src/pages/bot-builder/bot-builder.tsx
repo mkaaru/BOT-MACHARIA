@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message } from '@/components/bot-notification/bot-notification-utils';
-import { useStore } from '@/hooks/use-store';
+import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { TBlocklyEvents } from 'Types';
