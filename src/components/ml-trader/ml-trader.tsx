@@ -111,12 +111,29 @@ const MLTrader = observer(() => {
 
     useEffect(() => {
         const checkAutoTrade = () => {
-            if (!mlAutoTrader.getConfig().enabled || recommendations.length === 0) return;
+            const config = mlAutoTrader.getConfig();
+            
+            if (!config.enabled) {
+                return;
+            }
+
+            if (recommendations.length === 0) {
+                console.log('⏳ Auto-trade check: No recommendations available');
+                return;
+            }
 
             const topRecommendation = recommendations[0];
+            console.log(`🔍 Auto-trade check: Top recommendation = ${topRecommendation.displayName} ${topRecommendation.action} (${topRecommendation.confidence.toFixed(1)}%)`);
             
-            if (mlAutoTrader.shouldExecuteTrade(topRecommendation) && !contractInProgressRef.current) {
-                executeAutoTrade(topRecommendation);
+            if (mlAutoTrader.shouldExecuteTrade(topRecommendation)) {
+                if (!contractInProgressRef.current) {
+                    console.log('✅ Auto-trade conditions met - executing trade...');
+                    executeAutoTrade(topRecommendation);
+                } else {
+                    console.log('⏸️ Contract in progress, skipping trade');
+                }
+            } else {
+                console.log('❌ Auto-trade conditions not met (confidence/cooldown/duplicate check)');
             }
         };
 
@@ -402,6 +419,8 @@ const MLTrader = observer(() => {
         contractInProgressRef.current = true;
         const stake = mlAutoTrader.getConfig().stake_amount;
 
+        console.log(`🤖 AUTO-TRADE EXECUTING: ${recommendation.action} on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
+
         try {
             const tradeParams = {
                 proposal: 1,
@@ -414,25 +433,32 @@ const MLTrader = observer(() => {
                 symbol: recommendation.symbol
             };
 
+            console.log('📤 Sending proposal request:', tradeParams);
             const proposal_response = await apiRef.current.send(tradeParams);
 
             if (proposal_response.error) {
+                console.error('❌ Proposal error:', proposal_response.error);
                 throw new Error(proposal_response.error.message);
             }
 
             if (proposal_response.proposal) {
+                console.log('✅ Proposal received, ID:', proposal_response.proposal.id);
+                
                 const buy_response = await apiRef.current.send({
                     buy: proposal_response.proposal.id,
                     price: stake
                 });
 
                 if (buy_response.error) {
+                    console.error('❌ Purchase error:', buy_response.error);
                     throw new Error(buy_response.error.message);
                 }
 
                 if (buy_response.buy) {
                     const entryPrice = parseFloat(buy_response.buy.buy_price);
                     const payout = parseFloat(buy_response.buy.payout || 0);
+                    
+                    console.log(`✅ CONTRACT PURCHASED! ID: ${buy_response.buy.contract_id}, Entry: ${entryPrice}, Payout: ${payout}`);
                     
                     mlAutoTrader.registerTrade(
                         recommendation,
@@ -447,7 +473,7 @@ const MLTrader = observer(() => {
             }
 
         } catch (error) {
-            console.error('Auto-trade execution error:', error);
+            console.error('❌ Auto-trade execution error:', error);
         } finally {
             contractInProgressRef.current = false;
         }
@@ -620,35 +646,19 @@ const MLTrader = observer(() => {
             is_auto_trading: newState
         }));
 
+        // Enable/disable the mlAutoTrader service
+        mlAutoTrader.configure({ enabled: newState });
+
         if (newState) {
             // Start auto-trading
-            setStatus('🤖 Auto-trading enabled - Waiting for recommendations...');
-
-            // Start continuous trading interval (every 35 seconds to avoid rate limits)
-            autoTradeIntervalRef.current = setInterval(async () => {
-                const currentRec = currentRecommendationRef.current;
-
-                if (autoTradingRef.current && currentRec && !contractInProgressRef.current) {
-                    console.log(`🤖 Auto-trading: Executing ${currentRec.action} on ${currentRec.displayName}`);
-                    try {
-                        await executeTrade(currentRec);
-                    } catch (error) {
-                        console.error('Auto-trade execution error:', error);
-                    }
-                }
-            }, 35000); // Trade every 35 seconds
-
-            console.log('✅ Auto-trading started - Will execute trades every 35 seconds');
+            setStatus('🤖 Auto-trading activated - monitoring recommendations...');
+            console.log('✅ Auto-trading ENABLED - mlAutoTrader config:', mlAutoTrader.getConfig());
         } else {
             // Stop auto-trading
-            if (autoTradeIntervalRef.current) {
-                clearInterval(autoTradeIntervalRef.current);
-                autoTradeIntervalRef.current = null;
-            }
-            setStatus('Auto-trading disabled');
-            console.log('⏹️ Auto-trading stopped');
+            setStatus('⏹️ Auto-trading stopped');
+            console.log('⏹️ Auto-trading DISABLED');
         }
-    }, [trading_interface.is_auto_trading, executeTrade]);
+    }, [trading_interface.is_auto_trading]);
 
     /**
      * Manual trade execution
