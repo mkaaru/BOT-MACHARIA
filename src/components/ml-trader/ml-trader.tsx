@@ -681,6 +681,7 @@ const MLTrader = observer(() => {
                         <variable id="5SwcMzq.f)VNUzjbKfrw">Notification:lossThresholdReached</variable>
                         <variable id="consecutiveLossCount">consecutiveLossCount</variable>
                         <variable id="maxConsecutiveLoss">maxConsecutiveLoss</variable>
+                        <variable id="durationTicks">durationTicks</variable>
                     </variables>
                     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
                         <statement name="TRADE_OPTIONS">
@@ -741,13 +742,23 @@ const MLTrader = observer(() => {
                                                     </block>
                                                 </value>
                                                 <next>
-                                                    <block type="variables_set" id="init_martingale">
-                                                        <field name="VAR" id="/VZkC:5@oNcl%%_S,N)K">martingale</field>
+                                                    <block type="variables_set" id="init_duration_ticks">
+                                                        <field name="VAR" id="durationTicks">durationTicks</field>
                                                         <value name="VALUE">
                                                             <block type="math_number">
-                                                                <field name="NUM">1</field>
+                                                                <field name="NUM">2</field>
                                                             </block>
                                                         </value>
+                                                        <next>
+                                                            <block type="variables_set" id="init_martingale">
+                                                                <field name="VAR" id="/VZkC:5@oNcl%%_S,N)K">martingale</field>
+                                                                <value name="VALUE">
+                                                                    <block type="math_number">
+                                                                        <field name="NUM">1</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
