@@ -94,11 +94,6 @@ const MLTrader = observer(() => {
     // Auto-load to Bot Builder state
     const [auto_load_to_bot_builder, setAutoLoadToBotBuilder] = useState(false);
 
-    // Auto trade and bot builder auto-update states
-    const [autoTradeEnabled, setAutoTradeEnabled] = React.useState(false);
-    const [autoTradeStatus, setAutoTradeStatus] = React.useState<string>('');
-    const [botBuilderAutoUpdate, setBotBuilderAutoUpdate] = React.useState(false);
-
     // Performance tracking
     const [trading_stats, setTradingStats] = useState({
         total_trades: 0,
@@ -117,7 +112,7 @@ const MLTrader = observer(() => {
     useEffect(() => {
         const checkAutoTrade = () => {
             const config = mlAutoTrader.getConfig();
-
+            
             if (!config.enabled) {
                 return;
             }
@@ -130,7 +125,7 @@ const MLTrader = observer(() => {
             const topRecommendation = recommendations[0];
             console.log(`🔍 Auto-trade check: Top recommendation = ${topRecommendation.displayName} ${topRecommendation.action} (${topRecommendation.confidence.toFixed(1)}%)`);
             console.log(`📊 Contract in progress status: ${contractInProgressRef.current}`);
-
+            
             if (mlAutoTrader.shouldExecuteTrade(topRecommendation)) {
                 if (!contractInProgressRef.current) {
                     console.log('✅ Auto-trade conditions met - executing trade...');
@@ -449,7 +444,7 @@ const MLTrader = observer(() => {
 
             if (proposal_response.proposal) {
                 console.log('✅ Proposal received, ID:', proposal_response.proposal.id);
-
+                
                 const buy_response = await apiRef.current.send({
                     buy: proposal_response.proposal.id,
                     price: stake
@@ -463,9 +458,9 @@ const MLTrader = observer(() => {
                 if (buy_response.buy) {
                     const entryPrice = parseFloat(buy_response.buy.buy_price);
                     const payout = parseFloat(buy_response.buy.payout || 0);
-
+                    
                     console.log(`✅ CONTRACT PURCHASED! ID: ${buy_response.buy.contract_id}, Entry: ${entryPrice}, Payout: ${payout}`);
-
+                    
                     mlAutoTrader.registerTrade(
                         recommendation,
                         buy_response.buy.contract_id,
@@ -665,30 +660,6 @@ const MLTrader = observer(() => {
             console.log('⏹️ Auto-trading DISABLED');
         }
     }, [trading_interface.is_auto_trading]);
-
-    const handleAutoTradeToggle = () => {
-        setAutoTradeEnabled(!autoTradeEnabled);
-        if (autoTradeEnabled) {
-            setAutoTradeStatus('');
-        }
-    };
-
-    const handleBotBuilderAutoUpdateToggle = () => {
-        const newState = !botBuilderAutoUpdate;
-        setBotBuilderAutoUpdate(newState);
-
-        // Emit event to enable/disable auto-update in bot builder
-        const toggleEvent = new CustomEvent('toggle-ml-auto-update', {
-            detail: { enabled: newState }
-        });
-        window.dispatchEvent(toggleEvent);
-
-        if (newState) {
-            console.log('✅ Bot Builder auto-update enabled - contracts will update with new recommendations');
-        } else {
-            console.log('❌ Bot Builder auto-update disabled');
-        }
-    };
 
     /**
      * Manual trade execution
@@ -1261,7 +1232,7 @@ const MLTrader = observer(() => {
                     </div>
 
                     {show_auto_trade_panel ? (
-                        <AutoTradePanel
+                        <AutoTradePanel 
                             onConfigChange={(config) => {
                                 mlAutoTrader.configure(config);
                             }}
@@ -1436,31 +1407,15 @@ const MLTrader = observer(() => {
                                 {trading_interface.is_auto_trading ? '⏹️ Stop Auto-Trading' : '▶️ Start Auto-Trading'}
                             </button>
 
-                            <div className="auto-trade-toggle">
-                                <label className="toggle-label">
+                            <div className="auto-load-toggle">
+                                <label>
                                     <input
                                         type="checkbox"
-                                        checked={autoTradeEnabled}
-                                        onChange={handleAutoTradeToggle}
+                                        checked={auto_load_to_bot_builder}
+                                        onChange={(e) => setAutoLoadToBotBuilder(e.target.checked)}
                                     />
-                                    <span className="toggle-text">Enable Auto Trade</span>
+                                    <span>Auto-load to Bot Builder</span>
                                 </label>
-                            </div>
-
-                            <div className="auto-trade-toggle" style={{ marginTop: '8px' }}>
-                                <label className="toggle-label">
-                                    <input
-                                        type="checkbox"
-                                        checked={botBuilderAutoUpdate}
-                                        onChange={handleBotBuilderAutoUpdateToggle}
-                                    />
-                                    <span className="toggle-text">Auto-Update Bot Builder</span>
-                                </label>
-                                {botBuilderAutoUpdate && (
-                                    <Text size="xxs" color="general" style={{ marginTop: '4px', display: 'block' }}>
-                                        ⚡ Bot Builder will update contracts automatically
-                                    </Text>
-                                )}
                             </div>
                         </div>
                     </div>

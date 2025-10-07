@@ -1,3 +1,4 @@
+
 import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
@@ -24,10 +25,6 @@ const BotBuilder = observer(() => {
     const { isDesktop } = useDevice();
     const { onMount, onUnmount } = app;
     const el_ref = React.useRef<HTMLInputElement | null>(null);
-
-    // Track current ML recommendation and auto-update contracts
-    const [currentRecommendation, setCurrentRecommendation] = React.useState<any>(null);
-    const [isAutoUpdateEnabled, setIsAutoUpdateEnabled] = React.useState(false);
 
     let deleted_block_id: null | string = null;
 
@@ -102,53 +99,6 @@ const BotBuilder = observer(() => {
             },
         });
     };
-
-    // Placeholder for logic to fetch and update ML recommendations
-    React.useEffect(() => {
-        // Simulate fetching ML recommendations
-        const fetchRecommendations = async () => {
-            // Replace with actual API call to fetch ML recommendations
-            const recommendations = await new Promise(resolve =>
-                setTimeout(() => resolve([{ contract_type: 'CALL', duration: 1, expiry: 10 }]), 2000)
-            );
-            if (recommendations && recommendations.length > 0) {
-                setCurrentRecommendation(recommendations[0]);
-            }
-        };
-
-        fetchRecommendations();
-
-        // Set up interval to periodically check for new recommendations
-        const intervalId = setInterval(fetchRecommendations, 15000); // Check every 15 seconds
-
-        return () => clearInterval(intervalId); // Cleanup interval on unmount
-    }, []);
-
-    // Effect to update contracts when a new recommendation appears and auto-update is enabled
-    React.useEffect(() => {
-        if (currentRecommendation && isAutoUpdateEnabled) {
-            const workspace = window.Blockly?.derivWorkspace;
-            if (workspace) {
-                // Logic to find and update the contract block
-                // This is a simplified example; actual implementation may need to traverse blocks
-                const contractBlocks = workspace.getBlocksByType('contract'); // Assuming 'contract' is the type of block for contracts
-                if (contractBlocks.length > 0) {
-                    const contractBlock = contractBlocks[0]; // Assuming we want to update the first contract block
-                    // Example: Update contract type and expiry based on recommendation
-                    // The actual block manipulation will depend on the Blockly schema
-                    contractBlock.setFieldValue(currentRecommendation.contract_type, 'CONTRACT_TYPE');
-                    contractBlock.setFieldValue(currentRecommendation.expiry, 'EXPIRY');
-                    // You might also need to update other properties like duration, amount, etc.
-                    botNotification(notification_message().new_recommendation_applied, {
-                        message: `Applied new recommendation: ${currentRecommendation.contract_type}`,
-                    });
-                } else {
-                    // Handle case where no contract block is found
-                    console.warn('No contract block found to update.');
-                }
-            }
-        }
-    }, [currentRecommendation, isAutoUpdateEnabled]);
 
     return (
         <>
