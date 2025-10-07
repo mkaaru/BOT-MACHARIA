@@ -204,7 +204,7 @@ export class MLTickAnalyzer {
     }
 
     /**
-     * Generate ML-based prediction
+     * Generate ML-based prediction with enhanced Step Index support
      */
     predict(symbol: string): MLPrediction | null {
         if (!symbol) {
@@ -221,21 +221,34 @@ export class MLTickAnalyzer {
         const recent = history.slice(-this.PATTERN_LENGTH);
         const features = this.extractFeatures(recent);
 
-        // Pattern matching
+        // Pattern matching with weighted similarity for Step Indices
         const matched_patterns = this.findSimilarPatterns(symbol, recent);
 
-        // Calculate prediction score
+        // Calculate prediction score with Step Index optimization
         const score = this.calculatePredictionScore(features);
-
-        // Determine direction
+        
+        // Enhanced direction determination for Step Indices
         let direction: 'RISE' | 'FALL' | 'NEUTRAL' = 'NEUTRAL';
-        if (score > 0.15) direction = 'RISE';
-        else if (score < -0.15) direction = 'FALL';
+        const isStepIndex = symbol.toLowerCase().includes('stp') || symbol.toLowerCase().includes('step');
+        
+        if (isStepIndex) {
+            // Step Indices require higher threshold due to their nature
+            if (score > 0.20 && features.momentum > 0.05) direction = 'RISE';
+            else if (score < -0.20 && features.momentum < -0.05) direction = 'FALL';
+        } else {
+            if (score > 0.15) direction = 'RISE';
+            else if (score < -0.15) direction = 'FALL';
+        }
 
-        // Calculate confidence based on pattern matches and learning
-        const confidence = this.calculateConfidence(matched_patterns.length, features);
+        // Enhanced confidence calculation with pattern weight
+        const baseConfidence = this.calculateConfidence(matched_patterns.length, features);
+        const patternWeight = Math.min(matched_patterns.length / this.MIN_PATTERN_MATCHES, 1.5);
+        const confidence = Math.min(baseConfidence * patternWeight, 100);
+        
         const strength = Math.abs(score) * 100;
         const learning_score = this.calculateLearningScore(symbol, features);
+
+        console.log(`🧠 ML Prediction for ${symbol}: ${direction} (${confidence.toFixed(1)}% confidence, ${matched_patterns.length} patterns)`);
 
         return {
             direction,
