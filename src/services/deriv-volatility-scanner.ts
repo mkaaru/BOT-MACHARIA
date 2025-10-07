@@ -504,7 +504,7 @@ export class DerivVolatilityScanner {
      * Analyze single timeframe
      */
     private analyzeTimeframe(
-        priceHistory: Array<{ price: number; timestamp: number }>;
+        priceHistory: Array<{ price: number; timestamp: number }>,
         config: { period: number; weight: number; label: string }
     ): TimeframeMomentum {
         if (priceHistory.length < config.period + 10) {
