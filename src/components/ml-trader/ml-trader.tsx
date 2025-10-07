@@ -655,11 +655,29 @@ const MLTrader = observer(() => {
             // Contract type based on action
             const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
-            // Prepare strategy XML with proper trade_definition_market block hierarchy
+            // Prepare strategy XML with martingale settings from default bot builder
             const strategyXml = `
                 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                     <variables>
-                        <variable id="stake">stake</variable>
+                        <variable id="x]b3MHpbtR?cJQDP@,eG">martingale:resultIsWin</variable>
+                        <variable id="[M$5RsD\`g|8-P;C+mbf4">martingale:profit</variable>
+                        <variable id="]6T=O624:eVRioXro1kh">Notification:currentStake</variable>
+                        <variable id="Kb@{Vb{+5IqV=d~y*dcr">martingale:totalProfit</variable>
+                        <variable id="6G^6o^Ic@rjF|sHv*m.6">martingale:tradeAgain</variable>
+                        <variable id="3^~61:59m?#VJ(:SG^^[">Maximum Stake</variable>
+                        <variable id="*p5|Lkk9Q^ZuPBQ-48g2">martingale:profitThreshold</variable>
+                        <variable id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</variable>
+                        <variable id="[$B]vBH,~wrN\`PUt5m/f">martingale:initialStake</variable>
+                        <variable id="Gh~KH=(G5Q?:C:QU{3(P">stake</variable>
+                        <variable id="a1BTYNHC?_yR4sfvNJ7N">martingale:lossThreshold</variable>
+                        <variable id="4vh+dtelQS#?}@cNPcN!">maxStake</variable>
+                        <variable id="p#@Pr/Y.sKueWX#oRSPl">Notification:totalProfit</variable>
+                        <variable id="/VZkC:5@oNcl%%_S,N)K">martingale</variable>
+                        <variable id="ipD5?_dQ1Zkvf%v|[?DQ">martingale:size</variable>
+                        <variable id="I--KAm(C+#{d?~ip*23e">Notification:profitThresholdReached</variable>
+                        <variable id="5SwcMzq.f)VNUzjbKfrw">Notification:lossThresholdReached</variable>
+                        <variable id="consecutiveLossCount">consecutiveLossCount</variable>
+                        <variable id="maxConsecutiveLoss">maxConsecutiveLoss</variable>
                     </variables>
                     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
                         <statement name="TRADE_OPTIONS">
@@ -695,6 +713,46 @@ const MLTrader = observer(() => {
                                 </next>
                             </block>
                         </statement>
+                        <statement name="INITIALIZATION">
+                            <block type="variables_set" id="init_consecutive_loss">
+                                <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set" id="init_max_consecutive_loss">
+                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">5</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set" id="init_stake">
+                                                <field name="VAR" id="Gh~KH=(G5Q?:C:QU{3(P">stake</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">1</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set" id="init_martingale">
+                                                        <field name="VAR" id="/VZkC:5@oNcl%%_S,N)K">martingale</field>
+                                                        <value name="VALUE">
+                                                            <block type="math_number">
+                                                                <field name="NUM">1</field>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
                         <statement name="SUBMARKET">
                             <block type="trade_definition_tradeoptions" deletable="false" movable="false">
                                 <field name="DURATIONTYPE_LIST">t</field>
@@ -707,23 +765,192 @@ const MLTrader = observer(() => {
                                     <shadow type="math_number">
                                         <field name="NUM">1</field>
                                     </shadow>
+                                    <block type="procedures_callreturn" id="call_martingale_amount">
+                                        <mutation xmlns="http://www.w3.org/1999/xhtml" name="Martingale Trade Amount"></mutation>
+                                    </block>
                                 </value>
                             </block>
                         </statement>
                     </block>
                     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
                         <statement name="BEFOREPURCHASE_STACK">
-                            <block type="purchase" id="purchase">
-                                <field name="PURCHASE_LIST">${contractType}</field>
+                            <block type="controls_if" id="check_consecutive_loss">
+                                <value name="IF0">
+                                    <block type="logic_compare">
+                                        <field name="OP">GTE</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                                <statement name="DO0">
+                                    <block type="notify">
+                                        <field name="NOTIFICATION_TYPE">error</field>
+                                        <field name="NOTIFICATION_SOUND">silent</field>
+                                        <value name="MESSAGE">
+                                            <shadow type="text">
+                                                <field name="TEXT">Stop loss triggered: Maximum consecutive losses reached</field>
+                                            </shadow>
+                                        </value>
+                                    </block>
+                                </statement>
+                                <next>
+                                    <block type="purchase" id="purchase">
+                                        <field name="PURCHASE_LIST">${contractType}</field>
+                                    </block>
+                                </next>
                             </block>
                         </statement>
                     </block>
                     <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="600">
                         <statement name="AFTERPURCHASE_STACK">
-                            <block type="trade_again" id="trade_again" deletable="false" movable="false">
-                                <field name="TRADE_AGAIN_TYPE">true</field>
+                            <block type="controls_if" id="handle_result">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                <value name="IF0">
+                                    <block type="contract_check_result">
+                                        <field name="CHECK_RESULT">win</field>
+                                    </block>
+                                </value>
+                                <statement name="DO0">
+                                    <block type="variables_set" id="reset_consecutive_loss_win">
+                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">0</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set" id="reset_multiplier_win">
+                                                <field name="VAR" id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">1</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </statement>
+                                <statement name="ELSE">
+                                    <block type="math_change" id="increment_consecutive_loss">
+                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                        <value name="DELTA">
+                                            <shadow type="math_number">
+                                                <field name="NUM">1</field>
+                                            </shadow>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set" id="update_multiplier_loss">
+                                                <field name="VAR" id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</field>
+                                                <value name="VALUE">
+                                                    <block type="math_arithmetic">
+                                                        <field name="OP">MULTIPLY</field>
+                                                        <value name="A">
+                                                            <shadow type="math_number">
+                                                                <field name="NUM">1</field>
+                                                            </shadow>
+                                                            <block type="variables_get">
+                                                                <field name="VAR" id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</field>
+                                                            </block>
+                                                        </value>
+                                                        <value name="B">
+                                                            <shadow type="math_number">
+                                                                <field name="NUM">1</field>
+                                                            </shadow>
+                                                            <block type="variables_get">
+                                                                <field name="VAR" id="/VZkC:5@oNcl%%_S,N)K">martingale</field>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </statement>
+                                <next>
+                                    <block type="controls_if" id="check_stop_loss">
+                                        <value name="IF0">
+                                            <block type="logic_compare">
+                                                <field name="OP">LT</field>
+                                                <value name="A">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <statement name="DO0">
+                                            <block type="trade_again" id="trade_again">
+                                                <field name="TRADE_AGAIN_TYPE">true</field>
+                                            </block>
+                                        </statement>
+                                    </block>
+                                </next>
                             </block>
                         </statement>
+                    </block>
+                    <block type="procedures_defreturn" id="martingale_amount_func" x="0" y="1000">
+                        <field name="NAME">Martingale Trade Amount</field>
+                        <statement name="STACK">
+                            <block type="controls_if" id="init_check_multiplier">
+                                <value name="IF0">
+                                    <block type="logic_compare">
+                                        <field name="OP">EQ</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="logic_null"></block>
+                                        </value>
+                                    </block>
+                                </value>
+                                <statement name="DO0">
+                                    <block type="variables_set">
+                                        <field name="VAR" id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">1</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </statement>
+                            </block>
+                        </statement>
+                        <value name="RETURN">
+                            <block type="math_arithmetic">
+                                <field name="OP">MULTIPLY</field>
+                                <value name="A">
+                                    <shadow type="math_number">
+                                        <field name="NUM">1</field>
+                                    </shadow>
+                                    <block type="variables_get">
+                                        <field name="VAR" id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <shadow type="math_number">
+                                        <field name="NUM">1</field>
+                                    </shadow>
+                                    <block type="variables_get">
+                                        <field name="VAR" id="Gh~KH=(G5Q?:C:QU{3(P">stake</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
                     </block>
                 </xml>
             `;
