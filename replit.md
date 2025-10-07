@@ -27,6 +27,14 @@ The platform features multiple trading approaches including a visual bot builder
   - Implemented symbol rotation system - tracks last 3 traded symbols to ensure diversification
   - Auto-trader skips recently-traded symbols to allow market movement and spread risk
   - Fixed button visibility - white text now clearly visible on active buttons (CSS !important fix)
+- **Contract Type Alternation Strategy**: Intelligent strategy that adapts to market conditions and entry/exit point scenarios
+  - Starts with Equals contracts (PUTE for RISE, CALLE for FALL) - these profit when entry=exit spot
+  - On first loss: automatically switches to Plain contracts (PUT for RISE, CALL for FALL)
+  - Continues alternating between Equals ↔ Plain modes on each subsequent loss
+  - On win: resets strategy back to Equals mode for both RISE and FALL directions
+  - Real-time strategy display in Auto-Trade Panel showing current mode and loss streaks
+  - Trade history enhanced to show actual Deriv contract type used (PUTE/PUT/CALLE/CALL)
+  - Console logs indicate contract mode switches and strategy state changes
 
 ## October 6, 2025
 - **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
