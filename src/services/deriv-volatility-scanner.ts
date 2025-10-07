@@ -504,7 +504,7 @@ export class DerivVolatilityScanner {
      * Analyze single timeframe
      */
     private analyzeTimeframe(
-        priceHistory: Array<{ price: number; timestamp: number }>,
+        priceHistory: Array<{ price: number; timestamp: number }>;
         config: { period: number; weight: number; label: string }
     ): TimeframeMomentum {
         if (priceHistory.length < config.period + 10) {
@@ -555,7 +555,7 @@ export class DerivVolatilityScanner {
      * Calculate trend metrics (strength, confidence, quality)
      */
     private calculateTrendMetrics(
-        data: Array<{ price: number; timestamp: number }>,
+        data: Array<{ price: number; timestamp: number }>;
         direction: TimeframeDirection
     ): { strength: number; confidence: number; trendQuality: number } {
         if (data.length < 10) {
@@ -623,8 +623,8 @@ export class DerivVolatilityScanner {
      * Analyze momentum with velocity and acceleration
      */
     private analyzeMomentum(
-        momentumHistory: number[],
-        velocityHistory: number[],
+        momentumHistory: number[];
+        velocityHistory: number[];
         priceHistory: Array<{ price: number; timestamp: number }>
     ): MomentumAnalysis {
         if (momentumHistory.length < this.MOMENTUM_MEDIUM) {
