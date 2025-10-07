@@ -623,8 +623,8 @@ export class DerivVolatilityScanner {
      * Analyze momentum with velocity and acceleration
      */
     private analyzeMomentum(
-        momentumHistory: number[];
-        velocityHistory: number[];
+        momentumHistory: number[],
+        velocityHistory: number[],
         priceHistory: Array<{ price: number; timestamp: number }>
     ): MomentumAnalysis {
         if (momentumHistory.length < this.MOMENTUM_MEDIUM) {
