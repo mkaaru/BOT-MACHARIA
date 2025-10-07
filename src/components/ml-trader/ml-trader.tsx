@@ -403,16 +403,14 @@ const MLTrader = observer(() => {
         const stake = mlAutoTrader.getConfig().stake_amount;
 
         try {
-            const durationSeconds = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
-
             const tradeParams = {
                 proposal: 1,
                 amount: stake,
                 basis: 'stake',
-                contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT',
+                contract_type: recommendation.action === 'RISE' ? 'PUT' : 'CALL',
                 currency: account_currency,
-                duration: durationSeconds,
-                duration_unit: 's',
+                duration: 2,
+                duration_unit: 't',
                 symbol: recommendation.symbol
             };
 
@@ -465,16 +463,14 @@ const MLTrader = observer(() => {
         setStatus(`Executing ${recommendation.action} trade on ${recommendation.displayName}...`);
 
         try {
-            const durationSeconds = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
-
             const tradeParams = {
                 proposal: 1,
                 amount: trading_interface.stake,
                 basis: 'stake',
-                contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT',
+                contract_type: recommendation.action === 'RISE' ? 'PUT' : 'CALL',
                 currency: account_currency,
-                duration: durationSeconds,
-                duration_unit: 's',
+                duration: 2,
+                duration_unit: 't',
                 symbol: recommendation.symbol
             };
 

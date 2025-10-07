@@ -17,6 +17,11 @@ The platform features multiple trading approaches including a visual bot builder
   - Automatic contract monitoring and result tracking (won/lost status with profit calculation)
   - Trade history display with visual indicators for wins/losses
   - Risk controls: prevents duplicate trades on same symbol/direction, enforces cooldown between trades
+- **CRITICAL FIX - Rise/Fall Contract Types**: Corrected Deriv API contract type mapping
+  - Rise contracts now use "PUT" (was incorrectly using "CALL")
+  - Fall contracts now use "CALL" (was incorrectly using "PUT")
+  - Enforced 2 ticks duration for all contracts (duration: 2, duration_unit: 't')
+  - This fixes auto-trading purchase failures - contracts now execute correctly via Deriv API
 
 ## October 6, 2025
 - **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
