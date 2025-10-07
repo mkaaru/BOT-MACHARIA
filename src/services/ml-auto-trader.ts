@@ -162,11 +162,14 @@ class MLAutoTrader {
             return false;
         }
 
-        if (this.last_recommendation && 
-            this.last_recommendation.symbol === recommendation.symbol && 
-            this.last_recommendation.action === recommendation.action) {
-            this.updateStatus(`↻ Same recommendation as last trade, skipping`);
-            return false;
+        // Only prevent duplicate trades if we have an active contract on this symbol/direction
+        for (const [_, contract] of this.active_contracts) {
+            if (contract.symbol === recommendation.symbol && 
+                contract.contract_type === (recommendation.action === 'RISE' ? 'PUT' : 'CALL') &&
+                contract.status === 'open') {
+                this.updateStatus(`↻ Active contract already exists for ${recommendation.symbol} ${recommendation.action}, skipping`);
+                return false;
+            }
         }
 
         return true;

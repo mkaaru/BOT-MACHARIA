@@ -124,6 +124,7 @@ const MLTrader = observer(() => {
 
             const topRecommendation = recommendations[0];
             console.log(`🔍 Auto-trade check: Top recommendation = ${topRecommendation.displayName} ${topRecommendation.action} (${topRecommendation.confidence.toFixed(1)}%)`);
+            console.log(`📊 Contract in progress status: ${contractInProgressRef.current}`);
             
             if (mlAutoTrader.shouldExecuteTrade(topRecommendation)) {
                 if (!contractInProgressRef.current) {
