@@ -651,7 +651,7 @@ const MLTrader = observer(() => {
 
             // Set default duration to 2 ticks
             const defaultDuration = 2;
-            
+
             // Set default stake to 0.35
             const defaultStake = 0.35;
 
@@ -761,7 +761,7 @@ const MLTrader = observer(() => {
                                 <field name="DURATIONTYPE_LIST">t</field>
                                 <value name="DURATION">
                                     <shadow type="math_number">
-                                        <field name="NUM">${defaultDuration}</field>
+                                        <field name="NUM">2</field>
                                     </shadow>
                                 </value>
                                 <value name="AMOUNT">
