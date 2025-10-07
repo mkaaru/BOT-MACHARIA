@@ -774,6 +774,9 @@ const MLTrader = observer(() => {
                                     <shadow type="math_number">
                                         <field name="NUM">2</field>
                                     </shadow>
+                                    <block type="math_number">
+                                        <field name="NUM">2</field>
+                                    </block>
                                 </value>
                                 <value name="AMOUNT">
                                     <shadow type="math_number">
