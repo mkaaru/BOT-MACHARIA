@@ -61,6 +61,8 @@ class MLAutoTrader {
     private trade_history: AutoTradeResult[] = [];
     private active_contracts: Map<string, AutoTradeResult> = new Map();
     private last_recommendation: ScannerRecommendation | null = null;
+    private last_traded_symbols: Set<string> = new Set();
+    private symbol_rotation_index: number = 0;
     private status_callback: ((status: string) => void) | null = null;
     private stats_callback: ((stats: AutoTradeStats) => void) | null = null;
     private trade_callback: ((trade: AutoTradeResult) => void) | null = null;
@@ -172,10 +174,25 @@ class MLAutoTrader {
             }
         }
 
+        // Symbol rotation: If recently traded this symbol, prefer different ones
+        if (this.last_traded_symbols.has(recommendation.symbol) && this.last_traded_symbols.size < 5) {
+            this.updateStatus(`🔄 Recently traded ${recommendation.symbol}, waiting for symbol rotation`);
+            return false;
+        }
+
         return true;
     }
 
     public registerTrade(recommendation: ScannerRecommendation, contract_id: string, entry_price: number, payout: number) {
+        // Track traded symbol for rotation
+        this.last_traded_symbols.add(recommendation.symbol);
+        
+        // Clear old symbols after 5 trades
+        if (this.last_traded_symbols.size > 3) {
+            const oldestSymbol = Array.from(this.last_traded_symbols)[0];
+            this.last_traded_symbols.delete(oldestSymbol);
+        }
+
         const trade: AutoTradeResult = {
             contract_id,
             symbol: recommendation.symbol,

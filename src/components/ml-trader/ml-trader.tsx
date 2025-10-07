@@ -422,6 +422,43 @@ const MLTrader = observer(() => {
     }, [filter_settings]);
 
     /**
+     * Check if symbol is moving (price changing)
+     */
+    const checkSymbolMovement = useCallback(async (symbol: string): Promise<boolean> => {
+        if (!apiRef.current) return false;
+
+        try {
+            // Get current tick
+            const tick1_response = await apiRef.current.send({
+                ticks: symbol,
+                subscribe: 0
+            });
+
+            if (!tick1_response.tick) return false;
+            const price1 = tick1_response.tick.quote;
+
+            // Wait 2 seconds and check again
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            const tick2_response = await apiRef.current.send({
+                ticks: symbol,
+                subscribe: 0
+            });
+
+            if (!tick2_response.tick) return false;
+            const price2 = tick2_response.tick.quote;
+
+            const isMoving = price1 !== price2;
+            console.log(`📊 Movement check for ${symbol}: Price1=${price1}, Price2=${price2}, Moving=${isMoving}`);
+
+            return isMoving;
+        } catch (error) {
+            console.error('Movement check error:', error);
+            return false;
+        }
+    }, []);
+
+    /**
      * Execute an automated trade based on recommendation
      */
     const executeAutoTrade = useCallback(async (recommendation: ScannerRecommendation) => {
@@ -431,6 +468,14 @@ const MLTrader = observer(() => {
         const stake = mlAutoTrader.getConfig().stake_amount;
 
         console.log(`🤖 AUTO-TRADE EXECUTING: ${recommendation.action} on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
+
+        // Check if symbol is moving before trading
+        const isMoving = await checkSymbolMovement(recommendation.symbol);
+        if (!isMoving) {
+            console.warn(`⏸️ Symbol ${recommendation.symbol} is not moving, skipping trade`);
+            contractInProgressRef.current = false;
+            return;
+        }
 
         try {
             const tradeParams = {

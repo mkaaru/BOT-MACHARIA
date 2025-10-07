@@ -694,11 +694,16 @@
                     font-size: 1.2rem;
                     font-weight: 500;
 
-                    &.active,
                     &:hover {
-                        background: var(--brand-coral);
-                        color: white;
+                        background: var(--general-hover);
                         border-color: var(--brand-coral);
+                    }
+
+                    &.active {
+                        background: var(--brand-coral);
+                        color: #ffffff !important;
+                        border-color: var(--brand-coral);
+                        font-weight: 600;
                     }
                 }
             }
