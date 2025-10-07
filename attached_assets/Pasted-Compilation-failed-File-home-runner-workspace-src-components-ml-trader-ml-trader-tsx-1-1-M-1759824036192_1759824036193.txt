@@ -1,0 +1,158 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × Module build failed:
+  ╰─▶   ×   × cannot reassign to a variable declared with `const`
+        │      ╭─[/home/runner/workspace/src/components/ml-trader/ml-trader.tsx:33:1]
+        │   30 │ const rocAnalyzer = (() => {
+        │   31 │     const tickData: Record<string, { price: number; timestamp: number }[]> = {};
+        │   32 │     const rocCache: Record<string, { roc5: number; roc3: number; roc1: number }> = {};
+        │   33 │     const historicalDataLength: Record<string, number> = {}; // To store the number of ticks processed
+        │      ·           ──────────┬─────────
+        │      ·                     ╰── const variable was declared here
+        │   34 │
+        │   35 │     const TICK_COUNTS = {
+        │   36 │         '5min': 300, // 5 minutes * 60 seconds/min = 300 ticks (assuming 1 tick per second)
+        │   37 │         '3min': 180, // 3 minutes * 60 seconds/min = 180 ticks
+        │   38 │         '1min': 60,  // 1 minute * 60 seconds/min = 60 ticks
+        │   39 │     };
+        │   40 │
+        │   41 │     const getROC = (symbol: string, ticks: number): number => {
+        │   42 │         const data = tickData[symbol];
+        │   43 │         if (!data || data.length < ticks) {
+        │   44 │             return 0; // Not enough data
+        │   45 │         }
+        │   46 │         const currentPrice = data[data.length - 1].price;
+        │   47 │         const pastPrice = data[data.length - ticks].price;
+        │   48 │         return ((currentPrice - pastPrice) / pastPrice) * 100;
+        │   49 │     };
+        │   50 │
+        │   51 │     const analyze = (symbol: string) => {
+        │   52 │         if (!rocCache[symbol]) return null;
+        │   53 │
+        │   54 │         const roc5 = rocCache[symbol].roc5;
+        │   55 │         const roc3 = rocCache[symbol].roc3;
+        │   56 │         const roc1 = rocCache[symbol].roc1;
+        │   57 │
+        │   58 │         let alignment = false;
+        │   59 │         let action: 'RISE' | 'FALL' = 'RISE'; // Default
+        │   60 │
+        │   61 │         // Check for alignment: all ROC values positive or all negative
+        │   62 │         if (roc1 > 0 && roc3 > 0 && roc5 > 0) {
+        │   63 │             alignment = true;
+        │   64 │             action = 'RISE';
+        │   65 │         } else if (roc1 < 0 && roc3 < 0 && roc5 < 0) {
+        │   66 │             alignment = true;
+        │   67 │             action = 'FALL';
+        │   68 │         }
+        │   69 │
+        │   70 │         // Simple confidence: based on magnitude of smallest ROC, or a fixed high value if aligned
+        │   71 │         const minRoc = Math.min(Math.abs(roc1), Math.abs(roc3), Math.abs(roc5));
+        │   72 │         const confidence = alignment ? Math.max(60, Math.min(100, 50 + minRoc)) : 0; // Example confidence
+        │   73 │
+        │   74 │         if (!alignment) return null; // Only return recommendations if aligned
+        │   75 │
+        │   76 │         return {
+        │   77 │             roc_5min: roc5,
+        │   78 │             roc_3min: roc3,
+        │   79 │             roc_1min: roc1,
+        │   80 │             alignment: {
+        │   81 │                 score: confidence, // Using confidence as alignment score for now
+        │   82 │                 aligned: alignment,
+        │   83 │                 direction: action
+        │   84 │             },
+        │   85 │             action: action, // Explicitly return action
+        │   86 │             confidence: confidence // Explicitly return confidence
+        │   87 │         };
+        │   88 │     };
+        │   89 │
+        │   90 │     const processTick = (symbol: string, price: number) => {
+        │   91 │         if (!tickData[symbol]) {
+        │   92 │             tickData[symbol] = [];
+        │   93 │         }
+        │   94 │         tickData[symbol].push({ price, timestamp: Date.now() });
+        │   95 │
+        │   96 │         // Keep only enough data for the longest interval
+        │   97 │         const maxTicks = TICK_COUNTS['5min'];
+        │   98 │         if (tickData[symbol].length > maxTicks) {
+        │   99 │             tickData[symbol] = tickData[symbol].slice(tickData[symbol].length - maxTicks);
+        │  100 │         }
+        │  101 │
+        │  102 │         // Recalculate ROC if enough data is available
+        │  103 │         if (tickData[symbol].length >= TICK_COUNTS['1min']) {
+        │  104 │             const roc1 = getROC(symbol, TICK_COUNTS['1min']);
+        │  105 │             const roc3 = tickData[symbol].length >= TICK_COUNTS['3min'] ? getROC(symbol, TICK_COUNTS['3min']) : 0;
+        │  106 │             const roc5 = tickData[symbol].length >= TICK_COUNTS['5min'] ? getROC(symbol, TICK_COUNTS['5min']) : 0;
+        │  107 │
+        │  108 │             if (!rocCache[symbol]) {
+        │  109 │                 rocCache[symbol] = { roc5: 0, roc3: 0, roc1: 0 };
+        │  110 │             }
+        │  111 │             rocCache[symbol] = { roc5, roc3, roc1 };
+        │  112 │         }
+        │  113 │     };
+        │  114 │
+        │  115 │     const processBulkTicks = (symbol: string, data: { price: number; timestamp: number }[]) => {
+        │  116 │         if (!tickData[symbol]) {
+        │  117 │             tickData[symbol] = [];
+        │  118 │         }
+        │  119 │         tickData[symbol] = tickData[symbol].concat(data);
+        │  120 │
+        │  121 │         // Keep only enough data for the longest interval
+        │  122 │         const maxTicks = TICK_COUNTS['5min'];
+        │  123 │         if (tickData[symbol].length > maxTicks) {
+        │  124 │             tickData[symbol] = tickData[symbol].slice(tickData[symbol].length - maxTicks);
+        │  125 │         }
+        │  126 │
+        │  127 │         // Recalculate ROC after bulk processing
+        │  128 │         if (tickData[symbol].length >= TICK_COUNTS['1min']) {
+        │  129 │             const roc1 = getROC(symbol, TICK_COUNTS['1min']);
+        │  130 │             const roc3 = tickData[symbol].length >= TICK_COUNTS['3min'] ? getROC(symbol, TICK_COUNTS['3min']) : 0;
+        │  131 │             const roc5 = tickData[symbol].length >= TICK_COUNTS['5min'] ? getROC(symbol, TICK_COUNTS['5min']) : 0;
+        │  132 │
+        │  133 │             if (!rocCache[symbol]) {
+        │  134 │                 rocCache[symbol] = { roc5: 0, roc3: 0, roc1: 0 };
+        │  135 │             }
+        │  136 │             rocCache[symbol] = { roc5, roc3, roc1 };
+        │  137 │         }
+        │  138 │     };
+        │  139 │
+        │  140 │     const getAllRecommendations = (symbols: any[]) => {
+        │  141 │         const recommendations: ROCRecommendation[] = [];
+        │  142 │         let rankCounter = 1;
+        │  143 │
+        │  144 │         symbols.forEach(symbolInfo => {
+        │  145 │             const analysisResult = analyze(symbolInfo.symbol);
+        │  146 │             if (analysisResult && analysisResult.alignment) {
+        │  147 │                 recommendations.push({
+        │  148 │                     symbol: symbolInfo.symbol,
+        │  149 │                     displayName: symbolInfo.display_name,
+        │  150 │                     action: analysisResult.action,
+        │  151 │                     confidence: analysisResult.confidence,
+        │  152 │                     rank: rankCounter++,
+        │  153 │                     roc_5min: analysisResult.roc_5min,
+        │  154 │                     roc_3min: analysisResult.roc_3min,
+        │  155 │                     roc_1min: analysisResult.roc_1min,
+        │  156 │                 });
+        │  157 │             }
+        │  158 │         });
+        │  159 │
+        │  160 │         // Sort by confidence (descending)
+        │  161 │         recommendations.sort((a, b) => b.confidence - a.confidence);
+        │  162 │
+        │  163 │         return recommendations;
+        │  164 │     };
+        │  165 │
+        │  166 │     const reset = () => {
+        │  167 │         Object.keys(tickData).forEach(key => tickData[key] = []);
+        │  168 │         Object.keys(rocCache).forEach(key => rocCache[key] = { roc5: 0, roc3: 0, roc1: 0 });
+        │  169 │         historicalDataLength = {};
+        │      ·         ──────────┬─────────
+        │      ·                   ╰── cannot reassign
+        │  170 │     };
+        │  171 │
+        │  172 │     return {
+        │      ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
