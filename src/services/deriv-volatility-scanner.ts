@@ -96,6 +96,9 @@ export interface VolatilityAnalysis {
         volatilityExpansion: boolean;
         priceAcceleration: boolean;
     };
+
+    // Recent ticks for movement analysis
+    recentTicks: Array<{ price: number; timestamp: number }>;
 }
 
 export interface ScannerRecommendation {
@@ -189,6 +192,10 @@ export class DerivVolatilityScanner {
     // Track last candle timestamps for each symbol
     private lastCandleTimestamps: Map<string, number> = new Map();
 
+    // Cooldown mechanism for trading signals
+    private cooldownTimestamps: Map<string, number> = new Map();
+    private readonly TRADING_COOLDOWN_SECONDS = 5; // Cooldown period after a trade signal
+
     constructor() {
         // Initialize data structures
         this.VOLATILITY_SYMBOLS.forEach(sym => {
@@ -196,6 +203,7 @@ export class DerivVolatilityScanner {
             this.momentumData.set(sym.symbol, []);
             this.velocityData.set(sym.symbol, []);
             this.lastCandleTimestamps.set(sym.symbol, 0);
+            this.cooldownTimestamps.set(sym.symbol, 0); // Initialize cooldown
         });
 
         console.log('🚀 Deriv Volatility Scanner Initialized');
@@ -224,7 +232,7 @@ export class DerivVolatilityScanner {
         const currentCandleMinute = Math.floor(epoch / 60);
         const lastCandleTimestamp = this.lastCandleTimestamps.get(symbol) || 0;
         const lastCandleMinute = Math.floor(lastCandleTimestamp / 60);
-        
+
         const isNewCandle = currentCandleMinute > lastCandleMinute && lastCandleTimestamp > 0;
 
         // Store price data
@@ -243,7 +251,7 @@ export class DerivVolatilityScanner {
         // Update analysis cache if we have sufficient data
         if (priceHistory.length >= this.MIN_DATA_POINTS) {
             this.updateAnalysis(symbol);
-            
+
             // If this is a new candle, trigger a full scan to update recommendations
             if (isNewCandle) {
                 console.log(`🕐 New 1-minute candle detected for ${symbol} - triggering recommendation update`);
@@ -367,7 +375,7 @@ export class DerivVolatilityScanner {
         const momentumHistory = this.momentumData.get(symbolInfo.symbol);
         const velocityHistory = this.velocityData.get(symbolInfo.symbol);
 
-        if (!priceHistory || !momentumHistory || !velocityHistory || 
+        if (!priceHistory || !momentumHistory || !velocityHistory ||
             priceHistory.length < this.MIN_DATA_POINTS) {
             return null;
         }
@@ -382,7 +390,7 @@ export class DerivVolatilityScanner {
 
         // ML Predictions - prepare data in correct format
         const mlData = priceHistory.map(p => ({ price: p.price, timestamp: p.timestamp }));
-        
+
         // Train ML model if not already trained
         if (mlData.length > 0) {
             try {
@@ -391,18 +399,16 @@ export class DerivVolatilityScanner {
                 console.error('ML training error:', error);
             }
         }
-        
+
         const mlPrediction = mlTickAnalyzer.predict(symbolInfo.symbol) || {
-            direction: 'NEUTRAL' as const,
+            trend: 'NEUTRAL' as const,
             confidence: 0,
-            strength: 0,
-            patterns_matched: 0,
-            learning_score: 0
+            probability: 0
         };
 
         // Determine recommendation
         const { recommendation, confidence, duration } = this.generateRecommendation(
-            symbolInfo, timeframes, momentum, mlPrediction, currentPrice
+            symbolInfo, timeframes, momentum, mlPrediction, currentPrice, priceHistory
         );
 
         // Calculate entry score
@@ -443,7 +449,8 @@ export class DerivVolatilityScanner {
             marketPhase,
             tickCount: priceHistory.length,
             dataQuality: this.assessDataQuality(priceHistory.length),
-            signals
+            signals,
+            recentTicks: priceHistory.slice(-20) // Store recent ticks for movement analysis
         };
     }
 
@@ -475,7 +482,7 @@ export class DerivVolatilityScanner {
         }
 
         // Calculate weighted score (5-minute gets highest weight)
-        const weightedScore = 
+        const weightedScore =
             (m5.momentumScore * m5.weight) +
             (m3.momentumScore * m3.weight) +
             (m1.momentumScore * m1.weight) +
@@ -497,7 +504,7 @@ export class DerivVolatilityScanner {
      * Analyze single timeframe
      */
     private analyzeTimeframe(
-        priceHistory: Array<{ price: number; timestamp: number }>,
+        priceHistory: Array<{ price: number; timestamp: number }>;
         config: { period: number; weight: number; label: string }
     ): TimeframeMomentum {
         if (priceHistory.length < config.period + 10) {
@@ -548,7 +555,7 @@ export class DerivVolatilityScanner {
      * Calculate trend metrics (strength, confidence, quality)
      */
     private calculateTrendMetrics(
-        data: Array<{ price: number; timestamp: number }>,
+        data: Array<{ price: number; timestamp: number }>;
         direction: TimeframeDirection
     ): { strength: number; confidence: number; trendQuality: number } {
         if (data.length < 10) {
@@ -572,8 +579,8 @@ export class DerivVolatilityScanner {
         if (totalMoves === 0) return { strength: 0, confidence: 0, trendQuality: 0 };
 
         // Calculate strength (dominance of direction)
-        const dominantMoves = direction === 'BULLISH' ? upMoves : 
-                             direction === 'BEARISH' ? downMoves : 
+        const dominantMoves = direction === 'BULLISH' ? upMoves :
+                             direction === 'BEARISH' ? downMoves :
                              Math.max(upMoves, downMoves);
         const strength = (dominantMoves / totalMoves) * 100;
 
@@ -616,8 +623,8 @@ export class DerivVolatilityScanner {
      * Analyze momentum with velocity and acceleration
      */
     private analyzeMomentum(
-        momentumHistory: number[],
-        velocityHistory: number[],
+        momentumHistory: number[];
+        velocityHistory: number[];
         priceHistory: Array<{ price: number; timestamp: number }>
     ): MomentumAnalysis {
         if (momentumHistory.length < this.MOMENTUM_MEDIUM) {
@@ -672,7 +679,7 @@ export class DerivVolatilityScanner {
     /**
      * Calculate EMA
      */
-    private calculateEMA(data: number[], period: number): number {
+    private calculateEMA(data: number[]; period: number): number {
         if (data.length < period) return 0;
 
         const multiplier = 2 / (period + 1);
@@ -703,9 +710,9 @@ export class DerivVolatilityScanner {
      * Calculate cascade strength (momentum flow between timeframes)
      */
     private calculateCascadeStrength(
-        m5: TimeframeMomentum,
-        m3: TimeframeMomentum,
-        m1: TimeframeMomentum,
+        m5: TimeframeMomentum;
+        m3: TimeframeMomentum;
+        m1: TimeframeMomentum;
         s30: TimeframeMomentum
     ): number {
         // Check if momentum flows consistently from longer to shorter timeframes
@@ -717,7 +724,7 @@ export class DerivVolatilityScanner {
             const next = timeframes[i + 1];
 
             // Check if trend direction is consistent and momentum is maintained
-            if (current.direction === next.direction && 
+            if (current.direction === next.direction &&
                 current.direction !== 'NEUTRAL' &&
                 next.momentumScore >= current.momentumScore * 0.7) {
                 alignedTransitions++;
@@ -731,22 +738,63 @@ export class DerivVolatilityScanner {
      * Generate trading recommendation
      */
     private generateRecommendation(
-        symbolInfo: typeof this.VOLATILITY_SYMBOLS[0],
-        timeframes: MultiTimeframeAnalysis,
-        momentum: MomentumAnalysis,
-        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>,
-        currentPrice: number
+        symbolInfo: typeof this.VOLATILITY_SYMBOLS[0];
+        timeframes: MultiTimeframeAnalysis;
+        momentum: MomentumAnalysis;
+        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>;
+        currentPrice: number;
+        priceHistory: Array<{ price: number; timestamp: number }> // Added priceHistory
     ): { recommendation: VolatilityAnalysis['recommendation']; confidence: number; duration: VolatilityAnalysis['contractDuration'] } {
 
-        // Check minimum requirements
-        if (timeframes.alignment < this.MIN_ALIGNMENT_SCORE ||
-            momentum.strength < this.MIN_MOMENTUM_STRENGTH ||
-            timeframes.m5.confidence < 60) {
-            return {
-                recommendation: 'NO_TRADE',
-                confidence: Math.max(timeframes.alignment, momentum.strength) * 0.5,
-                duration: '1m'
-            };
+        // --- Movement Detection ---
+        const recentTicks = priceHistory.slice(-10); // Last 10 ticks
+        if (recentTicks.length < 10) {
+            // console.log(`⏳ ${symbolInfo.symbol}: Not enough recent ticks for movement analysis.`);
+            return { recommendation: 'NO_TRADE', confidence: 0, duration: '1m' };
+        }
+
+        const priceChanges = recentTicks.slice(1).map((tick, i) =>
+            Math.abs(tick.price - recentTicks[i].price)
+        );
+        const avgMovement = priceChanges.reduce((sum, change) => sum + change, 0) / priceChanges.length;
+
+        // Reject if market is too stagnant
+        const STAGNANT_THRESHOLD = 0.0005; // Adjusted threshold for Step Indices
+        if (avgMovement < STAGNANT_THRESHOLD) {
+            // console.log(`⏸️ ${symbolInfo.symbol}: Market too stagnant (avg movement: ${avgMovement.toFixed(6)}), skipping recommendation.`);
+            return { recommendation: 'NO_TRADE', confidence: 0, duration: '1m' };
+        }
+
+        // Check for duplicate entry/exit prices (indicates no movement)
+        const lastPrice = recentTicks[recentTicks.length - 1].price;
+        const duplicateCount = recentTicks.filter(t => t.price === lastPrice).length;
+        const DUPLICATE_PRICE_THRESHOLD = 4; // Allow a few duplicates, but not too many
+        if (duplicateCount > DUPLICATE_PRICE_THRESHOLD) {
+            // console.log(`⏸️ ${symbolInfo.symbol}: Too many duplicate prices (${duplicateCount}), market not moving.`);
+            return { recommendation: 'NO_TRADE', confidence: 0, duration: '1m' };
+        }
+
+        // --- Cooldown Check ---
+        const lastTradeSignalTime = this.cooldownTimestamps.get(symbolInfo.symbol) || 0;
+        const currentTime = Date.now();
+        const timeSinceLastSignal = (currentTime - lastTradeSignalTime) / 1000;
+
+        if (timeSinceLastSignal < this.TRADING_COOLDOWN_SECONDS) {
+            // console.log(`⏳ ${symbolInfo.symbol}: Cooldown active (${(this.TRADING_COOLDOWN_SECONDS - timeSinceLastSignal).toFixed(1)}s remaining), skipping recommendation.`);
+            return { recommendation: 'NO_TRADE', confidence: 0, duration: '1m' };
+        }
+
+
+        // --- Minimum thresholds for a valid recommendation ---
+        const MIN_VOLATILITY = 30;
+        const MIN_MOMENTUM_STRENGTH = 60; // Adjusted for movement detection
+        const MIN_ALIGNMENT_SCORE = 70;
+        const MIN_CONFIDENCE = 75; // Final confidence threshold
+
+        // Check if volatility and momentum meet minimums
+        if (volatility < MIN_VOLATILITY || momentum.strength < MIN_MOMENTUM_STRENGTH || timeframes.alignment < MIN_ALIGNMENT_SCORE) {
+            // console.log(`📉 ${symbolInfo.symbol}: Insufficient base metrics (Volatility: ${volatility.toFixed(1)}, Momentum Strength: ${momentum.strength.toFixed(1)}, Alignment: ${timeframes.alignment.toFixed(1)})`);
+            return { recommendation: 'NO_TRADE', confidence: 0, duration: '1m' };
         }
 
         // Determine recommendation based on 5-minute trend (primary), momentum, and ML prediction
@@ -757,8 +805,8 @@ export class DerivVolatilityScanner {
         const m5Strong = timeframes.m5.strength >= 70 && timeframes.m5.confidence >= 70;
         const momentumStrong = momentum.strength >= 70 && momentum.score >= 60;
         const cascadeGood = timeframes.cascadeStrength >= 60;
-        const mlBullish = mlPrediction.direction === 'RISE' && mlPrediction.confidence > 60;
-        const mlBearish = mlPrediction.direction === 'FALL' && mlPrediction.confidence > 60;
+        const mlBullish = mlPrediction.trend === 'BULLISH' && mlPrediction.confidence > 60;
+        const mlBearish = mlPrediction.trend === 'BEARISH' && mlPrediction.confidence > 60;
 
         // Combine traditional analysis with ML predictions
         const bullishSignal = (timeframes.consensus === 'BULLISH' || mlBullish) && momentum.direction === 'INCREASING';
@@ -786,6 +834,11 @@ export class DerivVolatilityScanner {
             }
         }
 
+        // Final confidence check
+        if (confidence < MIN_CONFIDENCE) {
+            recommendation = 'NO_TRADE';
+        }
+
         return { recommendation, confidence, duration };
     }
 
@@ -793,9 +846,9 @@ export class DerivVolatilityScanner {
      * Calculate entry score
      */
     private calculateEntryScore(
-        timeframes: MultiTimeframeAnalysis,
-        momentum: MomentumAnalysis,
-        confidence: number,
+        timeframes: MultiTimeframeAnalysis;
+        momentum: MomentumAnalysis;
+        confidence: number;
         mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>
     ): number {
         const alignmentScore = timeframes.alignment * 0.3;
@@ -811,8 +864,8 @@ export class DerivVolatilityScanner {
      * Assess risk level
      */
     private assessRisk(
-        symbolInfo: typeof this.VOLATILITY_SYMBOLS[0],
-        timeframes: MultiTimeframeAnalysis,
+        symbolInfo: typeof this.VOLATILITY_SYMBOLS[0];
+        timeframes: MultiTimeframeAnalysis;
         momentum: MomentumAnalysis
     ): { riskLevel: VolatilityAnalysis['riskLevel']; volatility: number } {
         let riskLevel: VolatilityAnalysis['riskLevel'] = 'MEDIUM';
@@ -825,13 +878,13 @@ export class DerivVolatilityScanner {
 
         // Adjust for timeframe alignment
         if (timeframes.alignment < 50) {
-            riskLevel = riskLevel === 'LOW' ? 'MEDIUM' : 
+            riskLevel = riskLevel === 'LOW' ? 'MEDIUM' :
                        riskLevel === 'MEDIUM' ? 'HIGH' : 'EXTREME';
         }
 
         // Adjust for momentum consistency
         if (momentum.consistency < 60) {
-            riskLevel = riskLevel === 'LOW' ? 'MEDIUM' : 
+            riskLevel = riskLevel === 'LOW' ? 'MEDIUM' :
                        riskLevel === 'MEDIUM' ? 'HIGH' : 'EXTREME';
         }
 
@@ -842,7 +895,7 @@ export class DerivVolatilityScanner {
      * Determine market phase
      */
     private determineMarketPhase(
-        timeframes: MultiTimeframeAnalysis,
+        timeframes: MultiTimeframeAnalysis;
         momentum: MomentumAnalysis
     ): VolatilityAnalysis['marketPhase'] {
         if (timeframes.consensus === 'BULLISH' && momentum.direction === 'INCREASING' && momentum.strength >= 60) {
@@ -860,7 +913,7 @@ export class DerivVolatilityScanner {
      * Calculate trend strength
      */
     private calculateTrendStrength(
-        timeframes: MultiTimeframeAnalysis,
+        timeframes: MultiTimeframeAnalysis;
         momentum: MomentumAnalysis
     ): number {
         const alignmentWeight = 0.3;
@@ -880,8 +933,8 @@ export class DerivVolatilityScanner {
      * Generate trading signals
      */
     private generateTradingSignals(
-        timeframes: MultiTimeframeAnalysis,
-        momentum: MomentumAnalysis,
+        timeframes: MultiTimeframeAnalysis;
+        momentum: MomentumAnalysis;
         priceHistory: Array<{ price: number; timestamp: number }>
     ): VolatilityAnalysis['signals'] {
         return {
@@ -928,9 +981,9 @@ export class DerivVolatilityScanner {
      * Generate entry reason
      */
     private generateEntryReason(
-        recommendation: VolatilityAnalysis['recommendation'],
-        timeframes: MultiTimeframeAnalysis,
-        momentum: MomentumAnalysis,
+        recommendation: VolatilityAnalysis['recommendation'];
+        timeframes: MultiTimeframeAnalysis;
+        momentum: MomentumAnalysis;
         mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>
     ): string {
         if (recommendation === 'NO_TRADE') {
@@ -981,41 +1034,42 @@ export class DerivVolatilityScanner {
 
         this.analysisCache.forEach(analysis => {
             const isStepIndex = analysis.symbol.includes('STEP') || analysis.symbol.includes('STP') || analysis.symbol.includes('stp');
-            
-            if (isStepIndex) {
-                console.log(`🔷 Step Index Check: ${analysis.symbol}`, {
-                    recommendation: analysis.recommendation,
-                    confidence: analysis.confidence,
-                    minConfidence: this.MIN_CONFIDENCE,
-                    passesFilter: analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= this.MIN_CONFIDENCE
-                });
-            }
-            
+
+            // Check if the recommendation is valid and meets minimum confidence threshold
             if (analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= this.MIN_CONFIDENCE) {
                 const symbolInfo = this.VOLATILITY_SYMBOLS.find(s => s.symbol === analysis.symbol);
                 if (!symbolInfo) return;
 
-                const urgency = analysis.confidence >= 90 ? 'CRITICAL' :
-                               analysis.confidence >= 80 ? 'HIGH' :
-                               analysis.confidence >= 70 ? 'MEDIUM' : 'LOW';
+                // Apply cooldown logic before adding to recommendations
+                const lastTradeSignalTime = this.cooldownTimestamps.get(analysis.symbol) || 0;
+                const currentTime = Date.now();
+                const timeSinceLastSignal = (currentTime - lastTradeSignalTime) / 1000;
 
-                recommendations.push({
-                    rank: 0, // Will be set after sorting
-                    symbol: analysis.symbol,
-                    displayName: analysis.displayName,
-                    action: analysis.recommendation.includes('RISE') ? 'RISE' : 'FALL',
-                    confidence: analysis.confidence,
-                    duration: analysis.contractDuration,
-                    entryPrice: analysis.currentPrice,
-                    momentumScore: analysis.momentum.score,
-                    trendAlignment: analysis.timeframes.alignment,
-                    reason: analysis.entryReason,
-                    urgency,
-                    expectedPayout: this.calculateExpectedPayout(analysis.confidence),
-                    riskReward: this.calculateRiskReward(analysis.confidence, analysis.riskLevel),
-                    mlTrend: analysis.mlPrediction?.trend,
-                    mlConfidence: analysis.mlPrediction?.confidence
-                });
+                if (timeSinceLastSignal >= this.TRADING_COOLDOWN_SECONDS) {
+                    const urgency = analysis.confidence >= 90 ? 'CRITICAL' :
+                                   analysis.confidence >= 80 ? 'HIGH' :
+                                   analysis.confidence >= 70 ? 'MEDIUM' : 'LOW';
+
+                    recommendations.push({
+                        rank: 0, // Will be set after sorting
+                        symbol: analysis.symbol,
+                        displayName: analysis.displayName,
+                        action: analysis.recommendation.includes('RISE') ? 'RISE' : 'FALL',
+                        confidence: analysis.confidence,
+                        duration: analysis.contractDuration,
+                        entryPrice: analysis.currentPrice,
+                        momentumScore: analysis.momentum.score,
+                        trendAlignment: analysis.timeframes.alignment,
+                        reason: analysis.entryReason,
+                        urgency,
+                        expectedPayout: this.calculateExpectedPayout(analysis.confidence),
+                        riskReward: this.calculateRiskReward(analysis.confidence, analysis.riskLevel),
+                        mlTrend: analysis.mlPrediction?.trend,
+                        mlConfidence: analysis.mlPrediction?.confidence
+                    });
+                } else {
+                    // console.log(`⏳ ${analysis.symbol}: Cooldown active, filtering out recommendation.`);
+                }
             }
         });
 
@@ -1064,7 +1118,7 @@ export class DerivVolatilityScanner {
         this.scannerStatus.lastScanTime = new Date();
 
         if (this.recommendations.length > 0) {
-            this.scannerStatus.avgConfidence = 
+            this.scannerStatus.avgConfidence =
                 this.recommendations.reduce((sum, rec) => sum + rec.confidence, 0) / this.recommendations.length;
 
             // Find highest momentum symbol
@@ -1141,7 +1195,7 @@ export class DerivVolatilityScanner {
 
         // Update scanner status
         this.scannerStatus.recommendationsCount = recommendations.length;
-        this.scannerStatus.avgConfidence = recommendations.length > 0 ? 
+        this.scannerStatus.avgConfidence = recommendations.length > 0 ?
             recommendations.reduce((sum, rec) => sum + rec.confidence, 0) / recommendations.length : 0;
 
         // Notify callbacks
@@ -1184,6 +1238,14 @@ export class DerivVolatilityScanner {
     }
 
     /**
+     * Apply cooldown to a symbol after a trade signal is generated
+     */
+    applyCooldown(symbol: string): void {
+        this.cooldownTimestamps.set(symbol, Date.now());
+        console.log(`⏰ Cooldown applied for ${symbol} for ${this.TRADING_COOLDOWN_SECONDS} seconds.`);
+    }
+
+    /**
      * Cleanup and reset
      */
     reset(): void {
@@ -1192,12 +1254,14 @@ export class DerivVolatilityScanner {
         this.velocityData.clear();
         this.analysisCache.clear();
         this.recommendations = [];
+        this.cooldownTimestamps.clear();
 
         // Reinitialize data structures
         this.VOLATILITY_SYMBOLS.forEach(sym => {
             this.priceData.set(sym.symbol, []);
             this.momentumData.set(sym.symbol, []);
             this.velocityData.set(sym.symbol, []);
+            this.cooldownTimestamps.set(sym.symbol, 0);
         });
 
         console.log('🔄 Deriv Volatility Scanner reset');

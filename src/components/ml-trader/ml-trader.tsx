@@ -427,10 +427,29 @@ const MLTrader = observer(() => {
     const executeAutoTrade = useCallback(async (recommendation: ScannerRecommendation) => {
         if (!apiRef.current || contractInProgressRef.current) return;
 
+        // Validate market is moving before trade
+        const symbolAnalysis = derivVolatilityScanner.getSymbolAnalysis(recommendation.symbol);
+        if (!symbolAnalysis || symbolAnalysis.recentTicks.length < 10) {
+            console.log(`⏸️ Insufficient tick data for ${recommendation.symbol}, waiting for movement`);
+            return;
+        }
+
+        // Check recent price movement
+        const recentTicks = symbolAnalysis.recentTicks.slice(-10);
+        const priceChanges = recentTicks.slice(1).map((tick, i) => 
+            Math.abs(tick.price - recentTicks[i].price)
+        );
+        const avgMovement = priceChanges.reduce((sum, change) => sum + change, 0) / priceChanges.length;
+
+        if (avgMovement < 0.001) {
+            console.log(`⏸️ ${recommendation.symbol} not moving (avg: ${avgMovement.toFixed(6)}), waiting for movement`);
+            return;
+        }
+
         contractInProgressRef.current = true;
         const stake = mlAutoTrader.getConfig().stake_amount;
 
-        console.log(`🤖 AUTO-TRADE EXECUTING: ${recommendation.action} on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
+        console.log(`🤖 AUTO-TRADE EXECUTING: ${recommendation.action} on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake} - Movement: ${avgMovement.toFixed(6)}`);
 
         try {
             const tradeParams = {
