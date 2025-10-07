@@ -1,0 +1,45 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/ml-trader/ml-trader.scss:1:1
+  × Module build failed:
+  ╰─▶   × Error: HookWebpackError:   × Module build failed:
+        │   ╰─▶   × unmatched "}".
+        │         │      ╷
+        │         │ 3280 │ }
+        │         │      │ ^
+        │         │      ╵
+        │         │   ../../../../src/components/ml-trader/ml-trader.scss 3280:1  root stylesheet
+        │         │
+        │
+        │
+        │     at tryRunOrWebpackError (/home/runner/workspace/node_modules/@rspack/core/dist/index.js:8138:11)
+        │     at __webpack_require__ (/home/runner/workspace/node_modules/@rspack/core/dist/index.js:17601:13)
+        │     at /home/runner/workspace/node_modules/@rspack/core/dist/index.js:17625:33
+        │     at last.function (/home/runner/workspace/node_modules/@rspack/core/dist/index.js:17936:25)
+        │/nFile: /home/runner/workspace/src/services/deriv-volatility-scanner.ts:1:1
+  × Module build failed:
+  ├─▶   ×   × Expected ',', got ';'
+  │     │      ╭─[/home/runner/workspace/src/services/deriv-volatility-scanner.ts:507:1]
+  │     │  504 │      * Analyze single timeframe
+  │     │  505 │      */
+  │     │  506 │     private analyzeTimeframe(
+  │     │  507 │         priceHistory: Array<{ price: number; timestamp: number }>;
+  │     │      ·                                                                  ─
+  │     │  508 │         config: { period: number; weight: number; label: string }
+  │     │  509 │     ): TimeframeMomentum {
+  │     │  510 │         if (priceHistory.length < config.period + 10) {
+  │     │      ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.scss:1:1
+  × Module build failed:
+  ╰─▶   × unmatched "}".
+        │      ╷
+        │ 3280 │ }
+        │      │ ^
+        │      ╵
+        │   ../../../../src/components/ml-trader/ml-trader.scss 3280:1  root stylesheet
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
