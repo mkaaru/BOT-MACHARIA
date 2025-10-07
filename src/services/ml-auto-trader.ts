@@ -144,13 +144,9 @@ class MLAutoTrader {
 
         const now = Date.now();
         const timeSinceLastTrade = (now - this.stats.last_trade_time) / 1000;
-        
-        // Increased cooldown to ensure market movement (minimum 15 seconds)
-        const effectiveCooldown = Math.max(this.config.cooldown_period_seconds, 15);
-        
-        if (timeSinceLastTrade < effectiveCooldown) {
-            const remaining = Math.ceil(effectiveCooldown - timeSinceLastTrade);
-            this.updateStatus(`⏳ Cooldown: ${remaining}s remaining (ensuring market movement)`);
+        if (timeSinceLastTrade < this.config.cooldown_period_seconds) {
+            const remaining = Math.ceil(this.config.cooldown_period_seconds - timeSinceLastTrade);
+            this.updateStatus(`⏳ Cooldown: ${remaining}s remaining`);
             return false;
         }
 
