@@ -5,13 +5,178 @@ import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
-import { derivVolatilityScanner, ScannerRecommendation, ScannerStatus, VolatilityAnalysis } from '@/services/deriv-volatility-scanner';
+import { ScannerRecommendation, ScannerStatus, VolatilityAnalysis } from '@/services/deriv-volatility-scanner';
 import { tickStreamManager } from '@/services/tick-stream-manager';
 import { mlTickAnalyzer } from '@/services/ml-tick-analyzer';
 import { statisticsEmitter } from '@/utils/statistics-emitter';
 import { mlAutoTrader } from '@/services/ml-auto-trader';
 import { AutoTradePanel } from './auto-trade-panel';
 import './ml-trader.scss';
+
+// Define a type for ROC recommendations
+interface ROCRecommendation {
+    symbol: string;
+    displayName: string;
+    action: 'RISE' | 'FALL'; // Assuming ROC alignment can suggest direction
+    confidence: number; // This might need to be re-evaluated or a new metric introduced
+    rank: number;
+    roc_5min: number;
+    roc_3min: number;
+    roc_1min: number;
+    // Add any other relevant fields for ROC-based recommendations
+}
+
+// Define the ROC analyzer
+const rocAnalyzer = (() => {
+    const tickData: Record<string, { price: number; timestamp: number }[]> = {};
+    const rocCache: Record<string, { roc5: number; roc3: number; roc1: number }> = {};
+    const historicalDataLength: Record<string, number> = {}; // To store the number of ticks processed
+
+    const TICK_COUNTS = {
+        '5min': 300, // 5 minutes * 60 seconds/min = 300 ticks (assuming 1 tick per second)
+        '3min': 180, // 3 minutes * 60 seconds/min = 180 ticks
+        '1min': 60,  // 1 minute * 60 seconds/min = 60 ticks
+    };
+
+    const getROC = (symbol: string, ticks: number): number => {
+        const data = tickData[symbol];
+        if (!data || data.length < ticks) {
+            return 0; // Not enough data
+        }
+        const currentPrice = data[data.length - 1].price;
+        const pastPrice = data[data.length - ticks].price;
+        return ((currentPrice - pastPrice) / pastPrice) * 100;
+    };
+
+    const analyze = (symbol: string) => {
+        if (!rocCache[symbol]) return null;
+
+        const roc5 = rocCache[symbol].roc5;
+        const roc3 = rocCache[symbol].roc3;
+        const roc1 = rocCache[symbol].roc1;
+
+        let alignment = false;
+        let action: 'RISE' | 'FALL' = 'RISE'; // Default
+
+        // Check for alignment: all ROC values positive or all negative
+        if (roc1 > 0 && roc3 > 0 && roc5 > 0) {
+            alignment = true;
+            action = 'RISE';
+        } else if (roc1 < 0 && roc3 < 0 && roc5 < 0) {
+            alignment = true;
+            action = 'FALL';
+        }
+
+        // Simple confidence: based on magnitude of smallest ROC, or a fixed high value if aligned
+        const minRoc = Math.min(Math.abs(roc1), Math.abs(roc3), Math.abs(roc5));
+        const confidence = alignment ? Math.max(60, Math.min(100, 50 + minRoc)) : 0; // Example confidence
+
+        if (!alignment) return null; // Only return recommendations if aligned
+
+        return {
+            roc_5min: roc5,
+            roc_3min: roc3,
+            roc_1min: roc1,
+            alignment: {
+                score: confidence, // Using confidence as alignment score for now
+                aligned: alignment,
+                direction: action
+            },
+            action: action, // Explicitly return action
+            confidence: confidence // Explicitly return confidence
+        };
+    };
+
+    const processTick = (symbol: string, price: number) => {
+        if (!tickData[symbol]) {
+            tickData[symbol] = [];
+        }
+        tickData[symbol].push({ price, timestamp: Date.now() });
+
+        // Keep only enough data for the longest interval
+        const maxTicks = TICK_COUNTS['5min'];
+        if (tickData[symbol].length > maxTicks) {
+            tickData[symbol] = tickData[symbol].slice(tickData[symbol].length - maxTicks);
+        }
+
+        // Recalculate ROC if enough data is available
+        if (tickData[symbol].length >= TICK_COUNTS['1min']) {
+            const roc1 = getROC(symbol, TICK_COUNTS['1min']);
+            const roc3 = tickData[symbol].length >= TICK_COUNTS['3min'] ? getROC(symbol, TICK_COUNTS['3min']) : 0;
+            const roc5 = tickData[symbol].length >= TICK_COUNTS['5min'] ? getROC(symbol, TICK_COUNTS['5min']) : 0;
+
+            if (!rocCache[symbol]) {
+                rocCache[symbol] = { roc5: 0, roc3: 0, roc1: 0 };
+            }
+            rocCache[symbol] = { roc5, roc3, roc1 };
+        }
+    };
+
+    const processBulkTicks = (symbol: string, data: { price: number; timestamp: number }[]) => {
+        if (!tickData[symbol]) {
+            tickData[symbol] = [];
+        }
+        tickData[symbol] = tickData[symbol].concat(data);
+
+        // Keep only enough data for the longest interval
+        const maxTicks = TICK_COUNTS['5min'];
+        if (tickData[symbol].length > maxTicks) {
+            tickData[symbol] = tickData[symbol].slice(tickData[symbol].length - maxTicks);
+        }
+
+        // Recalculate ROC after bulk processing
+        if (tickData[symbol].length >= TICK_COUNTS['1min']) {
+            const roc1 = getROC(symbol, TICK_COUNTS['1min']);
+            const roc3 = tickData[symbol].length >= TICK_COUNTS['3min'] ? getROC(symbol, TICK_COUNTS['3min']) : 0;
+            const roc5 = tickData[symbol].length >= TICK_COUNTS['5min'] ? getROC(symbol, TICK_COUNTS['5min']) : 0;
+
+            if (!rocCache[symbol]) {
+                rocCache[symbol] = { roc5: 0, roc3: 0, roc1: 0 };
+            }
+            rocCache[symbol] = { roc5, roc3, roc1 };
+        }
+    };
+
+    const getAllRecommendations = (symbols: any[]) => {
+        const recommendations: ROCRecommendation[] = [];
+        let rankCounter = 1;
+
+        symbols.forEach(symbolInfo => {
+            const analysisResult = analyze(symbolInfo.symbol);
+            if (analysisResult && analysisResult.alignment) {
+                recommendations.push({
+                    symbol: symbolInfo.symbol,
+                    displayName: symbolInfo.display_name,
+                    action: analysisResult.action,
+                    confidence: analysisResult.confidence,
+                    rank: rankCounter++,
+                    roc_5min: analysisResult.roc_5min,
+                    roc_3min: analysisResult.roc_3min,
+                    roc_1min: analysisResult.roc_1min,
+                });
+            }
+        });
+
+        // Sort by confidence (descending)
+        recommendations.sort((a, b) => b.confidence - a.confidence);
+
+        return recommendations;
+    };
+
+    const reset = () => {
+        Object.keys(tickData).forEach(key => tickData[key] = []);
+        Object.keys(rocCache).forEach(key => rocCache[key] = { roc5: 0, roc3: 0, roc1: 0 });
+        historicalDataLength = {};
+    };
+
+    return {
+        processTick,
+        processBulkTicks,
+        analyze,
+        getAllRecommendations,
+        reset
+    };
+})();
 
 
 // Enhanced volatility symbols with 1-second indices and Step Indices
@@ -21,6 +186,11 @@ const DERIV_VOLATILITY_SYMBOLS = [
     { symbol: 'stpRNG3', display_name: 'Step Index 300', is_1s: false, base_volatility: 300 },
     { symbol: 'stpRNG4', display_name: 'Step Index 400', is_1s: false, base_volatility: 400 },
     { symbol: 'stpRNG5', display_name: 'Step Index 500', is_1s: false, base_volatility: 500 },
+    { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s: false, base_volatility: 10 },
+    { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s: false, base_volatility: 25 },
+    { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s: false, base_volatility: 50 },
+    { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s: false, base_volatility: 75 },
+    { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s: false, base_volatility: 100 },
 ];
 
 // Contract types for Rise/Fall trading
@@ -55,7 +225,7 @@ const MLTrader = observer(() => {
     const contractInProgressRef = useRef(false);
     const autoTradingRef = useRef(false);
     const autoTradeIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const currentRecommendationRef = useRef<ScannerRecommendation | null>(null);
+    const currentRecommendationRef = useRef<ROCRecommendation | null>(null); // Use ROCRecommendation
 
     // Authentication and account state
     const [is_authorized, setIsAuthorized] = useState(false);
@@ -63,11 +233,13 @@ const MLTrader = observer(() => {
     const [account_balance, setAccountBalance] = useState<number>(0);
 
     // Scanner state
-    const [scanner_status, setScannerStatus] = useState<ScannerStatus | null>(null);
-    const [recommendations, setRecommendations] = useState<ScannerRecommendation[]>([]);
-    const [symbol_analyses, setSymbolAnalyses] = useState<Map<string, VolatilityAnalysis>>(new Map());
-    const [is_scanner_active, setIsScannerActive] = useState(false);
-    const [scan_progress, setScanProgress] = useState(0);
+    const [scanner_status, setScannerStatus] = useState<ScannerStatus | null>(null); // Keep ScannerStatus for general status if needed
+    const [recommendations, setRecommendations] = useState<ROCRecommendation[]>([]); // State for ROC recommendations
+    const [selectedSymbol, setSelectedSymbol] = useState<string>(''); // This state might be redundant now, using selected_recommendation
+    const [status, setStatus] = useState<string>('Initializing...');
+    const [isScannerActive, setIsScannerActive] = useState(false);
+    const [scanInterval, setScanInterval] = useState<NodeJS.Timeout | null>(null);
+    const [rocData, setRocData] = useState<Record<string, { roc5: number; roc3: number; roc1: number }>>({}); // State for ROC data
 
     // Trading interface state
     const [trading_interface, setTradingInterface] = useState<TradingInterface>({
@@ -80,15 +252,13 @@ const MLTrader = observer(() => {
     });
 
     // UI state
-    const [status, setStatus] = useState<string>('');
-    const [selected_recommendation, setSelectedRecommendation] = useState<ScannerRecommendation | null>(null);
     const [show_advanced_view, setShowAdvancedView] = useState(false);
     const [show_auto_trade_panel, setShowAutoTradePanel] = useState(false);
-    const [filter_settings] = useState({
+    const [filter_settings] = useState({ // This might need adjustment for ROC recommendations
         min_confidence: 75,
-        min_momentum: 60,
+        min_momentum: 60, // This might become less relevant or need redefinition for ROC
         max_risk: 'HIGH' as 'LOW' | 'MEDIUM' | 'HIGH',
-        preferred_durations: ['1m', '2m', '3m'] as string[]
+        preferred_durations: ['1m', '2m', '3m'] as string[] // This might need adjustment
     });
 
     // Auto-load to Bot Builder state
@@ -112,7 +282,7 @@ const MLTrader = observer(() => {
     useEffect(() => {
         const checkAutoTrade = () => {
             const config = mlAutoTrader.getConfig();
-            
+
             if (!config.enabled) {
                 return;
             }
@@ -125,7 +295,7 @@ const MLTrader = observer(() => {
             const topRecommendation = recommendations[0];
             console.log(`🔍 Auto-trade check: Top recommendation = ${topRecommendation.displayName} ${topRecommendation.action} (${topRecommendation.confidence.toFixed(1)}%)`);
             console.log(`📊 Contract in progress status: ${contractInProgressRef.current}`);
-            
+
             if (mlAutoTrader.shouldExecuteTrade(topRecommendation)) {
                 if (!contractInProgressRef.current) {
                     console.log('✅ Auto-trade conditions met - executing trade...');
@@ -187,11 +357,11 @@ const MLTrader = observer(() => {
             setStatus('Connecting to Deriv data streams...');
             await initializeTickStreams();
 
-            // Initialize volatility scanner
-            setStatus('Initializing momentum-based volatility scanner...');
+            // Initialize volatility scanner (now ROC scanner)
+            setStatus('Initializing ROC scanner...');
             await initializeVolatilityScanner();
 
-            setStatus('ML Trader ready - Scanning for momentum opportunities');
+            setStatus('ML Trader ready - Scanning for ROC opportunities');
             setIsScannerActive(true);
 
         } catch (error) {
@@ -210,19 +380,11 @@ const MLTrader = observer(() => {
             // Subscribe to all volatility symbols
             await tickStreamManager.subscribeToAllVolatilities();
 
-            // Add tick callbacks to feed the scanner and ML analyzer
+            // Add tick callbacks to feed the ROC analyzer
             DERIV_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
                 tickStreamManager.addTickCallback(symbolInfo.symbol, (tick) => {
-                    // Feed tick to volatility scanner
-                    derivVolatilityScanner.processTick({
-                        symbol: tick.symbol,
-                        quote: tick.quote,
-                        epoch: tick.epoch
-                    });
-
-                    // Feed tick to ML analyzer (for real-time prediction if implemented)
-                    // For now, ML model is trained on historical data in bulk.
-                    // mlTickAnalyzer.processTick(tick.symbol, tick); // Example if real-time prediction is added
+                    // Feed tick to ROC analyzer
+                    rocAnalyzer.processTick(tick.symbol, tick.quote);
                 });
             });
 
@@ -235,78 +397,34 @@ const MLTrader = observer(() => {
     }, []);
 
     /**
-     * Initialize volatility scanner and ML analyzer
+     * Initialize ROC scanner
      */
     const initializeVolatilityScanner = useCallback(async () => {
         try {
-            console.log('🔄 Initializing volatility scanner and ML analyzer...');
+            console.log('📊 Initializing ROC-based scanner...');
 
-            // Subscribe to scanner status updates
-            const statusUnsubscribe = derivVolatilityScanner.onStatusChange((status) => {
-                console.log('📊 Scanner status update:', status);
-                setScannerStatus(status);
-                // Calculate progress based on symbols that have loaded historical data
-                const analyzedSymbols = status.symbolsTracked;
-                const progress = analyzedSymbols > 0 ? (analyzedSymbols / DERIV_VOLATILITY_SYMBOLS.length) * 100 : 0;
-                setScanProgress(progress);
-            });
-
-            // Subscribe to recommendation updates
-            const recommendationsUnsubscribe = derivVolatilityScanner.onRecommendationChange((recs) => {
-                console.log(`🎯 New recommendations: ${recs.length} opportunities found`);
-                setRecommendations(recs);
-                updateSymbolAnalyses();
-
-                // Auto-trade if enabled and we have high-confidence signals
-                if (autoTradingRef.current && recs.length > 0) {
-                    handleAutoTrading(recs);
-                }
-
-                // Automatically load to Bot Builder if enabled
-                if (auto_load_to_bot_builder && recs.length > 0) {
-                    // Find the best recommendation based on confidence and other factors
-                    const bestRecommendation = recs.reduce((best, current) => {
-                        // Implement your logic to find the "best" recommendation
-                        // For example, prioritize higher confidence, then momentum, etc.
-                        if (current.confidence > best.confidence) {
-                            return current;
-                        }
-                        return best;
-                    }, recs[0]);
-
-                    if (bestRecommendation) {
-                        loadToBotBuilder(bestRecommendation);
-                    }
-                }
-            });
-
-            // Fetch and process historical data for ML model training
+            // Fetch and process historical data for initial ROC calculation
             const historicalDataPromises = DERIV_VOLATILITY_SYMBOLS.map(async (symbolInfo) => {
                 const symbol = symbolInfo.symbol;
                 try {
-                    // Fetch 500 historical ticks (Deriv API limitation)
+                    // Fetch historical ticks (e.g., 500 ticks for initial calculation)
                     const historicalData = await tickStreamManager.get500HistoricalTicks(symbol);
                     if (historicalData && historicalData.length > 0) {
-                        // Transform TickData[] to the format expected by scanner and ML analyzer
+                        // Transform TickData[] to the format expected by ROC analyzer
                         const formattedData = historicalData.map(tick => ({
                             price: tick.quote,
                             timestamp: tick.epoch * 1000
                         }));
 
-                        // Process bulk data for immediate analysis (volatility scanner and ML)
+                        // Process bulk data for ROC analyzer
                         try {
-                            // Process through volatility scanner
-                            derivVolatilityScanner.processBulkHistoricalData(symbol, formattedData);
-
-                            // Train ML model on historical data
-                            mlTickAnalyzer.processBulkHistoricalData(symbol, formattedData);
-
-                            console.log(`🧠 ML Model trained on ${historicalData.length} ticks for ${symbol}`);
+                            rocAnalyzer.processBulkTicks(symbol, formattedData);
+                            console.log(`✅ Processed ${formattedData.length} ticks for ${symbol}`);
                         } catch (error) {
-                            console.error(`Error processing bulk historical data for ${symbol}:`, error);
+                            console.error(`Failed to process historical data for ${symbol}:`, error);
                         }
                     } else {
-                        console.warn(`No historical data found for ${symbol} to train ML model.`);
+                        console.warn(`No historical data found for ${symbol} to initialize ROC.`);
                     }
                 } catch (error) {
                     console.error(`Error fetching historical data for ${symbol}:`, error);
@@ -314,51 +432,55 @@ const MLTrader = observer(() => {
             });
 
             await Promise.all(historicalDataPromises);
-            console.log('✅ Historical data processed for ML model training.');
 
-            // Perform immediate initial scan now that historical data is loaded
-            console.log('🚀 Performing initial scanner scan with historical data...');
-            await derivVolatilityScanner.performFullScan();
-            console.log('✅ Initial scan completed');
+            // Perform immediate scan after historical data loads
+            await performScan();
 
-            // Start periodic scanning for ongoing updates (backup to candle-based updates)
-            const scanInterval = setInterval(() => {
-                if (is_scanner_active) {
-                    console.log('🔍 Performing periodic scan (backup)...');
-                    derivVolatilityScanner.performFullScan();
-                }
-            }, 60000); // Scan every 60 seconds as backup
+            // Set up periodic scanning every 3 seconds
+            const interval = setInterval(async () => {
+                await performScan();
+            }, 3000);
 
-            console.log('✅ Volatility scanner initialized');
-            console.log('🕐 Recommendations will update automatically on new 1-minute candles');
-
-            // Return cleanup function
-            return () => {
-                clearInterval(scanInterval);
-                statusUnsubscribe();
-                recommendationsUnsubscribe();
-            };
+            setScanInterval(interval);
 
         } catch (error) {
-            console.error('Failed to initialize volatility scanner:', error);
-            throw error;
+            console.error('Failed to initialize ROC scanner:', error);
+            setStatus(`ROC scanner initialization failed: ${error}`);
         }
-    }, [is_scanner_active, auto_load_to_bot_builder]);
+    }, []);
 
     /**
-     * Update symbol analyses
+     * Perform ROC scan
      */
-    const updateSymbolAnalyses = useCallback(() => {
-        const analysesMap = new Map<string, VolatilityAnalysis>();
+    const performScan = useCallback(async () => {
+        try {
+            // Get all ROC recommendations (only aligned ones)
+            const allRecommendations = rocAnalyzer.getAllRecommendations(DERIV_VOLATILITY_SYMBOLS);
 
-        DERIV_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
-            const analysis = derivVolatilityScanner.getSymbolAnalysis(symbolInfo.symbol);
-            if (analysis) {
-                analysesMap.set(symbolInfo.symbol, analysis);
+            if (allRecommendations.length > 0) {
+                setRecommendations(allRecommendations);
+                setStatus(`Found ${allRecommendations.length} opportunities with ROC alignment`);
+
+                // Update ROC data for display
+                const rocDataMap: Record<string, { roc5: number; roc3: number; roc1: number }> = {};
+                DERIV_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+                    const analysis = rocAnalyzer.analyze(symbolInfo.symbol);
+                    if (analysis) {
+                        rocDataMap[symbolInfo.symbol] = {
+                            roc5: analysis.roc_5min,
+                            roc3: analysis.roc_3min,
+                            roc1: analysis.roc_1min
+                        };
+                    }
+                });
+                setRocData(rocDataMap);
+            } else {
+                setStatus('Scanning... No ROC alignment detected');
             }
-        });
-
-        setSymbolAnalyses(analysesMap);
+        } catch (error) {
+            console.error('Error during ROC scan:', error);
+            setStatus(`Scan error: ${error}`);
+        }
     }, []);
 
     /**
@@ -382,15 +504,15 @@ const MLTrader = observer(() => {
     /**
      * Handle auto trading - called when new recommendations arrive
      */
-    const handleAutoTrading = useCallback(async (recs: ScannerRecommendation[]) => {
+    const handleAutoTrading = useCallback(async (recs: ROCRecommendation[]) => { // Changed to ROCRecommendation
         // Filter recommendations based on user settings
         const filteredRecs = recs.filter(rec =>
             rec.confidence >= filter_settings.min_confidence &&
-            rec.momentumScore >= filter_settings.min_momentum &&
-            filter_settings.preferred_durations.includes(rec.duration) &&
-            (filter_settings.max_risk === 'HIGH' ||
-             (filter_settings.max_risk === 'MEDIUM' && rec.urgency !== 'CRITICAL') ||
-             (filter_settings.max_risk === 'LOW' && rec.urgency === 'LOW'))
+            // rec.momentumScore >= filter_settings.min_momentum && // ROC doesn't have momentumScore directly
+            filter_settings.preferred_durations.includes(rec.action === 'RISE' ? '5m' : '1m') && // Example: Map action to duration preference
+            (filter_settings.max_risk === 'HIGH' || // Risk filtering might need re-evaluation
+             (filter_settings.max_risk === 'MEDIUM' && rec.confidence < 90) ||
+             (filter_settings.max_risk === 'LOW' && rec.confidence < 80))
         );
 
         if (filteredRecs.length === 0) {
@@ -403,7 +525,7 @@ const MLTrader = observer(() => {
 
         // Update current recommendation for auto-trading
         currentRecommendationRef.current = topRec;
-        setSelectedRecommendation(topRec);
+        setSelectedRecommendation(topRec); // Assuming setSelectedRecommendation can handle ROCRecommendation
 
         // Apply recommendation to trading interface
         applyRecommendation(topRec);
@@ -414,23 +536,37 @@ const MLTrader = observer(() => {
     /**
      * Execute an automated trade based on recommendation
      */
-    const executeAutoTrade = useCallback(async (recommendation: ScannerRecommendation) => {
+    const executeAutoTrade = useCallback(async (recommendation: ROCRecommendation) => { // Changed to ROCRecommendation
         if (!apiRef.current || contractInProgressRef.current) return;
 
         contractInProgressRef.current = true;
-        const stake = mlAutoTrader.getConfig().stake_amount;
+        const config = mlAutoTrader.getConfig();
+        const stake = config.stake_amount || 1.0; // Default stake if not configured
 
         console.log(`🤖 AUTO-TRADE EXECUTING: ${recommendation.action} on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
 
         try {
+            // Determine duration based on recommendation's implied timeframe (e.g., action)
+            // This is a simplification; ideally, recommendation would include desired duration.
+            let durationInSeconds: number;
+            let durationUnit: 's' | 'm' = 's';
+
+            if (recommendation.action === 'RISE') {
+                // Prioritize longer timeframe for RISE if aligned
+                durationInSeconds = DURATION_OPTIONS.find(d => d.label === '5 minutes')?.seconds || 300;
+            } else {
+                // Prioritize shorter timeframe for FALL if aligned
+                durationInSeconds = DURATION_OPTIONS.find(d => d.label === '1 minute')?.seconds || 60;
+            }
+
             const tradeParams = {
                 proposal: 1,
                 amount: stake,
                 basis: 'stake',
-                contract_type: recommendation.action === 'RISE' ? 'PUT' : 'CALL',
+                contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT', // Assuming RISE maps to CALL, FALL to PUT
                 currency: account_currency,
-                duration: 2,
-                duration_unit: 't',
+                duration: durationInSeconds,
+                duration_unit: durationUnit,
                 symbol: recommendation.symbol
             };
 
@@ -444,7 +580,7 @@ const MLTrader = observer(() => {
 
             if (proposal_response.proposal) {
                 console.log('✅ Proposal received, ID:', proposal_response.proposal.id);
-                
+
                 const buy_response = await apiRef.current.send({
                     buy: proposal_response.proposal.id,
                     price: stake
@@ -458,11 +594,11 @@ const MLTrader = observer(() => {
                 if (buy_response.buy) {
                     const entryPrice = parseFloat(buy_response.buy.buy_price);
                     const payout = parseFloat(buy_response.buy.payout || 0);
-                    
+
                     console.log(`✅ CONTRACT PURCHASED! ID: ${buy_response.buy.contract_id}, Entry: ${entryPrice}, Payout: ${payout}`);
-                    
+
                     mlAutoTrader.registerTrade(
-                        recommendation,
+                        recommendation, // Pass the ROCRecommendation
                         buy_response.buy.contract_id,
                         entryPrice,
                         payout
@@ -478,26 +614,36 @@ const MLTrader = observer(() => {
         } finally {
             contractInProgressRef.current = false;
         }
-    }, [account_currency]);
+    }, [account_currency, mlAutoTrader.getConfig, DURATION_OPTIONS]); // Added dependencies
 
     /**
      * Execute a manual trade based on recommendation
      */
-    const executeTrade = useCallback(async (recommendation: ScannerRecommendation) => {
+    const executeTrade = useCallback(async (recommendation: ROCRecommendation) => { // Changed to ROCRecommendation
         if (!apiRef.current || contractInProgressRef.current) return;
 
         contractInProgressRef.current = true;
         setStatus(`Executing ${recommendation.action} trade on ${recommendation.displayName}...`);
 
         try {
+            // Determine duration based on recommendation's implied timeframe
+            let durationInSeconds: number;
+            let durationUnit: 's' | 'm' = 's';
+
+            if (recommendation.action === 'RISE') {
+                durationInSeconds = DURATION_OPTIONS.find(d => d.label === '5 minutes')?.seconds || 300;
+            } else {
+                durationInSeconds = DURATION_OPTIONS.find(d => d.label === '1 minute')?.seconds || 60;
+            }
+
             const tradeParams = {
                 proposal: 1,
                 amount: trading_interface.stake,
                 basis: 'stake',
-                contract_type: recommendation.action === 'RISE' ? 'PUT' : 'CALL',
+                contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT',
                 currency: account_currency,
-                duration: 2,
-                duration_unit: 't',
+                duration: durationInSeconds,
+                duration_unit: durationUnit,
                 symbol: recommendation.symbol
             };
 
@@ -536,7 +682,7 @@ const MLTrader = observer(() => {
         } finally {
             contractInProgressRef.current = false;
         }
-    }, [trading_interface.stake, account_currency]);
+    }, [trading_interface.stake, account_currency, DURATION_OPTIONS]); // Added dependencies
 
     /**
      * Monitor contract outcome
@@ -580,13 +726,15 @@ const MLTrader = observer(() => {
         }
 
         setTradingStats(prev => {
+            const new_total_trades = prev.total_trades + 1;
             const new_winning = is_win ? prev.winning_trades + 1 : prev.winning_trades;
             const new_losing = !is_win ? prev.losing_trades + 1 : prev.losing_trades;
             const new_total_profit = prev.total_profit + profit;
-            const new_win_rate = prev.total_trades > 0 ? (new_winning / prev.total_trades) * 100 : 0;
+            const new_win_rate = new_total_trades > 0 ? (new_winning / new_total_trades) * 100 : 0;
 
             return {
                 ...prev,
+                total_trades: new_total_trades,
                 winning_trades: new_winning,
                 losing_trades: new_losing,
                 total_profit: new_total_profit,
@@ -621,12 +769,13 @@ const MLTrader = observer(() => {
     /**
      * Apply recommendation to trading interface
      */
-    const applyRecommendation = useCallback((recommendation: ScannerRecommendation) => {
+    const applyRecommendation = useCallback((recommendation: ROCRecommendation) => { // Changed to ROCRecommendation
         setTradingInterface(prev => ({
             ...prev,
             symbol: recommendation.symbol,
             contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT',
-            duration: DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180,
+            // Duration should align with the ROC timeframe that triggered the recommendation
+            duration: recommendation.action === 'RISE' ? DURATION_OPTIONS.find(d => d.label === '5 minutes')?.seconds || 300 : DURATION_OPTIONS.find(d => d.label === '1 minute')?.seconds || 60,
             duration_unit: 's'
         }));
 
@@ -665,14 +814,15 @@ const MLTrader = observer(() => {
      * Manual trade execution
      */
     const executeManualTrade = useCallback(async () => {
-        if (!selected_recommendation) return;
+        if (!selectedRecommendation) return; // Ensure a recommendation is selected
 
         try {
-            await executeTrade(selected_recommendation);
+            // Use the stored selectedRecommendation to execute the trade
+            await executeTrade(selectedRecommendation as ROCRecommendation); // Cast to ROCRecommendation
         } catch (error) {
             console.error('Manual trade error:', error);
         }
-    }, [selected_recommendation, executeTrade]);
+    }, [selectedRecommendation, executeTrade]);
 
     /**
      * Cleanup function
@@ -687,13 +837,22 @@ const MLTrader = observer(() => {
             autoTradeIntervalRef.current = null;
         }
 
+        // Clear scan interval
+        if (scanInterval) {
+            clearInterval(scanInterval);
+            setScanInterval(null);
+        }
+
         // Unsubscribe from tick streams
         DERIV_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
             tickStreamManager.unsubscribeFromSymbol(symbolInfo.symbol);
         });
 
+        // Reset ROC analyzer data
+        rocAnalyzer.reset();
+
         console.log('ML Trader cleanup completed');
-    }, []);
+    }, [scanInterval]);
 
     /**
      * Format confidence percentage
@@ -732,7 +891,7 @@ const MLTrader = observer(() => {
     /**
      * Load recommendation to Bot Builder
      */
-    const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
+    const loadToBotBuilder = useCallback(async (recommendation: ROCRecommendation) => { // Changed to ROCRecommendation
         try {
             console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
 
@@ -753,14 +912,12 @@ const MLTrader = observer(() => {
             // Use the symbol directly (already uppercase from DERIV_VOLATILITY_SYMBOLS)
             const symbol = recommendation.symbol;
 
-            // Set default duration to 2 ticks
-            const defaultDuration = 2;
+            // Duration and contract type based on recommendation action
+            const durationTicks = recommendation.action === 'RISE' ? 300 : 60; // 5 min for RISE, 1 min for FALL
+            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
             // Set default stake to 0.35
             const defaultStake = 0.35;
-
-            // Contract type based on action
-            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
             // Prepare strategy XML with martingale settings from default bot builder
             const strategyXml = `
@@ -802,7 +959,7 @@ const MLTrader = observer(() => {
                                                 <field name="TYPE_LIST">${contractType}</field>
                                                 <next>
                                                     <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                                        <field name="CANDLEINTERVAL_LIST">tick</field> <!-- Set to tick for tick-based analysis -->
                                                         <next>
                                                             <block type="trade_definition_restartbuysell" deletable="false" movable="false">
                                                                 <field name="TIME_MACHINE_ENABLED">FALSE</field>
@@ -850,7 +1007,7 @@ const MLTrader = observer(() => {
                                                         <field name="VAR" id="durationTicks">durationTicks</field>
                                                         <value name="VALUE">
                                                             <block type="math_number">
-                                                                <field name="NUM">2</field>
+                                                                <field name="NUM">${durationTicks}</field>
                                                             </block>
                                                         </value>
                                                         <next>
@@ -873,13 +1030,13 @@ const MLTrader = observer(() => {
                         </statement>
                         <statement name="SUBMARKET">
                             <block type="trade_definition_tradeoptions" deletable="false" movable="false">
-                                <field name="DURATIONTYPE_LIST">t</field>
+                                <field name="DURATIONTYPE_LIST">t</field> <!-- 't' for ticks -->
                                 <value name="DURATION">
                                     <shadow type="math_number">
-                                        <field name="NUM">2</field>
+                                        <field name="NUM">${durationTicks}</field>
                                     </shadow>
                                     <block type="math_number">
-                                        <field name="NUM">2</field>
+                                        <field name="NUM">${durationTicks}</field>
                                     </block>
                                 </value>
                                 <value name="AMOUNT">
@@ -1076,7 +1233,7 @@ const MLTrader = observer(() => {
                 </xml>
             `;
 
-            console.log('📄 Loading ML Trader strategy with continuous trading to Bot Builder...');
+            console.log('📄 Loading ROC strategy with continuous trading to Bot Builder...');
 
             // Switch to Bot Builder tab
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
@@ -1090,11 +1247,11 @@ const MLTrader = observer(() => {
 
                     // Load to workspace
                     if (window.Blockly?.derivWorkspace) {
-                        console.log('📦 Loading ML Trader strategy to workspace...');
+                        console.log('📦 Loading ROC strategy to workspace...');
 
                         await load({
                             block_string: strategyXml,
-                            file_name: `MLTrader_${displayName}_${recommendation.action}_${Date.now()}`,
+                            file_name: `ROCTrader_${displayName}_${recommendation.action}_${Date.now()}`,
                             workspace: window.Blockly.derivWorkspace,
                             from: save_types.UNSAVED,
                             drop_event: null,
@@ -1104,7 +1261,7 @@ const MLTrader = observer(() => {
 
                         // Center workspace
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ ML Trader strategy loaded to workspace');
+                        console.log('✅ ROC strategy loaded to workspace');
 
                         setStatus(`✅ Loaded ${recommendation.action} strategy for ${displayName} to Bot Builder`);
 
@@ -1118,13 +1275,13 @@ const MLTrader = observer(() => {
                                 const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                                 window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                                 window.Blockly.derivWorkspace.scrollCenter();
-                                console.log('✅ ML Trader strategy loaded using fallback method');
+                                console.log('✅ ROC strategy loaded using fallback method');
                                 setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
                             }
                         }, 500);
                     }
                 } catch (loadError) {
-                    console.error('❌ Error loading ML Trader strategy:', loadError);
+                    console.error('❌ Error loading ROC strategy:', loadError);
 
                     // Final fallback
                     if (window.Blockly?.derivWorkspace) {
@@ -1132,7 +1289,7 @@ const MLTrader = observer(() => {
                         const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                         window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ ML Trader strategy loaded using final fallback');
+                        console.log('✅ ROC strategy loaded using final fallback');
                         setStatus(`✅ Loaded ${recommendation.action} strategy using final fallback`);
                     }
                 }
@@ -1144,7 +1301,7 @@ const MLTrader = observer(() => {
             console.error('Error loading recommendation to Bot Builder:', error);
             setStatus(`❌ Error loading strategy: ${error}`);
         }
-    }, [store.dashboard]);
+    }, [store.dashboard, DURATION_OPTIONS]); // Added DURATION_OPTIONS dependency
 
     return (
         <div
@@ -1155,10 +1312,10 @@ const MLTrader = observer(() => {
             <div className="ml-trader__header">
                 <div className="header-title">
                     <Text size="lg" weight="bold" color="prominent">
-                        {localize('Advanced ML Trader')}
+                        {localize('Advanced ROC Trader')}
                     </Text>
                     <Text size="xs" color="general">
-                        {localize('Momentum-Weighted Multi-Timeframe Analysis')}
+                        {localize('Rate of Change Multi-Timeframe Alignment')}
                     </Text>
                 </div>
 
@@ -1186,7 +1343,7 @@ const MLTrader = observer(() => {
                         <Text size="sm" weight="bold">{status}</Text>
                     </div>
 
-                    {scanner_status && (
+                    {scanner_status && ( // Keep this if scanner_status provides useful general info
                         <div className="scanner-stats desktop-only">
                             <div className="stat-item">
                                 <Text size="xs" color="general">{localize('Symbols')}</Text>
@@ -1232,7 +1389,7 @@ const MLTrader = observer(() => {
                     </div>
 
                     {show_auto_trade_panel ? (
-                        <AutoTradePanel 
+                        <AutoTradePanel
                             onConfigChange={(config) => {
                                 mlAutoTrader.configure(config);
                             }}
@@ -1242,21 +1399,22 @@ const MLTrader = observer(() => {
                             {recommendations.length === 0 ? (
                                 <div className="no-recommendations">
                                     <Text size="sm" color="general">
-                                        {localize('Scanning for momentum opportunities...')}
+                                        {localize('Scanning for ROC opportunities...')}
                                     </Text>
-                                    <div className="scan-progress">
+                                    {/* Progress bar might be less relevant without bulk scan progress */}
+                                    {/* <div className="scan-progress">
                                         <div
                                             className="progress-bar"
                                             style={{ width: `${scan_progress}%` }}
                                         />
-                                    </div>
+                                    </div> */}
                                 </div>
                             ) : (
                                 <div className="beautiful-cards-container">
                                 {recommendations.slice(0, 6).map((rec, index) => (
                                     <div
                                         key={`${rec.symbol}-${index}`}
-                                        className={`recommendation-card beautiful-card ${selected_recommendation?.symbol === rec.symbol ? 'selected' : ''}`}
+                                        className={`recommendation-card beautiful-card ${selectedRecommendation?.symbol === rec.symbol ? 'selected' : ''}`}
                                         onClick={() => applyRecommendation(rec)}
                                     >
                                         <div className="card-gradient-overlay" />
@@ -1308,29 +1466,31 @@ const MLTrader = observer(() => {
                                             </div>
                                         </div>
 
-                                        <div className="rec-metrics">
-                                            <div className="metric-item">
-                                                <div className="metric-icon">⏱️</div>
-                                                <div className="metric-content">
-                                                    <Text size="xs" color="general">{localize('Duration')}</Text>
-                                                    <Text size="sm" weight="bold">{rec.duration}</Text>
-                                                </div>
+                                        {/* ROC Data Display */}
+                                        <div className="recommendation-details">
+                                            <div className="detail-row">
+                                                <span className="label">5-Min ROC (300 ticks):</span>
+                                                <span className={`value ${rec.roc_5min > 0 ? 'bullish' : 'bearish'}`}>
+                                                    {rec.roc_5min.toFixed(4)}%
+                                                </span>
                                             </div>
-
-                                            <div className="metric-item">
-                                                <div className="metric-icon">⚡</div>
-                                                <div className="metric-content">
-                                                    <Text size="xs" color="general">{localize('Momentum')}</Text>
-                                                    <Text size="sm" weight="bold">{rec.momentumScore.toFixed(0)}%</Text>
-                                                </div>
+                                            <div className="detail-row">
+                                                <span className="label">3-Min ROC (180 ticks):</span>
+                                                <span className={`value ${rec.roc_3min > 0 ? 'bullish' : 'bearish'}`}>
+                                                    {rec.roc_3min.toFixed(4)}%
+                                                </span>
                                             </div>
-
-                                            <div className="metric-item">
-                                                <div className="metric-icon">🎯</div>
-                                                <div className="metric-content">
-                                                    <Text size="xs" color="general">{localize('Alignment')}</Text>
-                                                    <Text size="sm" weight="bold">{rec.trendAlignment.toFixed(0)}%</Text>
-                                                </div>
+                                            <div className="detail-row">
+                                                <span className="label">1-Min ROC (60 ticks):</span>
+                                                <span className={`value ${rec.roc_1min > 0 ? 'bullish' : 'bearish'}`}>
+                                                    {rec.roc_1min.toFixed(4)}%
+                                                </span>
+                                            </div>
+                                            <div className="detail-row">
+                                                <span className="label">Alignment:</span>
+                                                <span className={`value bullish`}>
+                                                    FULL ALIGNMENT ({rec.action})
+                                                </span>
                                             </div>
                                         </div>
 
@@ -1360,23 +1520,25 @@ const MLTrader = observer(() => {
 
                                         {show_advanced_view && (
                                             <div className="rec-advanced">
+                                                {/* Reason and other advanced metrics might need to be adapted for ROC */}
                                                 <div className="advanced-reason">
-                                                    <Text size="xs" color="general">{rec.reason}</Text>
+                                                    <Text size="xs" color="general">ROC Alignment detected across multiple timeframes.</Text>
                                                 </div>
                                                 <div className="advanced-metrics">
                                                     <div className="adv-metric">
                                                         <span className="adv-label">Risk:</span>
-                                                        <span className={`adv-value risk-${rec.urgency.toLowerCase()}`}>
-                                                            {rec.urgency}
+                                                        <span className={`adv-value risk-${rec.confidence < 70 ? 'high' : rec.confidence < 90 ? 'medium' : 'low'}`}>
+                                                            {rec.confidence < 70 ? 'High' : rec.confidence < 90 ? 'Medium' : 'Low'}
                                                         </span>
                                                     </div>
+                                                    {/* Risk/Reward and Payout might need separate calculation based on ROC strategy */}
                                                     <div className="adv-metric">
                                                         <span className="adv-label">R/R:</span>
-                                                        <span className="adv-value">{rec.riskReward.toFixed(2)}</span>
+                                                        <span className="adv-value">N/A</span>
                                                     </div>
                                                     <div className="adv-metric">
                                                         <span className="adv-label">Payout:</span>
-                                                        <span className="adv-value">{(rec.expectedPayout * 100).toFixed(0)}%</span>
+                                                        <span className="adv-value">N/A</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1491,7 +1653,7 @@ const MLTrader = observer(() => {
                             <button
                                 className="execute-btn manual"
                                 onClick={executeManualTrade}
-                                disabled={!is_authorized || contractInProgressRef.current || !selected_recommendation}
+                                disabled={!is_authorized || contractInProgressRef.current || !selectedRecommendation}
                             >
                                 {localize('Execute Manual Trade')}
                             </button>
@@ -1499,35 +1661,41 @@ const MLTrader = observer(() => {
                     </div>
 
                     {/* Selected Recommendation Details */}
-                    {selected_recommendation && (
+                    {selectedRecommendation && (
                         <div className="selected-recommendation">
                             <Text size="sm" weight="bold">{localize('Selected Opportunity')}</Text>
                             <div className="rec-details">
                                 <div className="detail-row">
                                     <span>{localize('Symbol')}:</span>
-                                    <span>{selected_recommendation.displayName}</span>
+                                    <span>{selectedRecommendation.displayName}</span>
                                 </div>
                                 <div className="detail-row">
                                     <span>{localize('Action')}:</span>
-                                    <span className={`action-text ${selected_recommendation.action.toLowerCase()}`}>
-                                        {selected_recommendation.action}
+                                    <span className={`action-text ${selectedRecommendation.action.toLowerCase()}`}>
+                                        {selectedRecommendation.action}
                                     </span>
                                 </div>
                                 <div className="detail-row">
                                     <span>{localize('Confidence')}:</span>
-                                    <span>{selected_recommendation.confidence.toFixed(1)}%</span>
+                                    <span>{selectedRecommendation.confidence.toFixed(1)}%</span>
+                                </div>
+                                {/* Display ROC values */}
+                                <div className="detail-row">
+                                    <span>{localize('5-Min ROC')}:</span>
+                                    <span>{selectedRecommendation.roc_5min.toFixed(4)}%</span>
                                 </div>
                                 <div className="detail-row">
-                                    <span>{localize('Momentum Score')}:</span>
-                                    <span>{selected_recommendation.momentumScore.toFixed(1)}%</span>
+                                    <span>{localize('3-Min ROC')}:</span>
+                                    <span>{selectedRecommendation.roc_3min.toFixed(4)}%</span>
                                 </div>
                                 <div className="detail-row">
-                                    <span>{localize('Trend Alignment')}:</span>
-                                    <span>{selected_recommendation.trendAlignment.toFixed(1)}%</span>
+                                    <span>{localize('1-Min ROC')}:</span>
+                                    <span>{selectedRecommendation.roc_1min.toFixed(4)}%</span>
                                 </div>
-                                {selected_recommendation && (() => {
+                                {/* ML Prediction might need to be adapted or removed if not relevant to ROC */}
+                                {/* {selectedRecommendation && (() => {
                                     try {
-                                        const mlPrediction = mlTickAnalyzer.predict(selected_recommendation.symbol);
+                                        const mlPrediction = mlTickAnalyzer.predict(selectedRecommendation.symbol);
                                         if (mlPrediction) {
                                             return (
                                                 <>
@@ -1554,69 +1722,47 @@ const MLTrader = observer(() => {
                                         console.error('ML prediction error:', error);
                                     }
                                     return null;
-                                })()}
+                                })()} */}
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Symbol Analysis (Advanced View) */}
+                {/* Symbol Analysis (Advanced View) - Now showing ROC Data */}
                 {show_advanced_view && (
                     <div className="symbol-analysis">
                         <div className="panel-header">
-                            <Text size="md" weight="bold">{localize('Symbol Analysis')}</Text>
+                            <Text size="md" weight="bold">{localize('Symbol Analysis (ROC)')}</Text>
                         </div>
 
-                        <div className="analysis-grid">
-                            {Array.from(symbol_analyses.entries()).slice(0, 6).map(([symbol, analysis]) => (
-                                <div key={symbol} className="analysis-card">
-                                    <div className="card-header">
-                                        <Text size="sm" weight="bold">{analysis.displayName}</Text>
-                                        <div
-                                            className="risk-indicator"
-                                            style={{ backgroundColor: getRiskColor(analysis.riskLevel) }}
-                                        >
-                                            {analysis.riskLevel}
-                                        </div>
-                                    </div>
+                        <div className="volatility-grid"> {/* Renamed from volatility-grid to reflect ROC */}
+                            {DERIV_VOLATILITY_SYMBOLS.map(symbolInfo => {
+                                const roc = rocData[symbolInfo.symbol];
+                                const analysis = rocAnalyzer.analyze(symbolInfo.symbol); // Get analysis for alignment check
+                                if (!roc) return null;
 
-                                    <div className="timeframe-analysis">
-                                        <div className="timeframe">
-                                            <span>5m:</span>
-                                            <span className={analysis.timeframes.m5.direction.toLowerCase()}>
-                                                {analysis.timeframes.m5.direction} ({analysis.timeframes.m5.roc.toFixed(3)}%)
-                                            </span>
+                                return (
+                                    <div key={symbolInfo.symbol} className="volatility-card">
+                                        <div className="symbol-name">{symbolInfo.display_name}</div>
+                                        <div className="roc-indicators">
+                                            <div className={`roc-badge ${roc.roc5 > 0 ? 'bullish' : 'bearish'}`}>
+                                                5M: {roc.roc5.toFixed(3)}%
+                                            </div>
+                                            <div className={`roc-badge ${roc.roc3 > 0 ? 'bullish' : 'bearish'}`}>
+                                                3M: {roc.roc3.toFixed(3)}%
+                                            </div>
+                                            <div className={`roc-badge ${roc.roc1 > 0 ? 'bullish' : 'bearish'}`}>
+                                                1M: {roc.roc1.toFixed(3)}%
+                                            </div>
                                         </div>
-                                        <div className="timeframe">
-                                            <span>3m:</span>
-                                            <span className={analysis.timeframes.m3.direction.toLowerCase()}>
-                                                {analysis.timeframes.m3.direction} ({analysis.timeframes.m3.roc.toFixed(3)}%)
-                                            </span>
-                                        </div>
-                                        <div className="timeframe">
-                                            <span>1m:</span>
-                                            <span className={analysis.timeframes.m1.direction.toLowerCase()}>
-                                                {analysis.timeframes.m1.direction} ({analysis.timeframes.m1.roc.toFixed(3)}%)
-                                            </span>
-                                        </div>
+                                        {analysis?.alignment && ( // Check if alignment exists from rocAnalyzer
+                                            <div className="alignment-badge">
+                                                ✓ ALIGNED
+                                            </div>
+                                        )}
                                     </div>
-
-                                    <div className="momentum-metrics">
-                                        <div className="metric-item">
-                                            <span>{localize('Momentum')}:</span>
-                                            <span>{analysis.momentum.strength.toFixed(0)}%</span>
-                                        </div>
-                                        <div className="metric-item">
-                                            <span>{localize('Alignment')}:</span>
-                                            <span>{analysis.timeframes.alignment.toFixed(0)}%</span>
-                                        </div>
-                                        <div className="metric-item">
-                                            <span>{localize('Phase')}:</span>
-                                            <span>{analysis.marketPhase}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
