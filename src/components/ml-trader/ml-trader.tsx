@@ -46,17 +46,6 @@ interface TradingInterface {
     is_auto_trading: boolean;
 }
 
-// Interface for active trades
-interface ActiveTrade {
-    contract_id: string;
-    symbol: string;
-    action: 'RISE' | 'FALL';
-    stake: number;
-    profit?: number;
-    status: 'pending' | 'won' | 'lost';
-    timestamp: Date;
-}
-
 const MLTrader = observer(() => {
     const store = useStore();
 
@@ -65,9 +54,6 @@ const MLTrader = observer(() => {
     const autoTradingRef = useRef(false);
     const autoTradeIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const currentRecommendationRef = useRef<ScannerRecommendation | null>(null);
-    const [auto_trading_active, setAutoTradingActive] = useState(false); // State to manage auto-trading status
-    const [active_trades, setActiveTrades] = useState<ActiveTrade[]>([]); // State to store active trades
-    const [current_trading_recommendation, setCurrentTradingRecommendation] = useState<ScannerRecommendation | null>(null); // State to hold the current recommendation for auto-trading
 
     // Authentication and account state
     const [is_authorized, setIsAuthorized] = useState(false);
@@ -436,17 +422,6 @@ const MLTrader = observer(() => {
                     const isAutoTrade = autoTradingRef.current;
                     setStatus(`${isAutoTrade ? 'AUTO' : 'MANUAL'} Trade executed: ${recommendation.action} on ${recommendation.displayName} (Contract ID: ${buy_response.buy.contract_id})`);
 
-                    // Add to active trades list
-                    const newTrade: ActiveTrade = {
-                        contract_id: buy_response.buy.contract_id,
-                        symbol: recommendation.displayName,
-                        action: recommendation.action,
-                        stake: trading_interface.stake,
-                        status: 'pending',
-                        timestamp: new Date(),
-                    };
-                    setActiveTrades(prev => [...prev, newTrade]);
-
                     // Emit trade run to statistics
                     statisticsEmitter.emitTradeRun();
 
@@ -458,7 +433,7 @@ const MLTrader = observer(() => {
                     }));
 
                     // Monitor contract outcome
-                    monitorContract(buy_response.buy.contract_id, newTrade);
+                    monitorContract(buy_response.buy.contract_id);
                 }
             }
 
@@ -468,12 +443,12 @@ const MLTrader = observer(() => {
         } finally {
             contractInProgressRef.current = false;
         }
-    }, [trading_interface.stake, account_currency, active_trades]);
+    }, [trading_interface.stake, account_currency]);
 
     /**
      * Monitor contract outcome
      */
-    const monitorContract = useCallback(async (contract_id: string, trade: ActiveTrade) => {
+    const monitorContract = useCallback(async (contract_id: string) => {
         if (!apiRef.current) return;
 
         try {
@@ -488,19 +463,19 @@ const MLTrader = observer(() => {
                 const contract = contract_response.proposal_open_contract;
 
                 if (contract.is_sold) {
-                    handleContractResult(contract, trade);
+                    handleContractResult(contract);
                 }
             }
 
         } catch (error) {
             console.error('Contract monitoring error:', error);
         }
-    }, [handleContractResult]);
+    }, []);
 
     /**
      * Handle contract result
      */
-    const handleContractResult = useCallback((contract: any, trade: ActiveTrade) => {
+    const handleContractResult = useCallback((contract: any) => {
         const profit = parseFloat(contract.profit || 0);
         const is_win = profit > 0;
 
@@ -523,15 +498,6 @@ const MLTrader = observer(() => {
         const result_text = is_win ? 'WIN' : 'LOSS';
 
         setStatus(`${result_emoji} Trade ${result_text}: ${profit.toFixed(2)} ${account_currency}`);
-
-        // Update active trades status
-        setActiveTrades(prev =>
-            prev.map(t =>
-                t.contract_id === contract.contract_id
-                    ? { ...t, status: is_win ? 'won' : 'lost', profit }
-                    : t
-            )
-        );
 
         // Emit trade result to centralized statistics
         statisticsEmitter.emitTradeResult({
@@ -1172,49 +1138,7 @@ const MLTrader = observer(() => {
                             >
                                 {localize('Advanced View')}
                             </button>
-                            <div className={`tab-button ${active_trades.length > 0 ? 'has-trades' : ''}`}>
-                                <span className="tab-icon">🤖</span>
-                                Active Trades ({active_trades.filter(t => t.status === 'pending').length})
-                            </div>
                         </div>
-
-                        {/* Active Trades Section */}
-                        {active_trades.length > 0 && (
-                            <div className="active-trades-section">
-                                <h3>
-                                    <span className="section-icon">🤖</span>
-                                    Auto-Trading History
-                                </h3>
-                                <div className="trades-list">
-                                    {active_trades.slice().reverse().slice(0, 10).map((trade, index) => (
-                                        <div key={trade.contract_id} className={`trade-item ${trade.status}`}>
-                                            <div className="trade-header">
-                                                <span className="trade-symbol">{trade.symbol}</span>
-                                                <span className={`trade-action ${trade.action.toLowerCase()}`}>
-                                                    {trade.action}
-                                                </span>
-                                                <span className={`trade-status ${trade.status}`}>
-                                                    {trade.status === 'pending' && '⏳'}
-                                                    {trade.status === 'won' && '✅'}
-                                                    {trade.status === 'lost' && '❌'}
-                                                </span>
-                                            </div>
-                                            <div className="trade-details">
-                                                <span>{localize('Stake')}: {trade.stake.toFixed(2)} {account_currency}</span>
-                                                {trade.profit !== undefined && (
-                                                    <span className={trade.profit >= 0 ? 'profit' : 'loss'}>
-                                                        P/L: {trade.profit >= 0 ? '+' : ''}{trade.profit.toFixed(2)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="trade-time">
-                                                {trade.timestamp.toLocaleTimeString()}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
 
                     <div className="recommendations-list">
@@ -1326,23 +1250,14 @@ const MLTrader = observer(() => {
                                             </button>
 
                                             <button
-                                                className={`action-button ${auto_trading_active ? 'stop-auto-trade' : 'start-auto-trade'}`}
+                                                className="action-btn apply-settings"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (auto_trading_active) {
-                                                        setAutoTradingActive(false);
-                                                        setCurrentTradingRecommendation(null);
-                                                        setStatus('Auto-trading stopped');
-                                                    } else {
-                                                        setAutoTradingActive(true);
-                                                        setCurrentTradingRecommendation(rec);
-                                                        applyRecommendation(rec);
-                                                        setStatus(`🤖 Auto-trading started for ${rec.displayName}`);
-                                                    }
+                                                    applyRecommendation(rec);
                                                 }}
                                             >
-                                                <span className="button-icon">{auto_trading_active ? '⏹️' : '🤖'}</span>
-                                                {auto_trading_active ? 'Stop Auto Trade' : 'Start Auto Trade'}
+                                                <span className="btn-icon">⚙️</span>
+                                                <Text size="xs" weight="bold">{localize('Apply Settings')}</Text>
                                             </button>
                                         </div>
 
