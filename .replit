@@ -5,7 +5,7 @@ run = "npm run serve"
 channel = "stable-24_05"
 
 [deployment]
-run = ["sh", "-c", "npm run serve "]
+run = ["sh", "-c", "npx serve dist -l 5000 -s"]
 deploymentTarget = "cloudrun"
 build = ["sh", "-c", "npm run build"]
 
