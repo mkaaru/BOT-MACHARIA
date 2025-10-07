@@ -651,6 +651,9 @@ const MLTrader = observer(() => {
 
             // Set default duration to 2 ticks
             const defaultDuration = 2;
+            
+            // Set default stake to 0.35
+            const defaultStake = 0.35;
 
             // Contract type based on action
             const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
@@ -734,7 +737,7 @@ const MLTrader = observer(() => {
                                                 <field name="VAR" id="Gh~KH=(G5Q?:C:QU{3(P">stake</field>
                                                 <value name="VALUE">
                                                     <block type="math_number">
-                                                        <field name="NUM">1</field>
+                                                        <field name="NUM">${defaultStake}</field>
                                                     </block>
                                                 </value>
                                                 <next>
@@ -763,7 +766,7 @@ const MLTrader = observer(() => {
                                 </value>
                                 <value name="AMOUNT">
                                     <shadow type="math_number">
-                                        <field name="NUM">1</field>
+                                        <field name="NUM">${defaultStake}</field>
                                     </shadow>
                                     <block type="procedures_callreturn" id="call_martingale_amount">
                                         <mutation xmlns="http://www.w3.org/1999/xhtml" name="Martingale Trade Amount"></mutation>
