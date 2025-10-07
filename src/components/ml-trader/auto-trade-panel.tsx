@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
-import { mlAutoTrader, AutoTradeConfig, AutoTradeStats, AutoTradeResult } from '@/services/ml-auto-trader';
+import { mlAutoTrader, AutoTradeConfig, AutoTradeStats, AutoTradeResult, ContractStrategyState } from '@/services/ml-auto-trader';
 import './auto-trade-panel.scss';
 
 interface AutoTradePanelProps {
@@ -16,6 +16,9 @@ export const AutoTradePanel = observer(({ onConfigChange }: AutoTradePanelProps)
     const [active_contracts, setActiveContracts] = useState<AutoTradeResult[]>([]);
     const [status_message, setStatusMessage] = useState<string>('Auto-trader ready');
     const [show_settings, setShowSettings] = useState(false);
+    const [strategy_state, setStrategyState] = useState<{ RISE: ContractStrategyState; FALL: ContractStrategyState }>(
+        mlAutoTrader.getStrategyState()
+    );
 
     useEffect(() => {
         mlAutoTrader.onStatusUpdate((status) => {
@@ -33,6 +36,7 @@ export const AutoTradePanel = observer(({ onConfigChange }: AutoTradePanelProps)
         const interval = setInterval(() => {
             setActiveContracts(mlAutoTrader.getActiveContracts());
             setTradeHistory(mlAutoTrader.getTradeHistory());
+            setStrategyState(mlAutoTrader.getStrategyState());
         }, 1000);
 
         return () => clearInterval(interval);
@@ -112,6 +116,27 @@ export const AutoTradePanel = observer(({ onConfigChange }: AutoTradePanelProps)
 
             <div className="auto-trade-panel__status-bar">
                 <Text size="xs">{status_message}</Text>
+            </div>
+
+            <div className="auto-trade-panel__strategy">
+                <div className="strategy-badge">
+                    <span className="strategy-label">📈 RISE:</span>
+                    <span className={`strategy-mode ${strategy_state.RISE.mode.toLowerCase()}`}>
+                        {strategy_state.RISE.mode === 'EQUALS' ? 'Equals (PUTE)' : 'Plain (PUT)'}
+                    </span>
+                    {strategy_state.RISE.consecutive_losses > 0 && (
+                        <span className="strategy-losses">Loss Streak: {strategy_state.RISE.consecutive_losses}</span>
+                    )}
+                </div>
+                <div className="strategy-badge">
+                    <span className="strategy-label">📉 FALL:</span>
+                    <span className={`strategy-mode ${strategy_state.FALL.mode.toLowerCase()}`}>
+                        {strategy_state.FALL.mode === 'EQUALS' ? 'Equals (CALLE)' : 'Plain (CALL)'}
+                    </span>
+                    {strategy_state.FALL.consecutive_losses > 0 && (
+                        <span className="strategy-losses">Loss Streak: {strategy_state.FALL.consecutive_losses}</span>
+                    )}
+                </div>
             </div>
 
             {show_settings && (
@@ -250,6 +275,9 @@ export const AutoTradePanel = observer(({ onConfigChange }: AutoTradePanelProps)
                                         {trade.contract_type === 'CALL' ? '↗' : '↘'}
                                     </span>
                                     <span className="trade-symbol">{trade.symbol}</span>
+                                    <span className="trade-contract-type">
+                                        {trade.deriv_contract_type}
+                                    </span>
                                     <span className={`trade-status ${trade.status}`}>
                                         {trade.status === 'won' ? '✓' : '✗'}
                                     </span>
