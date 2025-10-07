@@ -1,0 +1,207 @@
+Active Symbols (request)
+
+Retrieve a list of all currently active symbols (underlying markets upon which contracts are available for trading).
+{}
+"root":{
+"$schema":"http://json-schema.org/draft-04/schema#"
+"title":"Active Symbols (request)"
+"description":"Retrieve a list of all currently active symbols (u…"
+"type":"object"
+"auth_required":0
+"additionalProperties":false
+"required":[
+"active_symbols"
+]
+"properties":{
+"active_symbols":{
+"description":"If you use `brief`, only a subset of fields will b…"
+"type":"string"
+"enum":[
+"brief"
+"full"
+]
+}
+"barrier_category":{
+"description":"[Optional] Category of barrier."
+"type":"array"
+"items":{
+"description":""
+"type":"string"
+"enum":[
+"american"
+"asian"
+"euro_atm"
+"euro_non_atm"
+"non_financial"
+"lookback"
+"reset"
+]
+}
+}
+"contract_type":{
+"description":"[Optional] The proposed contract type"
+"type":"array"
+"items":{
+"description":""
+"type":"string"
+"enum":[
+"MULTUP"
+"MULTDOWN"
+"UPORDOWN"
+"EXPIRYRANGE"
+"ONETOUCH"
+"CALLE"
+"LBHIGHLOW"
+"ASIAND"
+"EXPIRYRANGEE"
+"DIGITDIFF"
+"DIGITMATCH"
+"DIGITOVER"
+"PUTE"
+"DIGITUNDER"
+"NOTOUCH"
+"CALL"
+"RANGE"
+"LBFLOATPUT"
+"DIGITODD"
+"PUT"
+"ASIANU"
+"LBFLOATCALL"
+"EXPIRYMISSE"
+"EXPIRYMISS"
+"DIGITEVEN"
+"TICKHIGH"
+"TICKLOW"
+"RESETCALL"
+"RESETPUT"
+"CALLSPREAD"
+]
+}
+}
+"landing_company":{
+"description":"Deprecated - replaced by landing_company_short."
+"type":"string"
+"enum":[
+"iom"
+"malta"
+"maltainvest"
+"svg"
+"virtual"
+"vanuatu"
+]
+}
+"landing_company_short":{
+"description":"[Optional] If you specify this field, only symbols…"
+"type":"string"
+"enum":[
+"iom"
+"malta"
+"maltainvest"
+"svg"
+"virtual"
+"vanuatu"
+]
+}
+"product_type":{
+"description":"[Optional] If you specify this field, only symbols…"
+"type":"string"
+"enum":[
+"basic"
+]
+}
+"loginid":{
+"description":"[Optional] The login id of the user. Mandatory whe…"
+"type":"string"
+"pattern":"^[A-Za-z]+[0-9]+$"
+}
+"passthrough":{
+"description":"[Optional] Used to pass data through the websocket…"
+"type":"object"
+}
+"req_id":{
+"description":"[Optional] Used to map request to response."
+"type":"integer"
+}
+}
+}
+Active Symbols (response)
+
+A message containing the list of active symbols.
+{}
+"root":{
+"$schema":"http://json-schema.org/draft-04/schema#"
+"title":"Active Symbols (response)"
+"description":"A message containing the list of active symbols."
+"type":"object"
+"required":[
+"echo_req"
+"msg_type"
+]
+"properties":{
+"active_symbols":{
+"title":"active_symbols"
+"description":"List of active symbols."
+"type":"array"
+"items":{
+"description":"The information about each symbol."
+"type":"object"
+"additionalProperties":false
+"required":[
+"display_name"
+"display_order"
+"exchange_is_open"
+"is_trading_suspended"
+"market"
+"market_display_name"
+"pip"
+"subgroup"
+"subgroup_display_name"
+"submarket"
+"submarket_display_name"
+"symbol"
+"symbol_type"
+]
+"properties":{
+"allow_forward_starting":{}
+"close_only":{}
+"delay_amount":{}
+"display_name":{}
+"display_order":{}
+"exchange_is_open":{}
+"exchange_name":{}
+"intraday_interval_minutes":{}
+"is_trading_suspended":{}
+"market":{}
+"market_display_name":{}
+"pip":{}
+"quoted_currency_symbol":{}
+"spot":{}
+"spot_age":{}
+"spot_percentage_change":{}
+"spot_time":{}
+"subgroup":{}
+"subgroup_display_name":{}
+"submarket":{}
+"submarket_display_name":{}
+"symbol":{}
+"symbol_type":{}
+}
+}
+}
+"echo_req":{
+"description":"Echo of the request made."
+"type":"object"
+}
+"msg_type":{
+"description":"Action name of the request made."
+"type":"string"
+"enum":[
+"active_symbols"
+]
+}
+"req_id":{
+"description":"Optional field sent in request to map to response,…"
+"type":"integer"
+}
+}
+}

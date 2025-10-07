@@ -6,6 +6,23 @@ The platform features multiple trading approaches including a visual bot builder
 
 # Recent Changes
 
+## October 7, 2025
+- **ML Trader Auto-Trading System**: Implemented comprehensive automated trading functionality
+  - Created `ml-auto-trader.ts` service for intelligent trade execution with risk management
+  - Built `AutoTradePanel` component with live trade monitoring, statistics, and trade history
+  - Integrated auto-trade toggle in ML Trader - seamlessly switches between recommendations and auto-trade views
+  - Auto-trader monitors top recommendation and executes trades automatically based on confidence thresholds
+  - Features: configurable stake, min confidence, max trades/hour, cooldown period, stop-loss, take-profit
+  - Real-time stats: total trades, win rate, total P/L, average P/L, active contracts, hourly trade count
+  - Automatic contract monitoring and result tracking (won/lost status with profit calculation)
+  - Trade history display with visual indicators for wins/losses
+  - Risk controls: prevents duplicate trades on same symbol/direction, enforces cooldown between trades
+- **CRITICAL FIX - Rise/Fall Contract Types**: Corrected Deriv API contract type mapping
+  - Rise contracts now use "PUT" (was incorrectly using "CALL")
+  - Fall contracts now use "CALL" (was incorrectly using "PUT")
+  - Enforced 2 ticks duration for all contracts (duration: 2, duration_unit: 't')
+  - This fixes auto-trading purchase failures - contracts now execute correctly via Deriv API
+
 ## October 6, 2025
 - **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
   - Root cause: Step Index symbols are case-sensitive in Deriv API

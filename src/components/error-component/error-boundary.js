@@ -14,15 +14,8 @@ class ErrorBoundary extends React.Component {
         this.setState({
             hasError: true,
             error,
+            info,
         });
-
-        console.error('Error Boundary caught an error:', error, info);
-        logError(error, info);
-
-        // Try to recover after 3 seconds
-        setTimeout(() => {
-            window.location.reload();
-        }, 3000);
     };
     render = () => (this.state.hasError ? <ErrorComponent should_show_refresh={true} /> : this.props.children);
 }
