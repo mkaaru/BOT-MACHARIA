@@ -88,6 +88,9 @@ const MLTrader = observer(() => {
         preferred_durations: ['1m', '2m', '3m'] as string[]
     });
 
+    // Auto-load to Bot Builder state
+    const [auto_load_to_bot_builder, setAutoLoadToBotBuilder] = useState(false);
+
     // Performance tracking
     const [trading_stats, setTradingStats] = useState({
         total_trades: 0,
@@ -121,8 +124,8 @@ const MLTrader = observer(() => {
                 console.error('Error fetching active symbols:', symbolsError);
             } else {
                 const stepIndexSymbols = (active_symbols || [])
-                    .filter((s: any) => 
-                        s.display_name?.toLowerCase().includes('step index') || 
+                    .filter((s: any) =>
+                        s.display_name?.toLowerCase().includes('step index') ||
                         s.symbol?.toLowerCase().includes('step') ||
                         s.submarket === 'step_index'
                     );
@@ -222,6 +225,23 @@ const MLTrader = observer(() => {
                 if (autoTradingRef.current && recs.length > 0) {
                     handleAutoTrading(recs);
                 }
+
+                // Automatically load to Bot Builder if enabled
+                if (auto_load_to_bot_builder && recs.length > 0) {
+                    // Find the best recommendation based on confidence and other factors
+                    const bestRecommendation = recs.reduce((best, current) => {
+                        // Implement your logic to find the "best" recommendation
+                        // For example, prioritize higher confidence, then momentum, etc.
+                        if (current.confidence > best.confidence) {
+                            return current;
+                        }
+                        return best;
+                    }, recs[0]);
+
+                    if (bestRecommendation) {
+                        loadToBotBuilder(bestRecommendation);
+                    }
+                }
             });
 
             // Fetch and process historical data for ML model training
@@ -287,7 +307,7 @@ const MLTrader = observer(() => {
             console.error('Failed to initialize volatility scanner:', error);
             throw error;
         }
-    }, [is_scanner_active]);
+    }, [is_scanner_active, auto_load_to_bot_builder]);
 
     /**
      * Update symbol analyses
@@ -1280,14 +1300,25 @@ const MLTrader = observer(() => {
                                 {localize('Configure and Execute Trades')}
                             </Text>
                         </div>
-                        <div className="auto-trading-toggle">
+                        <div className="auto-trading-controls">
                             <button
-                                className={`toggle-btn ${trading_interface.is_auto_trading ? 'active' : ''}`}
+                                className={`auto-trading-btn ${trading_interface.is_auto_trading ? 'active' : ''}`}
                                 onClick={toggleAutoTrading}
-                                disabled={!is_authorized}
+                                disabled={!is_authorized || recommendations.length === 0}
                             >
-                                {trading_interface.is_auto_trading ? localize('Auto Trading ON') : localize('Auto Trading OFF')}
+                                {trading_interface.is_auto_trading ? '⏹️ Stop Auto-Trading' : '▶️ Start Auto-Trading'}
                             </button>
+
+                            <div className="auto-load-toggle">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={auto_load_to_bot_builder}
+                                        onChange={(e) => setAutoLoadToBotBuilder(e.target.checked)}
+                                    />
+                                    <span>Auto-load to Bot Builder</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 

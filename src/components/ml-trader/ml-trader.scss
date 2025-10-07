@@ -760,7 +760,6 @@
 
                 &:hover {
                     transform: translateY(-4px) scale(1.02);
-                    border-color: var(--brand-coral);
                     box-shadow: 
                         0 12px 32px rgba(0, 0, 0, 0.15),
                         0 4px 16px rgba(var(--brand-coral-rgb), 0.2);
@@ -2778,7 +2777,6 @@
             }
         }
     }
-}
 
 .control-card.filter-mode {
     .mode-selector {
