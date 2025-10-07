@@ -167,8 +167,8 @@ export class TrendAnalysisEngine {
 
         console.log('🚀 Multi-Timeframe Trend Analysis Engine Initialized');
         console.log('📊 Timeframes: 5m → 3m → 1m → 30s (momentum cascade)');
-        console.log('⚡ Weighting: 70% Momentum | 30% Trend Direction');
-        console.log('🎯 Thresholds: 75% min confidence, 60% min momentum');
+        console.log('⚡ Weighting: 60% 5-min Trend | 40% Alignment (MOMENTUM DISABLED)');
+        console.log('🎯 Thresholds: 75% min confidence, alignment-based only');
     }
 
     /**
@@ -252,8 +252,19 @@ export class TrendAnalysisEngine {
         // Multi-timeframe analysis
         const multiTimeframe = this.analyzeMultipleTimeframes(priceHistory);
 
-        // Momentum analysis
-        const momentum = this.analyzeMomentum(momentumData, priceHistory);
+        // Momentum analysis - COMMENTED OUT
+        // const momentum = this.analyzeMomentum(momentumData, priceHistory);
+        
+        // Create dummy momentum object for compatibility
+        const momentum: MomentumTrend = {
+            fast: 0,
+            medium: 0,
+            slow: 0,
+            acceleration: 0,
+            consistency: 0,
+            strength: 0,
+            direction: 'FLAT'
+        };
 
         // Determine overall trend direction and strength
         const { direction, strength, confidence } = this.synthesizeTrend(multiTimeframe, momentum);
@@ -320,7 +331,7 @@ export class TrendAnalysisEngine {
 
         this.trendData.set(symbol, analysis);
 
-        console.log(`🔄 ${symbol}: ${recommendation} | Confidence: ${confidence.toFixed(1)}% | Momentum: ${momentum.strength.toFixed(1)}% | Alignment: ${multiTimeframe.alignment.score.toFixed(1)}%`);
+        console.log(`🔄 ${symbol}: ${recommendation} | Confidence: ${confidence.toFixed(1)}% | Momentum: DISABLED | Alignment: ${multiTimeframe.alignment.score.toFixed(1)}%`);
     }
 
     /**
@@ -607,44 +618,39 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Synthesize overall trend from multi-timeframe and momentum analysis
+     * Synthesize overall trend from multi-timeframe analysis (momentum disabled)
      */
     private synthesizeTrend(
         multiTimeframe: MultiTimeframeAnalysis,
         momentum: MomentumTrend
     ): { direction: TrendDirection; strength: TrendStrength; confidence: number } {
 
-        // Weight 5-minute trend heavily (50%), momentum (30%), alignment (20%)
-        const m5Weight = 0.50;
-        const momentumWeight = 0.30;
-        const alignmentWeight = 0.20;
+        // Weight 5-minute trend heavily (60%), alignment (40%) - momentum disabled
+        const m5Weight = 0.60;
+        const alignmentWeight = 0.40;
 
         let direction: TrendDirection = 'neutral';
         let strengthScore = 0;
         let confidence = 0;
 
-        // Primary direction from 5-minute and momentum
-        if (multiTimeframe.m5.direction === 'bullish' && 
-            (momentum.direction === 'INCREASING' || momentum.fast > 0)) {
+        // Primary direction from 5-minute trend only
+        if (multiTimeframe.m5.direction === 'bullish') {
             direction = 'bullish';
-        } else if (multiTimeframe.m5.direction === 'bearish' && 
-                  (momentum.direction === 'DECREASING' || momentum.fast < 0)) {
+        } else if (multiTimeframe.m5.direction === 'bearish') {
             direction = 'bearish';
         } else if (multiTimeframe.alignment.consensus !== 'neutral') {
             direction = multiTimeframe.alignment.consensus;
         }
 
-        // Calculate weighted strength
+        // Calculate weighted strength (without momentum)
         strengthScore = 
             (multiTimeframe.m5.strength * m5Weight) +
-            (momentum.strength * momentumWeight) +
             (multiTimeframe.alignment.score * alignmentWeight);
 
-        // Calculate confidence
+        // Calculate confidence (without momentum)
         confidence = Math.min(100, 
-            (multiTimeframe.m5.confidence * 0.4) +
-            (momentum.consistency * 0.3) +
-            (multiTimeframe.alignment.score * 0.3)
+            (multiTimeframe.m5.confidence * 0.6) +
+            (multiTimeframe.alignment.score * 0.4)
         );
 
         // Determine strength category
@@ -656,7 +662,7 @@ export class TrendAnalysisEngine {
     }
 
     /**
-     * Generate trading recommendation
+     * Generate trading recommendation (momentum disabled)
      */
     private generateRecommendation(
         multiTimeframe: MultiTimeframeAnalysis,
@@ -664,30 +670,24 @@ export class TrendAnalysisEngine {
         confidence: number
     ): 'BUY' | 'SELL' | 'HOLD' {
 
-        // Check minimum requirements
+        // Check minimum requirements (momentum check disabled)
         if (confidence < this.MIN_CONFIDENCE ||
-            momentum.strength < this.MIN_MOMENTUM_STRENGTH ||
             multiTimeframe.alignment.score < this.MIN_ALIGNMENT_SCORE) {
             return 'HOLD';
         }
 
-        // 5-minute trend must be strong and aligned with momentum
+        // 5-minute trend must be strong
         const m5Strong = multiTimeframe.m5.strength >= 60 && multiTimeframe.m5.confidence >= 65;
-        const momentumAligned = 
-            (multiTimeframe.m5.direction === 'bullish' && momentum.direction === 'INCREASING') ||
-            (multiTimeframe.m5.direction === 'bearish' && momentum.direction === 'DECREASING');
 
-        if (!m5Strong || !momentumAligned) {
+        if (!m5Strong) {
             return 'HOLD';
         }
 
-        // Generate recommendation based on alignment and momentum
+        // Generate recommendation based on alignment only
         if (multiTimeframe.alignment.consensus === 'bullish' && 
-            momentum.direction === 'INCREASING' &&
             multiTimeframe.momentum.flow === 'UP') {
             return 'BUY';
         } else if (multiTimeframe.alignment.consensus === 'bearish' && 
-                  momentum.direction === 'DECREASING' &&
                   multiTimeframe.momentum.flow === 'DOWN') {
             return 'SELL';
         }
