@@ -22,6 +22,11 @@ The platform features multiple trading approaches including a visual bot builder
   - Fall contracts now use "CALL" (was incorrectly using "PUT")
   - Enforced 2 ticks duration for all contracts (duration: 2, duration_unit: 't')
   - This fixes auto-trading purchase failures - contracts now execute correctly via Deriv API
+- **Movement Detection & Symbol Diversification**: Enhanced auto-trading to prevent losses on stagnant markets
+  - Added 2-second tick movement verification before contract purchase (prevents entry=exit losses)
+  - Implemented symbol rotation system - tracks last 3 traded symbols to ensure diversification
+  - Auto-trader skips recently-traded symbols to allow market movement and spread risk
+  - Fixed button visibility - white text now clearly visible on active buttons (CSS !important fix)
 
 ## October 6, 2025
 - **CRITICAL FIX - Symbol Case Sensitivity**: Fixed InvalidSymbol errors in ML Trader
