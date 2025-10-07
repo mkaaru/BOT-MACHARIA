@@ -11,6 +11,7 @@ import { mlTickAnalyzer } from '@/services/ml-tick-analyzer';
 import { statisticsEmitter } from '@/utils/statistics-emitter';
 import { mlAutoTrader } from '@/services/ml-auto-trader';
 import { AutoTradePanel } from './auto-trade-panel';
+import { tickPredictionEngine } from '@/services/tick-prediction-engine';
 import './ml-trader.scss';
 
 
@@ -84,6 +85,8 @@ const MLTrader = observer(() => {
     const [selected_recommendation, setSelectedRecommendation] = useState<ScannerRecommendation | null>(null);
     const [show_advanced_view, setShowAdvancedView] = useState(false);
     const [show_auto_trade_panel, setShowAutoTradePanel] = useState(false);
+    const [use_tick_predictor, setUseTickPredictor] = useState(false);
+    const [tick_prediction, setTickPrediction] = useState<any>(null);
     const [filter_settings] = useState({
         min_confidence: 75,
         min_momentum: 60,
@@ -220,9 +223,16 @@ const MLTrader = observer(() => {
                         epoch: tick.epoch
                     });
 
-                    // Feed tick to ML analyzer (for real-time prediction if implemented)
-                    // For now, ML model is trained on historical data in bulk.
-                    // mlTickAnalyzer.processTick(tick.symbol, tick); // Example if real-time prediction is added
+                    // Feed tick to prediction engine if enabled
+                    if (use_tick_predictor) {
+                        const prediction = tickPredictionEngine.processTick(tick.quote, tick.epoch * 1000);
+                        setTickPrediction(prediction);
+                        
+                        // Log prediction updates
+                        if (prediction.direction !== 'HOLD') {
+                            console.log(`🎯 TICK PREDICTION: ${prediction.direction} @ ${prediction.confidence.toFixed(1)}% - ${prediction.reason}`);
+                        }
+                    }
                 });
             });
 
@@ -1217,6 +1227,17 @@ const MLTrader = observer(() => {
                         </div>
                         <div className="header-controls">
                             <button
+                                className={`filter-btn ${use_tick_predictor ? 'active' : ''}`}
+                                onClick={() => {
+                                    setUseTickPredictor(!use_tick_predictor);
+                                    if (!use_tick_predictor) {
+                                        tickPredictionEngine.reset();
+                                    }
+                                }}
+                            >
+                                {use_tick_predictor ? localize('⚡ 2-Tick ON') : localize('⚡ 2-Tick OFF')}
+                            </button>
+                            <button
                                 className={`filter-btn ${show_auto_trade_panel ? 'active' : ''}`}
                                 onClick={() => setShowAutoTradePanel(!show_auto_trade_panel)}
                             >
@@ -1237,6 +1258,65 @@ const MLTrader = observer(() => {
                                 mlAutoTrader.configure(config);
                             }}
                         />
+                    ) : use_tick_predictor && tick_prediction ? (
+                        <div className="tick-prediction-panel">
+                            <div className="prediction-header">
+                                <Text size="md" weight="bold">⚡ 2-Tick Prediction Engine</Text>
+                                <Text size="xs" color="general">Ultra-short momentum analysis</Text>
+                            </div>
+                            
+                            <div className={`prediction-signal ${tick_prediction.direction.toLowerCase()}`}>
+                                <div className="signal-direction">
+                                    <Text size="xl" weight="bold">
+                                        {tick_prediction.direction === 'CALL' ? '📈 CALL' : 
+                                         tick_prediction.direction === 'PUT' ? '📉 PUT' : '⏸️ HOLD'}
+                                    </Text>
+                                </div>
+                                <div className="signal-confidence">
+                                    <Text size="lg" weight="bold" color={tick_prediction.confidence >= 80 ? 'profit-success' : 'general'}>
+                                        {tick_prediction.confidence.toFixed(1)}%
+                                    </Text>
+                                    <Text size="xs" color="general">Confidence</Text>
+                                </div>
+                            </div>
+
+                            <div className="prediction-reason">
+                                <Text size="sm">{tick_prediction.reason}</Text>
+                            </div>
+
+                            <div className="prediction-metrics">
+                                <div className="metric">
+                                    <Text size="xs" color="general">Consecutive Ticks</Text>
+                                    <Text size="sm" weight="bold">{tick_prediction.metrics.consecutiveTicks}</Text>
+                                </div>
+                                <div className="metric">
+                                    <Text size="xs" color="general">Acceleration</Text>
+                                    <Text size="sm" weight="bold">{tick_prediction.metrics.acceleration.toFixed(2)}</Text>
+                                </div>
+                                <div className="metric">
+                                    <Text size="xs" color="general">Momentum</Text>
+                                    <Text size="sm" weight="bold">{tick_prediction.metrics.momentumStrength.toFixed(1)}%</Text>
+                                </div>
+                                <div className="metric">
+                                    <Text size="xs" color="general">Volatility</Text>
+                                    <Text size="sm" weight="bold">{(tick_prediction.metrics.volatility * 100).toFixed(1)}%</Text>
+                                </div>
+                            </div>
+
+                            {tick_prediction.direction !== 'HOLD' && tick_prediction.confidence >= 80 && (
+                                <div className="prediction-action">
+                                    <button 
+                                        className="execute-btn"
+                                        onClick={() => {
+                                            const action = tick_prediction.direction === 'CALL' ? 'RISE' : 'FALL';
+                                            console.log(`Executing 2-tick ${action} trade at ${tick_prediction.confidence.toFixed(1)}% confidence`);
+                                        }}
+                                    >
+                                        Execute 2-Tick {tick_prediction.direction} Trade
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         <div className="recommendations-list">
                             {recommendations.length === 0 ? (

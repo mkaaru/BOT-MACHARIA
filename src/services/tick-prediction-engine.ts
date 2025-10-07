@@ -1,0 +1,392 @@
+
+/**
+ * Simplified Predictive Engine for 2-Tick Binary Options Trading
+ * Focuses on ultra-short-term tick momentum and acceleration patterns
+ */
+
+interface TickData {
+  price: number;
+  timestamp: number;
+}
+
+interface PredictionResult {
+  direction: 'CALL' | 'PUT' | 'HOLD';
+  confidence: number;
+  strength: number;
+  reason: string;
+  metrics: {
+    consecutiveTicks: number;
+    acceleration: number;
+    momentumStrength: number;
+    volatility: number;
+  };
+}
+
+interface TickMomentum {
+  value: number;
+  acceleration: number;
+  isAccelerating: boolean;
+}
+
+export class TickPredictionEngine {
+  private readonly TICK_WINDOW = 10;           // Analyze last 10 ticks
+  private readonly MIN_CONSECUTIVE = 7;         // Need 7+ ticks in same direction
+  private readonly MIN_ACCELERATION = 0.3;      // Minimum acceleration ratio
+  private readonly MIN_CONFIDENCE = 80;         // 80% confidence threshold
+  private readonly MAX_VOLATILITY = 0.5;        // Max volatility (as % of avg move)
+  
+  private tickHistory: TickData[] = [];
+  private lastPrediction: PredictionResult | null = null;
+  private predictionLockUntil: number = 0;
+
+  /**
+   * Process new tick and generate prediction
+   */
+  public processTick(price: number, timestamp: number): PredictionResult {
+    // Add to history
+    this.tickHistory.push({ price, timestamp });
+    
+    // Keep only recent ticks
+    if (this.tickHistory.length > 100) {
+      this.tickHistory = this.tickHistory.slice(-100);
+    }
+
+    // Need minimum data
+    if (this.tickHistory.length < this.TICK_WINDOW + 2) {
+      return this.createHoldResult('Insufficient data - collecting ticks');
+    }
+
+    // Check if prediction is locked
+    if (Date.now() < this.predictionLockUntil) {
+      return this.lastPrediction || this.createHoldResult('Prediction locked');
+    }
+
+    // Generate prediction
+    return this.generatePrediction();
+  }
+
+  /**
+   * Core prediction logic
+   */
+  private generatePrediction(): PredictionResult {
+    const recent = this.tickHistory.slice(-this.TICK_WINDOW);
+    
+    // Calculate tick-to-tick momentum
+    const momentum = this.calculateMomentum(recent);
+    
+    // Analyze consecutive direction
+    const consecutive = this.analyzeConsecutiveDirection(momentum);
+    
+    // Calculate acceleration
+    const acceleration = this.calculateAcceleration(momentum);
+    
+    // Calculate volatility (consistency check)
+    const volatility = this.calculateVolatility(momentum);
+    
+    // Calculate momentum strength
+    const momentumStrength = this.calculateMomentumStrength(momentum, consecutive);
+
+    // Decision logic
+    const prediction = this.makePrediction(
+      consecutive,
+      acceleration,
+      volatility,
+      momentumStrength,
+      momentum
+    );
+
+    // Lock prediction if strong signal
+    if (prediction.direction !== 'HOLD' && prediction.confidence >= this.MIN_CONFIDENCE) {
+      this.predictionLockUntil = Date.now() + 4000; // Lock for 4 seconds (2 ticks)
+      this.lastPrediction = prediction;
+    }
+
+    return prediction;
+  }
+
+  /**
+   * Calculate tick-to-tick momentum
+   */
+  private calculateMomentum(ticks: TickData[]): number[] {
+    const momentum: number[] = [];
+    
+    for (let i = 1; i < ticks.length; i++) {
+      momentum.push(ticks[i].price - ticks[i - 1].price);
+    }
+    
+    return momentum;
+  }
+
+  /**
+   * Analyze consecutive ticks in same direction
+   */
+  private analyzeConsecutiveDirection(momentum: number[]): {
+    count: number;
+    direction: 'UP' | 'DOWN' | 'MIXED';
+    ratio: number;
+  } {
+    let upCount = 0;
+    let downCount = 0;
+    let currentStreak = 0;
+    let maxStreak = 0;
+    let lastDirection: 'UP' | 'DOWN' | null = null;
+
+    for (const m of momentum) {
+      const direction = m > 0 ? 'UP' : m < 0 ? 'DOWN' : null;
+      
+      if (direction === null) continue;
+      
+      if (direction === 'UP') upCount++;
+      else downCount++;
+
+      if (direction === lastDirection) {
+        currentStreak++;
+      } else {
+        maxStreak = Math.max(maxStreak, currentStreak);
+        currentStreak = 1;
+      }
+      
+      lastDirection = direction;
+    }
+    
+    maxStreak = Math.max(maxStreak, currentStreak);
+    
+    const total = upCount + downCount;
+    const dominantCount = Math.max(upCount, downCount);
+    const ratio = total > 0 ? dominantCount / total : 0;
+    
+    let direction: 'UP' | 'DOWN' | 'MIXED';
+    if (upCount > downCount && ratio >= 0.7) direction = 'UP';
+    else if (downCount > upCount && ratio >= 0.7) direction = 'DOWN';
+    else direction = 'MIXED';
+
+    return {
+      count: maxStreak,
+      direction,
+      ratio
+    };
+  }
+
+  /**
+   * Calculate acceleration (increasing momentum)
+   */
+  private calculateAcceleration(momentum: number[]): {
+    value: number;
+    isAccelerating: boolean;
+  } {
+    if (momentum.length < 3) {
+      return { value: 0, isAccelerating: false };
+    }
+
+    const recent3 = momentum.slice(-3);
+    const last = Math.abs(recent3[2]);
+    const secondLast = Math.abs(recent3[1]);
+    const thirdLast = Math.abs(recent3[0]);
+    
+    // Check if momentum is increasing
+    const acceleration = (last - secondLast) / (secondLast || 1);
+    const isAccelerating = last > secondLast && secondLast >= thirdLast;
+
+    return {
+      value: acceleration,
+      isAccelerating
+    };
+  }
+
+  /**
+   * Calculate volatility (lower is better for prediction)
+   */
+  private calculateVolatility(momentum: number[]): number {
+    if (momentum.length === 0) return 0;
+
+    const avgMagnitude = momentum.reduce((sum, m) => sum + Math.abs(m), 0) / momentum.length;
+    const variance = momentum.reduce((sum, m) => {
+      const diff = Math.abs(m) - avgMagnitude;
+      return sum + (diff * diff);
+    }, 0) / momentum.length;
+
+    const stdDev = Math.sqrt(variance);
+    return avgMagnitude > 0 ? stdDev / avgMagnitude : 0;
+  }
+
+  /**
+   * Calculate overall momentum strength
+   */
+  private calculateMomentumStrength(momentum: number[], consecutive: any): number {
+    const avgMomentum = momentum.reduce((sum, m) => sum + Math.abs(m), 0) / momentum.length;
+    const consecutiveRatio = consecutive.ratio;
+    
+    // Strength = average momentum size * consistency
+    return Math.min(100, (avgMomentum * 100 * consecutiveRatio));
+  }
+
+  /**
+   * Make trading prediction based on all metrics
+   */
+  private makePrediction(
+    consecutive: any,
+    acceleration: any,
+    volatility: number,
+    momentumStrength: number,
+    momentum: number[]
+  ): PredictionResult {
+    
+    const lastMomentum = momentum[momentum.length - 1];
+    const metrics = {
+      consecutiveTicks: consecutive.count,
+      acceleration: acceleration.value,
+      momentumStrength,
+      volatility
+    };
+
+    // Check minimum requirements
+    if (consecutive.count < this.MIN_CONSECUTIVE) {
+      return this.createHoldResult(
+        `Need ${this.MIN_CONSECUTIVE} consecutive ticks (have ${consecutive.count})`,
+        metrics
+      );
+    }
+
+    if (consecutive.direction === 'MIXED') {
+      return this.createHoldResult('Mixed direction - no clear trend', metrics);
+    }
+
+    if (volatility > this.MAX_VOLATILITY) {
+      return this.createHoldResult(
+        `High volatility (${(volatility * 100).toFixed(0)}%) - unstable`,
+        metrics
+      );
+    }
+
+    if (!acceleration.isAccelerating) {
+      return this.createHoldResult('Momentum not accelerating', metrics);
+    }
+
+    // Calculate confidence
+    const confidence = this.calculateConfidence(
+      consecutive,
+      acceleration,
+      volatility,
+      momentumStrength
+    );
+
+    if (confidence < this.MIN_CONFIDENCE) {
+      return this.createHoldResult(
+        `Confidence too low (${confidence.toFixed(0)}%)`,
+        metrics
+      );
+    }
+
+    // Generate BUY/SELL signal
+    if (consecutive.direction === 'UP' && lastMomentum > 0) {
+      return {
+        direction: 'CALL',
+        confidence,
+        strength: momentumStrength,
+        reason: `Strong upward momentum: ${consecutive.count} consecutive up ticks, accelerating`,
+        metrics
+      };
+    }
+
+    if (consecutive.direction === 'DOWN' && lastMomentum < 0) {
+      return {
+        direction: 'PUT',
+        confidence,
+        strength: momentumStrength,
+        reason: `Strong downward momentum: ${consecutive.count} consecutive down ticks, accelerating`,
+        metrics
+      };
+    }
+
+    return this.createHoldResult('Direction changed on last tick', metrics);
+  }
+
+  /**
+   * Calculate overall confidence score
+   */
+  private calculateConfidence(
+    consecutive: any,
+    acceleration: any,
+    volatility: number,
+    momentumStrength: number
+  ): number {
+    // Weighted confidence calculation
+    const consecutiveScore = Math.min(100, (consecutive.count / 10) * 100);
+    const accelerationScore = Math.min(100, (acceleration.value / this.MIN_ACCELERATION) * 100);
+    const volatilityScore = Math.max(0, 100 - (volatility / this.MAX_VOLATILITY) * 100);
+    const strengthScore = momentumStrength;
+
+    const confidence = (
+      consecutiveScore * 0.35 +      // 35% weight on consecutive ticks
+      accelerationScore * 0.25 +     // 25% weight on acceleration
+      volatilityScore * 0.20 +       // 20% weight on low volatility
+      strengthScore * 0.20           // 20% weight on momentum strength
+    );
+
+    return Math.min(100, Math.max(0, confidence));
+  }
+
+  /**
+   * Create HOLD result with reason
+   */
+  private createHoldResult(reason: string, metrics?: any): PredictionResult {
+    return {
+      direction: 'HOLD',
+      confidence: 0,
+      strength: 0,
+      reason,
+      metrics: metrics || {
+        consecutiveTicks: 0,
+        acceleration: 0,
+        momentumStrength: 0,
+        volatility: 0
+      }
+    };
+  }
+
+  /**
+   * Get current tick history (for debugging)
+   */
+  public getTickHistory(): TickData[] {
+    return [...this.tickHistory];
+  }
+
+  /**
+   * Reset engine state
+   */
+  public reset(): void {
+    this.tickHistory = [];
+    this.lastPrediction = null;
+    this.predictionLockUntil = 0;
+  }
+
+  /**
+   * Get detailed statistics
+   */
+  public getStats() {
+    if (this.tickHistory.length < 2) {
+      return null;
+    }
+
+    const recent = this.tickHistory.slice(-this.TICK_WINDOW);
+    const momentum = this.calculateMomentum(recent);
+    const consecutive = this.analyzeConsecutiveDirection(momentum);
+    const acceleration = this.calculateAcceleration(momentum);
+    const volatility = this.calculateVolatility(momentum);
+
+    return {
+      totalTicks: this.tickHistory.length,
+      recentTicks: recent.length,
+      consecutiveDirection: consecutive.direction,
+      consecutiveCount: consecutive.count,
+      directionRatio: (consecutive.ratio * 100).toFixed(1) + '%',
+      isAccelerating: acceleration.isAccelerating,
+      accelerationValue: acceleration.value.toFixed(3),
+      volatility: (volatility * 100).toFixed(1) + '%',
+      currentPrice: this.tickHistory[this.tickHistory.length - 1].price
+    };
+  }
+}
+
+// Singleton instance
+export const tickPredictionEngine = new TickPredictionEngine();

@@ -3181,3 +3181,96 @@
         }
     }
 }
+
+.tick-prediction-panel {
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+        border-radius: 12px;
+        margin-bottom: 20px;
+
+        .prediction-header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .prediction-signal {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+
+            &.call {
+                background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1));
+                border: 2px solid rgba(76, 175, 80, 0.5);
+            }
+
+            &.put {
+                background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(244, 67, 54, 0.1));
+                border: 2px solid rgba(244, 67, 54, 0.5);
+            }
+
+            &.hold {
+                background: linear-gradient(135deg, rgba(158, 158, 158, 0.2), rgba(158, 158, 158, 0.1));
+                border: 2px solid rgba(158, 158, 158, 0.5);
+            }
+
+            .signal-direction {
+                flex: 1;
+            }
+
+            .signal-confidence {
+                text-align: right;
+            }
+        }
+
+        .prediction-reason {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .prediction-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+
+            .metric {
+                text-align: center;
+                padding: 10px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 6px;
+            }
+        }
+
+        .prediction-action {
+            text-align: center;
+
+            .execute-btn {
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #4CAF50, #45a049);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: all 0.3s ease;
+
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+                }
+
+                &:active {
+                    transform: translateY(0);
+                }
+            }
+        }
+    }
+
+    .recommendation-card.beautiful-card {
