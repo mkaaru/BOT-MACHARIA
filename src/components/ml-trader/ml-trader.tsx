@@ -467,7 +467,10 @@ const MLTrader = observer(() => {
         contractInProgressRef.current = true;
         const stake = mlAutoTrader.getConfig().stake_amount;
 
-        console.log(`🤖 AUTO-TRADE EXECUTING: ${recommendation.action} on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
+        // Get contract configuration based on current strategy state
+        const contractConfig = mlAutoTrader.getNextContractConfig(recommendation);
+        
+        console.log(`🤖 AUTO-TRADE EXECUTING: ${contractConfig.display_label} (${contractConfig.mode}) on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
 
         // Check if symbol is moving before trading
         const isMoving = await checkSymbolMovement(recommendation.symbol);
@@ -482,7 +485,7 @@ const MLTrader = observer(() => {
                 proposal: 1,
                 amount: stake,
                 basis: 'stake',
-                contract_type: recommendation.action === 'RISE' ? 'PUT' : 'CALL',
+                contract_type: contractConfig.deriv_contract_type,
                 currency: account_currency,
                 duration: 2,
                 duration_unit: 't',
@@ -514,13 +517,15 @@ const MLTrader = observer(() => {
                     const entryPrice = parseFloat(buy_response.buy.buy_price);
                     const payout = parseFloat(buy_response.buy.payout || 0);
                     
-                    console.log(`✅ CONTRACT PURCHASED! ID: ${buy_response.buy.contract_id}, Entry: ${entryPrice}, Payout: ${payout}`);
+                    console.log(`✅ CONTRACT PURCHASED! Type: ${contractConfig.deriv_contract_type}, ID: ${buy_response.buy.contract_id}, Entry: ${entryPrice}, Payout: ${payout}`);
                     
                     mlAutoTrader.registerTrade(
                         recommendation,
                         buy_response.buy.contract_id,
                         entryPrice,
-                        payout
+                        payout,
+                        contractConfig.deriv_contract_type,
+                        contractConfig.mode
                     );
 
                     statisticsEmitter.emitTradeRun();
@@ -533,7 +538,7 @@ const MLTrader = observer(() => {
         } finally {
             contractInProgressRef.current = false;
         }
-    }, [account_currency]);
+    }, [account_currency, checkSymbolMovement]);
 
     /**
      * Execute a manual trade based on recommendation
