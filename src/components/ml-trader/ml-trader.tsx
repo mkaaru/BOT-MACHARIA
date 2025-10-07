@@ -9,6 +9,8 @@ import { derivVolatilityScanner, ScannerRecommendation, ScannerStatus, Volatilit
 import { tickStreamManager } from '@/services/tick-stream-manager';
 import { mlTickAnalyzer } from '@/services/ml-tick-analyzer';
 import { statisticsEmitter } from '@/utils/statistics-emitter';
+import { mlAutoTrader } from '@/services/ml-auto-trader';
+import { AutoTradePanel } from './auto-trade-panel';
 import './ml-trader.scss';
 
 
@@ -81,6 +83,7 @@ const MLTrader = observer(() => {
     const [status, setStatus] = useState<string>('');
     const [selected_recommendation, setSelectedRecommendation] = useState<ScannerRecommendation | null>(null);
     const [show_advanced_view, setShowAdvancedView] = useState(false);
+    const [show_auto_trade_panel, setShowAutoTradePanel] = useState(false);
     const [filter_settings] = useState({
         min_confidence: 75,
         min_momentum: 60,
@@ -105,6 +108,21 @@ const MLTrader = observer(() => {
         initializeMLTrader();
         return () => cleanup();
     }, []);
+
+    useEffect(() => {
+        const checkAutoTrade = () => {
+            if (!mlAutoTrader.getConfig().enabled || recommendations.length === 0) return;
+
+            const topRecommendation = recommendations[0];
+            
+            if (mlAutoTrader.shouldExecuteTrade(topRecommendation) && !contractInProgressRef.current) {
+                executeAutoTrade(topRecommendation);
+            }
+        };
+
+        const interval = setInterval(checkAutoTrade, 3000);
+        return () => clearInterval(interval);
+    }, [recommendations]);
 
     /**
      * Initialize ML Trader with Deriv volatility scanner
@@ -376,7 +394,69 @@ const MLTrader = observer(() => {
     }, [filter_settings]);
 
     /**
-     * Execute a trade based on recommendation
+     * Execute an automated trade based on recommendation
+     */
+    const executeAutoTrade = useCallback(async (recommendation: ScannerRecommendation) => {
+        if (!apiRef.current || contractInProgressRef.current) return;
+
+        contractInProgressRef.current = true;
+        const stake = mlAutoTrader.getConfig().stake_amount;
+
+        try {
+            const durationSeconds = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
+
+            const tradeParams = {
+                proposal: 1,
+                amount: stake,
+                basis: 'stake',
+                contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT',
+                currency: account_currency,
+                duration: durationSeconds,
+                duration_unit: 's',
+                symbol: recommendation.symbol
+            };
+
+            const proposal_response = await apiRef.current.send(tradeParams);
+
+            if (proposal_response.error) {
+                throw new Error(proposal_response.error.message);
+            }
+
+            if (proposal_response.proposal) {
+                const buy_response = await apiRef.current.send({
+                    buy: proposal_response.proposal.id,
+                    price: stake
+                });
+
+                if (buy_response.error) {
+                    throw new Error(buy_response.error.message);
+                }
+
+                if (buy_response.buy) {
+                    const entryPrice = parseFloat(buy_response.buy.buy_price);
+                    const payout = parseFloat(buy_response.buy.payout || 0);
+                    
+                    mlAutoTrader.registerTrade(
+                        recommendation,
+                        buy_response.buy.contract_id,
+                        entryPrice,
+                        payout
+                    );
+
+                    statisticsEmitter.emitTradeRun();
+                    monitorContract(buy_response.buy.contract_id, true);
+                }
+            }
+
+        } catch (error) {
+            console.error('Auto-trade execution error:', error);
+        } finally {
+            contractInProgressRef.current = false;
+        }
+    }, [account_currency]);
+
+    /**
+     * Execute a manual trade based on recommendation
      */
     const executeTrade = useCallback(async (recommendation: ScannerRecommendation) => {
         if (!apiRef.current || contractInProgressRef.current) return;
@@ -385,10 +465,8 @@ const MLTrader = observer(() => {
         setStatus(`Executing ${recommendation.action} trade on ${recommendation.displayName}...`);
 
         try {
-            // Convert duration to appropriate format
             const durationSeconds = DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180;
 
-            // Prepare trade parameters
             const tradeParams = {
                 proposal: 1,
                 amount: trading_interface.stake,
@@ -400,7 +478,6 @@ const MLTrader = observer(() => {
                 symbol: recommendation.symbol
             };
 
-            // Get proposal
             const proposal_response = await apiRef.current.send(tradeParams);
 
             if (proposal_response.error) {
@@ -408,7 +485,6 @@ const MLTrader = observer(() => {
             }
 
             if (proposal_response.proposal) {
-                // Buy the contract
                 const buy_response = await apiRef.current.send({
                     buy: proposal_response.proposal.id,
                     price: trading_interface.stake
@@ -419,21 +495,15 @@ const MLTrader = observer(() => {
                 }
 
                 if (buy_response.buy) {
-                    const isAutoTrade = autoTradingRef.current;
-                    setStatus(`${isAutoTrade ? 'AUTO' : 'MANUAL'} Trade executed: ${recommendation.action} on ${recommendation.displayName} (Contract ID: ${buy_response.buy.contract_id})`);
-
-                    // Emit trade run to statistics
+                    setStatus(`Trade executed: ${recommendation.action} on ${recommendation.displayName} (Contract ID: ${buy_response.buy.contract_id})`);
                     statisticsEmitter.emitTradeRun();
 
-                    // Update trading stats
                     setTradingStats(prev => ({
                         ...prev,
-                        total_trades: prev.total_trades + 1,
-                        auto_trade_count: isAutoTrade ? prev.auto_trade_count + 1 : prev.auto_trade_count
+                        total_trades: prev.total_trades + 1
                     }));
 
-                    // Monitor contract outcome
-                    monitorContract(buy_response.buy.contract_id);
+                    monitorContract(buy_response.buy.contract_id, false);
                 }
             }
 
@@ -448,11 +518,10 @@ const MLTrader = observer(() => {
     /**
      * Monitor contract outcome
      */
-    const monitorContract = useCallback(async (contract_id: string) => {
+    const monitorContract = useCallback(async (contract_id: string, isAutoTrade: boolean = false) => {
         if (!apiRef.current) return;
 
         try {
-            // Subscribe to contract updates
             const contract_response = await apiRef.current.send({
                 proposal_open_contract: 1,
                 contract_id,
@@ -463,7 +532,7 @@ const MLTrader = observer(() => {
                 const contract = contract_response.proposal_open_contract;
 
                 if (contract.is_sold) {
-                    handleContractResult(contract);
+                    handleContractResult(contract, isAutoTrade);
                 }
             }
 
@@ -475,9 +544,17 @@ const MLTrader = observer(() => {
     /**
      * Handle contract result
      */
-    const handleContractResult = useCallback((contract: any) => {
+    const handleContractResult = useCallback((contract: any, isAutoTrade: boolean = false) => {
         const profit = parseFloat(contract.profit || 0);
         const is_win = profit > 0;
+
+        if (isAutoTrade) {
+            mlAutoTrader.updateTradeResult(
+                contract.contract_id,
+                profit,
+                is_win ? 'won' : 'lost'
+            );
+        }
 
         setTradingStats(prev => {
             const new_winning = is_win ? prev.winning_trades + 1 : prev.winning_trades;
@@ -1133,6 +1210,12 @@ const MLTrader = observer(() => {
                         </div>
                         <div className="header-controls">
                             <button
+                                className={`filter-btn ${show_auto_trade_panel ? 'active' : ''}`}
+                                onClick={() => setShowAutoTradePanel(!show_auto_trade_panel)}
+                            >
+                                {show_auto_trade_panel ? localize('📊 Recommendations') : localize('🤖 Auto-Trade')}
+                            </button>
+                            <button
                                 className={`filter-btn ${show_advanced_view ? 'active' : ''}`}
                                 onClick={() => setShowAdvancedView(!show_advanced_view)}
                             >
@@ -1141,21 +1224,28 @@ const MLTrader = observer(() => {
                         </div>
                     </div>
 
-                    <div className="recommendations-list">
-                        {recommendations.length === 0 ? (
-                            <div className="no-recommendations">
-                                <Text size="sm" color="general">
-                                    {localize('Scanning for momentum opportunities...')}
-                                </Text>
-                                <div className="scan-progress">
-                                    <div
-                                        className="progress-bar"
-                                        style={{ width: `${scan_progress}%` }}
-                                    />
+                    {show_auto_trade_panel ? (
+                        <AutoTradePanel 
+                            onConfigChange={(config) => {
+                                mlAutoTrader.configure(config);
+                            }}
+                        />
+                    ) : (
+                        <div className="recommendations-list">
+                            {recommendations.length === 0 ? (
+                                <div className="no-recommendations">
+                                    <Text size="sm" color="general">
+                                        {localize('Scanning for momentum opportunities...')}
+                                    </Text>
+                                    <div className="scan-progress">
+                                        <div
+                                            className="progress-bar"
+                                            style={{ width: `${scan_progress}%` }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="beautiful-cards-container">
+                            ) : (
+                                <div className="beautiful-cards-container">
                                 {recommendations.slice(0, 6).map((rec, index) => (
                                     <div
                                         key={`${rec.symbol}-${index}`}
@@ -1288,7 +1378,8 @@ const MLTrader = observer(() => {
                                 ))}
                             </div>
                         )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Trading Interface */}
