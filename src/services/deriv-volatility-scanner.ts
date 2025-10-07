@@ -555,7 +555,7 @@ export class DerivVolatilityScanner {
      * Calculate trend metrics (strength, confidence, quality)
      */
     private calculateTrendMetrics(
-        data: Array<{ price: number; timestamp: number }>;
+        data: Array<{ price: number; timestamp: number }>,
         direction: TimeframeDirection
     ): { strength: number; confidence: number; trendQuality: number } {
         if (data.length < 10) {
