@@ -317,29 +317,50 @@ const MLTrader = observer(() => {
         try {
             setStatus('Initializing Advanced ML Trader...');
 
-            // Initialize API connection
-            const api = generateDerivApiInstance();
-            apiRef.current = api;
+            // Initialize API connection with retry logic
+            let api;
+            let retryCount = 0;
+            const maxRetries = 3;
+
+            while (retryCount < maxRetries) {
+                try {
+                    api = generateDerivApiInstance();
+                    apiRef.current = api;
+                    break;
+                } catch (apiError) {
+                    retryCount++;
+                    console.error(`API connection attempt ${retryCount} failed:`, apiError);
+                    if (retryCount >= maxRetries) {
+                        throw new Error('Failed to connect to Deriv API after multiple attempts');
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+                }
+            }
 
             // Query available Step Index symbols from Deriv API
             setStatus('Querying available Step Index symbols...');
-            const { active_symbols, error: symbolsError } = await api.send({ active_symbols: 'brief' });
-            if (symbolsError) {
-                console.error('Error fetching active symbols:', symbolsError);
-            } else {
-                const stepIndexSymbols = (active_symbols || [])
-                    .filter((s: any) =>
-                        s.display_name?.toLowerCase().includes('step index') ||
-                        s.symbol?.toLowerCase().includes('step') ||
-                        s.submarket === 'step_index'
-                    );
+            try {
+                const { active_symbols, error: symbolsError } = await api.send({ active_symbols: 'brief' });
+                if (symbolsError) {
+                    console.error('Error fetching active symbols:', symbolsError);
+                } else {
+                    const stepIndexSymbols = (active_symbols || [])
+                        .filter((s: any) =>
+                            s.display_name?.toLowerCase().includes('step index') ||
+                            s.symbol?.toLowerCase().includes('step') ||
+                            s.submarket === 'step_index'
+                        );
 
-                console.log('🔍 Found Step Index symbols:', stepIndexSymbols.map((s: any) => `${s.symbol} (${s.display_name})`));
+                    console.log('🔍 Found Step Index symbols:', stepIndexSymbols.map((s: any) => `${s.symbol} (${s.display_name})`));
 
-                if (stepIndexSymbols.length === 0) {
-                    console.warn('⚠️ No Step Index symbols found! Using volatility indices instead.');
-                    setStatus('No Step Indices available - this environment may not support them');
+                    if (stepIndexSymbols.length === 0) {
+                        console.warn('⚠️ No Step Index symbols found! Using volatility indices instead.');
+                        setStatus('No Step Indices available - this environment may not support them');
+                    }
                 }
+            } catch (symbolError) {
+                console.error('Error querying symbols:', symbolError);
+                setStatus('Using default symbols due to query error');
             }
 
             // Check authorization
@@ -348,23 +369,42 @@ const MLTrader = observer(() => {
 
             if (token && client_id) {
                 setIsAuthorized(true);
-                await getAccountInfo();
+                try {
+                    await getAccountInfo();
+                } catch (accountError) {
+                    console.error('Error fetching account info:', accountError);
+                    setStatus('Account info unavailable - continuing with limited features');
+                }
             }
 
             // Initialize tick stream manager
             setStatus('Connecting to Deriv data streams...');
-            await initializeTickStreams();
+            try {
+                await initializeTickStreams();
+            } catch (tickError) {
+                console.error('Error initializing tick streams:', tickError);
+                setStatus('Tick stream error - retrying...');
+                // Retry tick stream initialization
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                await initializeTickStreams();
+            }
 
             // Initialize volatility scanner (now ROC scanner)
             setStatus('Initializing ROC scanner...');
-            await initializeVolatilityScanner();
+            try {
+                await initializeVolatilityScanner();
+            } catch (scannerError) {
+                console.error('Error initializing scanner:', scannerError);
+                setStatus('Scanner initialization error - using fallback mode');
+            }
 
             setStatus('ML Trader ready - Scanning for ROC opportunities');
             setIsScannerActive(true);
 
         } catch (error) {
             console.error('Failed to initialize ML Trader:', error);
-            setStatus(`Initialization failed: ${error}`);
+            setStatus(`⚠️ Initialization failed: ${error}. Click refresh to retry.`);
+            setIsScannerActive(false);
         }
     }, []);
 
@@ -1340,6 +1380,18 @@ const MLTrader = observer(() => {
                         <div className={`status-dot ${is_scanner_active ? 'active' : 'inactive'}`} />
                         <Text size="sm" weight="bold">{status}</Text>
                     </div>
+
+                    {!is_scanner_active && status.includes('failed') && (
+                        <button
+                            className="ml-trader__btn ml-trader__btn--scan"
+                            onClick={() => {
+                                cleanup();
+                                initializeMLTrader();
+                            }}
+                        >
+                            {localize('🔄 Retry')}
+                        </button>
+                    )}
 
                     {scanner_status && ( // Keep this if scanner_status provides useful general info
                         <div className="scanner-stats desktop-only">
