@@ -10,10 +10,25 @@ export interface AutoTradeConfig {
     cooldown_period_seconds: number;
 }
 
+export type DerivContractType = 'CALL' | 'PUT' | 'CALLE' | 'PUTE';
+export type ContractMode = 'EQUALS' | 'PLAIN';
+
+export interface ContractStrategyState {
+    mode: ContractMode;
+    consecutive_losses: number;
+}
+
+export interface ContractConfig {
+    deriv_contract_type: DerivContractType;
+    display_label: string;
+    mode: ContractMode;
+}
+
 export interface AutoTradeResult {
     contract_id: string;
     symbol: string;
     contract_type: 'CALL' | 'PUT';
+    deriv_contract_type: DerivContractType;
     entry_price: number;
     stake: number;
     payout: number;
@@ -21,6 +36,7 @@ export interface AutoTradeResult {
     status: 'open' | 'won' | 'lost';
     timestamp: number;
     recommendation: ScannerRecommendation;
+    contract_mode: ContractMode;
 }
 
 export interface AutoTradeStats {
@@ -63,6 +79,16 @@ class MLAutoTrader {
     private last_recommendation: ScannerRecommendation | null = null;
     private last_traded_symbols: Set<string> = new Set();
     private symbol_rotation_index: number = 0;
+    
+    // Contract strategy state per direction
+    private strategy_state: {
+        RISE: ContractStrategyState;
+        FALL: ContractStrategyState;
+    } = {
+        RISE: { mode: 'EQUALS', consecutive_losses: 0 },
+        FALL: { mode: 'EQUALS', consecutive_losses: 0 }
+    };
+    
     private status_callback: ((status: string) => void) | null = null;
     private stats_callback: ((stats: AutoTradeStats) => void) | null = null;
     private trade_callback: ((trade: AutoTradeResult) => void) | null = null;
@@ -95,6 +121,44 @@ class MLAutoTrader {
 
     public getActiveContracts(): AutoTradeResult[] {
         return Array.from(this.active_contracts.values());
+    }
+
+    public getStrategyState(): { RISE: ContractStrategyState; FALL: ContractStrategyState } {
+        return { ...this.strategy_state };
+    }
+
+    public getNextContractConfig(recommendation: ScannerRecommendation): ContractConfig {
+        const direction = recommendation.action as 'RISE' | 'FALL';
+        const state = this.strategy_state[direction];
+        
+        let deriv_contract_type: DerivContractType;
+        let display_label: string;
+        
+        if (state.mode === 'EQUALS') {
+            // Equals mode: RISE → PUTE, FALL → CALLE
+            if (direction === 'RISE') {
+                deriv_contract_type = 'PUTE';
+                display_label = 'Rise Equals';
+            } else {
+                deriv_contract_type = 'CALLE';
+                display_label = 'Fall Equals';
+            }
+        } else {
+            // Plain mode: RISE → PUT, FALL → CALL
+            if (direction === 'RISE') {
+                deriv_contract_type = 'PUT';
+                display_label = 'Rise';
+            } else {
+                deriv_contract_type = 'CALL';
+                display_label = 'Fall';
+            }
+        }
+        
+        return {
+            deriv_contract_type,
+            display_label,
+            mode: state.mode
+        };
     }
 
     public onStatusUpdate(callback: (status: string) => void) {
@@ -183,7 +247,7 @@ class MLAutoTrader {
         return true;
     }
 
-    public registerTrade(recommendation: ScannerRecommendation, contract_id: string, entry_price: number, payout: number) {
+    public registerTrade(recommendation: ScannerRecommendation, contract_id: string, entry_price: number, payout: number, deriv_contract_type: DerivContractType, contract_mode: ContractMode) {
         // Track traded symbol for rotation
         this.last_traded_symbols.add(recommendation.symbol);
         
@@ -197,13 +261,15 @@ class MLAutoTrader {
             contract_id,
             symbol: recommendation.symbol,
             contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT',
+            deriv_contract_type,
             entry_price,
             stake: this.config.stake_amount,
             payout,
             profit: 0,
             status: 'open',
             timestamp: Date.now(),
-            recommendation
+            recommendation,
+            contract_mode
         };
 
         this.active_contracts.set(contract_id, trade);
@@ -213,7 +279,8 @@ class MLAutoTrader {
         this.stats.active_trades++;
         this.stats.total_trades++;
 
-        this.updateStatus(`✅ Trade opened: ${trade.contract_type} on ${recommendation.displayName} | Stake: ${this.config.stake_amount}`);
+        const modeLabel = contract_mode === 'EQUALS' ? '(Equals)' : '(Plain)';
+        this.updateStatus(`✅ Trade opened: ${deriv_contract_type} ${modeLabel} on ${recommendation.displayName} | Stake: ${this.config.stake_amount}`);
         this.updateStats();
     }
 
@@ -223,6 +290,9 @@ class MLAutoTrader {
 
         trade.profit = profit;
         trade.status = status;
+
+        const direction = trade.recommendation.action as 'RISE' | 'FALL';
+        const state = this.strategy_state[direction];
 
         this.active_contracts.delete(contract_id);
         this.trade_history.unshift(trade);
@@ -236,10 +306,21 @@ class MLAutoTrader {
 
         if (status === 'won') {
             this.stats.winning_trades++;
-            this.updateStatus(`🎉 Trade WON: ${trade.symbol} | Profit: +${profit.toFixed(2)}`);
+            this.updateStatus(`🎉 Trade WON: ${trade.symbol} ${trade.deriv_contract_type} | Profit: +${profit.toFixed(2)}`);
+            
+            // On win: Reset to EQUALS mode
+            state.mode = 'EQUALS';
+            state.consecutive_losses = 0;
+            this.updateStatus(`🔄 ${direction} strategy reset to EQUALS mode after win`);
         } else {
             this.stats.losing_trades++;
-            this.updateStatus(`😞 Trade LOST: ${trade.symbol} | Loss: ${profit.toFixed(2)}`);
+            this.updateStatus(`😞 Trade LOST: ${trade.symbol} ${trade.deriv_contract_type} | Loss: ${profit.toFixed(2)}`);
+            
+            // On loss: Increment streak and flip mode
+            state.consecutive_losses++;
+            const oldMode = state.mode;
+            state.mode = state.mode === 'EQUALS' ? 'PLAIN' : 'EQUALS';
+            this.updateStatus(`🔀 ${direction} strategy switched from ${oldMode} to ${state.mode} mode (Loss #${state.consecutive_losses})`);
         }
 
         this.updateStats();
