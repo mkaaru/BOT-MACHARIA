@@ -10,6 +10,7 @@ import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from 
 import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
+import SplashScreen from './splash-screen'; // Assuming SplashScreen is in the same directory
 
 // Mock 'transactions' object if it's not globally available or imported elsewhere
 // In a real scenario, this should be properly imported or managed.
@@ -279,13 +280,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                     console.error('Market analyzer error:', error);
                     setConnectionStatus('error');
                     setStatusMessage('Connection error - retrying...');
-                    
+
                     // Auto-recover after 3 seconds if we have some data
                     setTimeout(() => {
                         const hasAnyData = Object.keys(marketStats).some(symbol => 
                             marketStats[symbol] && marketStats[symbol].tickCount > 0
                         );
-                        
+
                         if (hasAnyData) {
                             console.log('🔄 Auto-recovering with available data');
                             setConnectionStatus('ready');
@@ -299,7 +300,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 marketAnalyzer.start();
                 setIsScanning(true);
                 setConnectionStatus('scanning');
-                
+
                 // Fallback timeout - force ready state after 15 seconds
                 setTimeout(() => {
                     if (connectionStatus === 'scanning' || connectionStatus === 'connecting') {
@@ -1751,45 +1752,39 @@ const TradingHubDisplay: React.FC = observer(() => {
         setSelectedTradeSettings(null);
     };
 
-    return (
-        <div className="trading-hub-scanner">
-            {/* Smart Trader Modal */}
-            <Modal
-                is_open={isSmartTraderModalOpen}
-                title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
-                toggleModal={handleCloseModal}
-                width="900px"
-                height="auto"
-            >
-                {selectedTradeSettings && (
-                    <SmartTraderWrapper
-                        initialSettings={selectedTradeSettings}
-                        onClose={handleCloseModal}
-                    />
-                )}
-            </Modal>
+    // Show splash screen during scanning
+    if (connectionStatus === 'scanning' || connectionStatus === 'connecting') {
+        return <SplashScreen />;
+    }
 
+    return (
+        <div
+            className="trading-hub-scanner"
+            style={{ paddingBottom: '10rem', minHeight: '100vh', overflowY: 'auto' }}
+            onContextMenu={(e) => e.preventDefault()}
+        >
             <div className="scanner-header">
                 <div className="scanner-title">
                     <div className="title-with-status">
-                        <h1>Market Scanner</h1>
-                        <div className={`status-indicator ${getStatusDotClass()}`}>
+                        <h1>{localize('Trading Hub - AI Market Scanner')}</h1>
+                        <div className={`status-indicator status-dot--${
+                            connectionStatus === 'ready' ? 'success' : 
+                            connectionStatus === 'error' ? 'error' : 
+                            connectionStatus === 'scanning' ? 'loading' : 'warning'
+                        }`}>
                             <div className="status-dot"></div>
                             <span className="status-text">{statusMessage}</span>
                         </div>
                     </div>
-                    <Text size="s" color="general">
-                        Real-time analysis of all volatility indices using advanced pattern recognition
-                    </Text>
                 </div>
 
                 <div className="scanner-controls">
                     <div className="trade-type-filter">
-                        <label>Filter by trade type:</label>
+                        <label>{localize('Filter by Trade Type:')}</label>
                         <select
+                            className="trade-type-select"
                             value={selectedTradeType}
                             onChange={(e) => setSelectedTradeType(e.target.value)}
-                            className="trade-type-select"
                         >
                             {tradeTypes.map(type => (
                                 <option key={type.value} value={type.value}>
@@ -1799,19 +1794,20 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </select>
                     </div>
 
-                    {isScanning && (
-                        <div className="scan-progress">
-                            <div className="progress-bar">
-                                <div
-                                    className="progress-fill"
-                                    style={{ width: `${scanProgress}%` }}
-                                ></div>
-                            </div>
-                            <Text size="xs" color="general">
-                                {symbolsAnalyzed}/{totalSymbols} markets analyzed
-                            </Text>
+                    <div className="scan-progress">
+                        <Text size="xs" color="general">
+                            {localize('Markets Analyzed: {{analyzed}}/{{total}}', {
+                                analyzed: symbolsAnalyzed,
+                                total: totalSymbols
+                            })}
+                        </Text>
+                        <div className="progress-bar">
+                            <div
+                                className="progress-fill"
+                                style={{ width: `${scanProgress}%` }}
+                            />
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
 
