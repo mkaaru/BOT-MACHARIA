@@ -167,7 +167,6 @@ const AppWrapper = observer(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
-                'Cortex Dollars.xml',
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
