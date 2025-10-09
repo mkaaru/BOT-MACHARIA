@@ -405,6 +405,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
 
+            // Check if this is a MATCHES strategy - rapid fire mode
+            const isMatchesStrategy = tradeType === 'DIGITMATCH';
+
             while (!stopFlagRef.current) {
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
@@ -417,8 +420,10 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
 
-                // Add delay after purchase to avoid rate limits
-                await new Promise(res => setTimeout(res, 1000));
+                // For MATCHES: Skip delay to achieve rapid fire; For others: Add delay
+                if (!isMatchesStrategy) {
+                    await new Promise(res => setTimeout(res, 1000));
+                }
 
                 try {
                     const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
@@ -438,88 +443,163 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 run_panel.setHasOpenContract(true);
                 run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
-                // Contract monitoring logic...
-                try {
-                    const res = await apiRef.current.send({
-                        proposal_open_contract: 1,
-                        contract_id: buy?.contract_id,
-                        subscribe: 1,
-                    });
-                    const { error, proposal_open_contract: pocInit, subscription } = res || {};
-                    if (error) throw error;
-
-                    let pocSubId: string | null = subscription?.id || null;
-                    const targetId = String(buy?.contract_id || '');
-
-                    if (pocInit && String(pocInit?.contract_id || '') === targetId) {
-                        transactions.onBotContractEvent(pocInit);
-                        run_panel.setHasOpenContract(true);
-                    }
-
-                    const onMsg = (evt: MessageEvent) => {
+                // For MATCHES strategy: Fire on every tick without waiting for contract to close
+                if (isMatchesStrategy) {
+                    // Monitor contract in background without blocking
+                    const monitorContract = async () => {
                         try {
-                            const data = JSON.parse(evt.data as any);
-                            if (data?.msg_type === 'proposal_open_contract') {
-                                const poc = data.proposal_open_contract;
-                                if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
-                                if (String(poc?.contract_id || '') === targetId) {
-                                    transactions.onBotContractEvent(poc);
-                                    run_panel.setHasOpenContract(true);
+                            const res = await apiRef.current.send({
+                                proposal_open_contract: 1,
+                                contract_id: buy?.contract_id,
+                                subscribe: 1,
+                            });
+                            const { error, proposal_open_contract: pocInit, subscription } = res || {};
+                            if (error) throw error;
 
-                                    setCurrentProfit(Number(poc?.profit || 0));
-                                    setContractValue(Number(poc?.bid_price || 0));
-                                    setPotentialPayout(Number(poc?.payout || 0));
+                            let pocSubId: string | null = subscription?.id || null;
+                            const targetId = String(buy?.contract_id || '');
 
-                                    if (poc?.date_expiry && !poc?.is_sold) {
-                                        const now = Math.floor(Date.now() / 1000);
-                                        const expiry = Number(poc.date_expiry);
-                                        const remaining = Math.max(0, expiry - now);
-                                        const hours = Math.floor(remaining / 3600);
-                                        const minutes = Math.floor((remaining % 3600) / 60);
-                                        const seconds = remaining % 60;
-                                        setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                                    }
-
-                                    if (poc?.is_sold || poc?.status === 'sold') {
-                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                        run_panel.setHasOpenContract(false);
-                                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
-                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                        const profit = Number(poc?.profit || 0);
-
-                                        if (profit > 0) {
-                                            // WIN: Reset to pre-loss state
-                                            lastOutcomeWasLossRef.current = false;
-                                            lossStreak = 0;
-                                            step = 0;
-                                            setStake(baseStake);
-                                            console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
-                                        } else {
-                                            // LOSS: Set flag for next trade to use after-loss prediction
-                                            lastOutcomeWasLossRef.current = true;
-                                            lossStreak++;
-                                            step = Math.min(step + 1, 10);
-                                            console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
-                                        }
-                                        setCurrentProfit(0);
-                                        setContractValue(0);
-                                        setPotentialPayout(0);
-                                        setContractDuration('00:00:00');
-                                    }
-                                }
+                            if (pocInit && String(pocInit?.contract_id || '') === targetId) {
+                                transactions.onBotContractEvent(pocInit);
                             }
-                        } catch {
-                            // noop
+
+                            const onMsg = (evt: MessageEvent) => {
+                                try {
+                                    const data = JSON.parse(evt.data as any);
+                                    if (data?.msg_type === 'proposal_open_contract') {
+                                        const poc = data.proposal_open_contract;
+                                        if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+                                        if (String(poc?.contract_id || '') === targetId) {
+                                            transactions.onBotContractEvent(poc);
+
+                                            // Update UI state
+                                            setCurrentProfit(Number(poc?.profit || 0));
+                                            setContractValue(Number(poc?.bid_price || 0));
+                                            setPotentialPayout(Number(poc?.payout || 0));
+
+                                            if (poc?.is_sold || poc?.status === 'sold') {
+                                                // Update run panel state
+                                                run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                                run_panel.setHasOpenContract(false);
+                                                contractInProgressRef.current = false;
+                                                
+                                                if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                                                apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                                const profit = Number(poc?.profit || 0);
+
+                                                if (profit > 0) {
+                                                    console.log(`✅ MATCHES WIN: +${profit.toFixed(2)} ${account_currency}`);
+                                                } else {
+                                                    console.log(`❌ MATCHES LOSS: ${profit.toFixed(2)} ${account_currency}`);
+                                                }
+
+                                                // Clear UI state
+                                                setCurrentProfit(0);
+                                                setContractValue(0);
+                                                setPotentialPayout(0);
+                                                setContractDuration('00:00:00');
+                                            }
+                                        }
+                                    }
+                                } catch {
+                                    // noop
+                                }
+                            };
+                            apiRef.current?.connection?.addEventListener('message', onMsg);
+                        } catch (subErr) {
+                            console.error('background monitor error', subErr);
                         }
                     };
-                    apiRef.current?.connection?.addEventListener('message', onMsg);
-                } catch (subErr) {
-                    console.error('subscribe poc error', subErr);
-                }
 
-                // Minimum 3-5 seconds between trades to avoid rate limits
-                const minTradeInterval = 3000 + Math.random() * 2000; // 3-5 seconds random
-                await new Promise(res => setTimeout(res, minTradeInterval));
+                    // Start monitoring in background
+                    monitorContract();
+
+                    // Wait only for next tick (minimal delay for MATCHES - ~1.2s per tick)
+                    await new Promise(res => setTimeout(res, 1200)); // ~1 tick interval
+                } else {
+                    // For other strategies: Wait for contract to close before next purchase
+                    try {
+                        const res = await apiRef.current.send({
+                            proposal_open_contract: 1,
+                            contract_id: buy?.contract_id,
+                            subscribe: 1,
+                        });
+                        const { error, proposal_open_contract: pocInit, subscription } = res || {};
+                        if (error) throw error;
+
+                        let pocSubId: string | null = subscription?.id || null;
+                        const targetId = String(buy?.contract_id || '');
+
+                        if (pocInit && String(pocInit?.contract_id || '') === targetId) {
+                            transactions.onBotContractEvent(pocInit);
+                            run_panel.setHasOpenContract(true);
+                        }
+
+                        const onMsg = (evt: MessageEvent) => {
+                            try {
+                                const data = JSON.parse(evt.data as any);
+                                if (data?.msg_type === 'proposal_open_contract') {
+                                    const poc = data.proposal_open_contract;
+                                    if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+                                    if (String(poc?.contract_id || '') === targetId) {
+                                        transactions.onBotContractEvent(poc);
+                                        run_panel.setHasOpenContract(true);
+
+                                        setCurrentProfit(Number(poc?.profit || 0));
+                                        setContractValue(Number(poc?.bid_price || 0));
+                                        setPotentialPayout(Number(poc?.payout || 0));
+
+                                        if (poc?.date_expiry && !poc?.is_sold) {
+                                            const now = Math.floor(Date.now() / 1000);
+                                            const expiry = Number(poc.date_expiry);
+                                            const remaining = Math.max(0, expiry - now);
+                                            const hours = Math.floor(remaining / 3600);
+                                            const minutes = Math.floor((remaining % 3600) / 60);
+                                            const seconds = remaining % 60;
+                                            setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                                        }
+
+                                        if (poc?.is_sold || poc?.status === 'sold') {
+                                            run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                            run_panel.setHasOpenContract(false);
+                                            if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                                            apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                            const profit = Number(poc?.profit || 0);
+
+                                            if (profit > 0) {
+                                                // WIN: Reset to pre-loss state
+                                                lastOutcomeWasLossRef.current = false;
+                                                lossStreak = 0;
+                                                step = 0;
+                                                setStake(baseStake);
+                                                console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
+                                            } else {
+                                                // LOSS: Set flag for next trade to use after-loss prediction
+                                                lastOutcomeWasLossRef.current = true;
+                                                lossStreak++;
+                                                step = Math.min(step + 1, 10);
+                                                console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
+                                            }
+                                            setCurrentProfit(0);
+                                            setContractValue(0);
+                                            setPotentialPayout(0);
+                                            setContractDuration('00:00:00');
+                                        }
+                                    }
+                                }
+                            } catch {
+                                // noop
+                            }
+                        };
+                        apiRef.current?.connection?.addEventListener('message', onMsg);
+                    } catch (subErr) {
+                        console.error('subscribe poc error', subErr);
+                    }
+
+                    // Minimum 3-5 seconds between trades to avoid rate limits
+                    const minTradeInterval = 3000 + Math.random() * 2000; // 3-5 seconds random
+                    await new Promise(res => setTimeout(res, minTradeInterval));
+                }
             }
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
