@@ -211,39 +211,17 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
-                    // Enhanced AI scanning phases - Load interface after 3 markets (faster)
+                    // AI scanning phases - Continue loading throughout entire scan
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
 
                     if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
                         setCurrentAiMessage('📊 Loading historical market data...');
                         setStatusMessage('🚀 Fast-loading with historical data...');
-                    } else if (readySymbolsCount < 3) {
-                        // Faster loading - show ready after 3 markets
-                        setAiScanningPhase('analyzing');
-                        const msgIndex = Math.floor((readySymbolsCount / 3) * aiScanningMessages.analyzing.length);
-                        setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
-                        setStatusMessage(`⚡ Fast analysis in progress... ${readySymbolsCount}/3 markets ready`);
                         setConnectionStatus('scanning');
-
-                        // Show which symbol is being processed
-                        const symbols = Object.keys(currentStats);
-                        if (symbols[readySymbolsCount - 1]) {
-                            const currentSymbol = symbols[readySymbolsCount - 1];
-                            const displayName = symbolMap[currentSymbol] || currentSymbol;
-                            setProcessingSymbol(displayName);
-                        }
-                    } else if (readySymbolsCount >= 2) {
-                        // Reduced requirement - ready after just 2 markets for faster loading
-                        setAiScanningPhase('complete');
-                        setCurrentAiMessage('⚡ Fast analysis complete - Interface ready!');
-                        setStatusMessage('🎯 Trading opportunities identified - Ready to trade!');
-                        setConnectionStatus('ready');
-                        setIsScanning(false);
-                        setProcessingSymbol('');
-                    } else if (progressPercentage < 40) {
+                    } else if (progressPercentage < 30) {
                         setAiScanningPhase('analyzing');
-                        const msgIndex = Math.floor((progressPercentage / 40) * aiScanningMessages.analyzing.length);
+                        const msgIndex = Math.floor((progressPercentage / 30) * aiScanningMessages.analyzing.length);
                         setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
                         setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/${totalSymbols} markets`);
                         setConnectionStatus('scanning');
@@ -255,16 +233,27 @@ const TradingHubDisplay: React.FC = observer(() => {
                             const displayName = symbolMap[currentSymbol] || currentSymbol;
                             setProcessingSymbol(displayName);
                         }
-                    } else if (progressPercentage < 80) {
+                    } else if (progressPercentage < 70) {
                         setAiScanningPhase('evaluating');
-                        const msgIndex = Math.floor(((progressPercentage - 40) / 40) * aiScanningMessages.evaluating.length);
+                        const msgIndex = Math.floor(((progressPercentage - 30) / 40) * aiScanningMessages.evaluating.length);
                         setCurrentAiMessage(aiScanningMessages.evaluating[Math.min(msgIndex, aiScanningMessages.evaluating.length - 1)]);
                         setStatusMessage(`🤖 AI evaluating opportunities... ${readySymbolsCount}/${totalSymbols} complete`);
+                        setConnectionStatus('scanning');
+
+                        // Show which symbol is being processed
+                        const symbols = Object.keys(currentStats);
+                        if (symbols[readySymbolsCount - 1]) {
+                            const currentSymbol = symbols[readySymbolsCount - 1];
+                            const displayName = symbolMap[currentSymbol] || currentSymbol;
+                            setProcessingSymbol(displayName);
+                        }
                     } else if (progressPercentage < 100) {
                         setAiScanningPhase('recommending');
                         setCurrentAiMessage(aiScanningMessages.recommending[0]);
                         setStatusMessage(`🎯 AI preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
+                        setConnectionStatus('scanning');
                     } else {
+                        // Only mark as ready when 100% complete
                         setAiScanningPhase('complete');
                         setCurrentAiMessage('✅ AI analysis complete - Ready to trade!');
                         setStatusMessage('🚀 AI has identified the best trading opportunities');
