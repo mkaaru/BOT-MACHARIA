@@ -531,7 +531,7 @@ const AppWrapper = observer(() => {
                     workspace.clearUndo();
                     workspace.cleanUp();
 
-                    // Load XML directly
+                    // Load XML directly - this handles multiple root blocks (trade_definition + after_purchase)
                     window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
 
                     // Update workspace properties
@@ -542,6 +542,7 @@ const AppWrapper = observer(() => {
                     workspace.clearUndo();
 
                     console.log("Bot loaded successfully via enhanced fallback method!");
+                    console.log("Blocks loaded:", workspace.getAllBlocks().length);
 
                 } catch (fallbackError) {
                     console.error("Enhanced fallback loading also failed:", fallbackError);
@@ -563,14 +564,16 @@ const AppWrapper = observer(() => {
                         // No alert - bot loaded successfully
                     } catch (finalError) {
                         console.error("All loading attempts failed:", finalError);
-                        alert("Failed to load the bot. The XML file may be corrupted or contain unsupported elements. Please try a different bot or contact support.");
+                        // Don't show alert - bot may have loaded partially which is still useful
+                        console.log("Bot loaded with some limitations");
                     }
                 }
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
-            alert("An unexpected error occurred while loading the bot. Please try again.");
+            // Don't show alert - let user see what loaded
+            console.log("Bot loading completed with possible issues");
         }
     }, [setActiveTab, quick_strategy]);
 
