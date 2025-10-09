@@ -309,6 +309,11 @@ const AppWrapper = observer(() => {
 
             let xmlContent = bot.xmlContent;
 
+            // Close Quick Strategy view to show full Bot Builder workspace
+            if (quick_strategy?.setFormVisibility) {
+                quick_strategy.setFormVisibility(false);
+            }
+
             // If it's a placeholder bot or no content, try to load the content now
             if (bot.isPlaceholder || !xmlContent) {
                 console.log("Attempting to load XML content for bot...");
@@ -569,7 +574,7 @@ const AppWrapper = observer(() => {
             console.error("Error loading bot:", error);
             alert("An unexpected error occurred while loading the bot. Please try again.");
         }
-    }, [setActiveTab]);
+    }, [setActiveTab, quick_strategy]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
