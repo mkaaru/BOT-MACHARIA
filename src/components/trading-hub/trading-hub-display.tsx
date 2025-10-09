@@ -1080,6 +1080,20 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
 
 
+            // Determine submarket based on symbol
+            const getSubmarket = (symbol: string) => {
+                // Volatility indices use random_index
+                if (symbol.startsWith('R_') || symbol.startsWith('1HZ')) {
+                    return 'random_index';
+                }
+                // Step indices use step_index  
+                if (symbol.toLowerCase().includes('stp') || symbol.toLowerCase().includes('step')) {
+                    return 'step_index';
+                }
+                // Default to continuous_indices for others
+                return 'continuous_indices';
+            };
+
             // Map strategy to proper Bot Builder trade type categories
             const getTradeTypeMapping = (strategy: string) => {
                 switch (strategy) {
@@ -1094,6 +1108,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                             tradeTypeList: 'digits',
                             contractType: getTradeTypeForStrategy(strategy)
                         };
+                    case 'call':
+                    case 'put':
+                        return {
+                            tradeTypeCategory: 'callput',
+                            tradeTypeList: 'risefall',
+                            contractType: strategy === 'call' ? 'CALL' : 'PUT'
+                        };
                     default:
                         return {
                             tradeTypeCategory: 'digits',
@@ -1104,6 +1125,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             };
 
             const tradeMapping = getTradeTypeMapping(recommendation.strategy);
+            const submarket = getSubmarket(recommendation.symbol);
 
             // Generate Bot Builder XML
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -1118,7 +1140,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="market_block" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
-        <field name="SUBMARKET_LIST">continuous_indices</field>
+        <field name="SUBMARKET_LIST">${submarket}</field>
         <field name="SYMBOL_LIST">${recommendation.symbol}</field>
         <next>
           <block type="trade_definition_tradetype" id="tradetype_block" deletable="false" movable="false">
