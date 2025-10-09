@@ -550,19 +550,17 @@ const AppWrapper = observer(() => {
                     try {
                         console.log("Attempting partial load with error tolerance...");
 
-                        // Try to extract the main strategy blocks and load them individually
-                        const strategyMatch = xmlContent.match(/<block[^>]*type="trade_definition"[\s\S]*?<\/block>/);
-                        if (strategyMatch) {
-                            const simpleXml = `<xml xmlns="https://developers.google.com/blockly/xml">${strategyMatch[0]}</xml>`;
-                            const simpleDoc = window.Blockly.utils.xml.textToDom(simpleXml);
-                            workspace.clear();
-                            window.Blockly.Xml.domToWorkspace(simpleDoc, workspace);
-                            workspace.cleanUp();
-                            console.log("Partial bot loaded - main strategy block only");
-                            alert("Bot loaded partially. Some advanced features may not be available.");
-                        } else {
-                            throw new Error("No recognizable strategy blocks found");
-                        }
+                        // Try loading the full XML directly using Blockly's domToWorkspace
+                        console.log("Attempting direct Blockly load...");
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+                        
+                        workspace.clear();
+                        window.Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
+                        workspace.cleanUp();
+                        console.log("Bot loaded successfully using direct Blockly load!");
+                        
+                        // No alert - bot loaded successfully
                     } catch (finalError) {
                         console.error("All loading attempts failed:", finalError);
                         alert("Failed to load the bot. The XML file may be corrupted or contain unsupported elements. Please try a different bot or contact support.");
