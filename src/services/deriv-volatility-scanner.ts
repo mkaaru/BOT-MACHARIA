@@ -405,7 +405,7 @@ export class DerivVolatilityScanner {
             }
         }
         
-        const mlPrediction = mlTickAnalyzer.predict(symbolInfo.symbol) || {
+        const rawMLPrediction = mlTickAnalyzer.predict(symbolInfo.symbol) || {
             direction: 'NEUTRAL' as const,
             confidence: 0,
             strength: 0,
@@ -413,13 +413,26 @@ export class DerivVolatilityScanner {
             learning_score: 0
         };
 
+        // Map ML prediction direction to TimeframeDirection
+        const mapDirectionToTrend = (dir: 'RISE' | 'FALL' | 'NEUTRAL'): TimeframeDirection => {
+            if (dir === 'RISE') return 'BULLISH';
+            if (dir === 'FALL') return 'BEARISH';
+            return 'NEUTRAL';
+        };
+
+        const mlPrediction = {
+            trend: mapDirectionToTrend(rawMLPrediction.direction),
+            confidence: rawMLPrediction.confidence,
+            probability: rawMLPrediction.confidence / 100
+        };
+
         // Determine recommendation
         const { recommendation, confidence, duration } = this.generateRecommendation(
-            symbolInfo, timeframes, momentum, mlPrediction, currentPrice
+            symbolInfo, timeframes, momentum, rawMLPrediction, currentPrice
         );
 
         // Calculate entry score
-        const entryScore = this.calculateEntryScore(timeframes, momentum, confidence, mlPrediction);
+        const entryScore = this.calculateEntryScore(timeframes, momentum, confidence, rawMLPrediction);
 
         // Assess risk
         const { riskLevel, volatility } = this.assessRisk(symbolInfo, timeframes, momentum);
@@ -434,7 +447,11 @@ export class DerivVolatilityScanner {
         const signals = this.generateTradingSignals(timeframes, momentum, priceHistory);
 
         // Generate entry reason
-        const entryReason = this.generateEntryReason(recommendation, timeframes, momentum, mlPrediction);
+        const entryReason = this.generateEntryReason(recommendation, timeframes, momentum, rawMLPrediction);
+
+        // Determine symbol-specific confidence threshold
+        const isStepIndex = symbolInfo.ticksPerMinute === 1;
+        const minConfidenceThreshold = isStepIndex ? this.MIN_CONFIDENCE : 65;
 
         return {
             symbol: symbolInfo.symbol,
@@ -449,7 +466,7 @@ export class DerivVolatilityScanner {
             contractDuration: duration,
             volatility,
             riskLevel,
-            isTradeReady: confidence >= this.MIN_CONFIDENCE && entryScore >= 70,
+            isTradeReady: confidence >= minConfidenceThreshold && entryScore >= 70,
             entryScore,
             entryReason,
             trendStrength,
@@ -747,14 +764,23 @@ export class DerivVolatilityScanner {
         symbolInfo: typeof this.VOLATILITY_SYMBOLS[0],
         timeframes: MultiTimeframeAnalysis,
         momentum: MomentumAnalysis,
-        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>,
+        mlPrediction: ReturnType<typeof mlTickAnalyzer.predict>,
         currentPrice: number
     ): { recommendation: VolatilityAnalysis['recommendation']; confidence: number; duration: VolatilityAnalysis['contractDuration'] } {
 
+        // Determine if this is a step index or volatility symbol
+        const isStepIndex = symbolInfo.ticksPerMinute === 1;
+        
+        // Adjust thresholds based on symbol type
+        // Volatility indices (60 ticks/min) are more dynamic, use lower thresholds
+        const minAlignment = isStepIndex ? this.MIN_ALIGNMENT_SCORE : 50;
+        const minMomentum = isStepIndex ? this.MIN_MOMENTUM_STRENGTH : 45;
+        const minM5Confidence = isStepIndex ? 60 : 50;
+
         // Check minimum requirements
-        if (timeframes.alignment < this.MIN_ALIGNMENT_SCORE ||
-            momentum.strength < this.MIN_MOMENTUM_STRENGTH ||
-            timeframes.m5.confidence < 60) {
+        if (timeframes.alignment < minAlignment ||
+            momentum.strength < minMomentum ||
+            timeframes.m5.confidence < minM5Confidence) {
             return {
                 recommendation: 'NO_TRADE',
                 confidence: Math.max(timeframes.alignment, momentum.strength) * 0.5,
@@ -809,7 +835,7 @@ export class DerivVolatilityScanner {
         timeframes: MultiTimeframeAnalysis,
         momentum: MomentumAnalysis,
         confidence: number,
-        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>
+        mlPrediction: ReturnType<typeof mlTickAnalyzer.predict>
     ): number {
         const alignmentScore = timeframes.alignment * 0.3;
         const momentumScore = momentum.score * 0.4;
@@ -944,7 +970,7 @@ export class DerivVolatilityScanner {
         recommendation: VolatilityAnalysis['recommendation'],
         timeframes: MultiTimeframeAnalysis,
         momentum: MomentumAnalysis,
-        mlPrediction: ReturnType<typeof mlTickAnalyzer.predictTrend>
+        mlPrediction: ReturnType<typeof mlTickAnalyzer.predict>
     ): string {
         if (recommendation === 'NO_TRADE') {
             return 'Insufficient signal strength or alignment for reliable trade';
@@ -993,7 +1019,15 @@ export class DerivVolatilityScanner {
         const recommendations: ScannerRecommendation[] = [];
 
         this.analysisCache.forEach(analysis => {
-            const isStepIndex = analysis.symbol.includes('STEP') || analysis.symbol.includes('STP') || analysis.symbol.includes('stp');
+            // Get symbol info to determine type based on ticksPerMinute
+            const symbolInfo = this.VOLATILITY_SYMBOLS.find(s => s.symbol === analysis.symbol);
+            if (!symbolInfo) return;
+            
+            // Determine symbol type based on ticksPerMinute (1 = step index, 60 = volatility)
+            const isStepIndex = symbolInfo.ticksPerMinute === 1;
+            
+            // Lower confidence threshold for volatility indices (faster moving symbols)
+            const minConfidence = isStepIndex ? this.MIN_CONFIDENCE : 65;
             
             if (isStepIndex) {
                 console.log(`🔷 Step Index Check: ${analysis.symbol}`, {
@@ -1002,11 +1036,16 @@ export class DerivVolatilityScanner {
                     minConfidence: this.MIN_CONFIDENCE,
                     passesFilter: analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= this.MIN_CONFIDENCE
                 });
+            } else {
+                console.log(`💎 Volatility Index Check: ${analysis.symbol}`, {
+                    recommendation: analysis.recommendation,
+                    confidence: analysis.confidence,
+                    minConfidence: minConfidence,
+                    passesFilter: analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= minConfidence
+                });
             }
             
-            if (analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= this.MIN_CONFIDENCE) {
-                const symbolInfo = this.VOLATILITY_SYMBOLS.find(s => s.symbol === analysis.symbol);
-                if (!symbolInfo) return;
+            if (analysis.recommendation !== 'NO_TRADE' && analysis.confidence >= minConfidence) {
 
                 const urgency = analysis.confidence >= 90 ? 'CRITICAL' :
                                analysis.confidence >= 80 ? 'HIGH' :
