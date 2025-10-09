@@ -1992,20 +1992,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 )}
 
                 <div className="scanner-results">
-                    {connectionStatus === 'error' && (
-                        <div className="scanner-error">
-                            <div className="error-icon">⚠️</div>
-                            <Text size="s" color="prominent">Connection Error</Text>
-                            <Text size="xs" color="general">{statusMessage}</Text>
-                            <button
-                                className="retry-btn"
-                                onClick={() => window.location.reload()}
-                            >
-                                Retry Connection
-                            </button>
-                        </div>
-                    )}
-
                     {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
                         <div className="scanner-loading">
                             <div className="ai-scanning-display">
@@ -2074,18 +2060,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                     )}
 
-                    {connectionStatus === 'ready' && scanResults.length === 0 && (
-                        <div className="no-opportunities">
-                            <div className="no-opportunities-icon">🔍</div>
-                            <Text size="s" color="general">No trading opportunities found</Text>
-                            <Text size="xs" color="general">
-                                Market conditions don't meet our criteria for high-confidence trades.
-                                The scanner will continue monitoring for new opportunities.
-                            </Text>
-                        </div>
-                    )}
-
-                    {connectionStatus === 'ready' && scanResults.length > 0 && (
+                    {connectionStatus === 'ready' && (
                         <div className="results-grid">
                             {scanResults.map(renderRecommendationCard)}
                         </div>
