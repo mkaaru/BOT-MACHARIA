@@ -15,8 +15,21 @@ import { tickPredictionEngine } from '@/services/tick-prediction-engine';
 import './ml-trader.scss';
 
 
-// Enhanced volatility symbols with 1-second indices and Step Indices
+// Enhanced volatility symbols with normal volatilities, 1-second indices and Step Indices
 const DERIV_VOLATILITY_SYMBOLS = [
+    // Normal Volatilities
+    { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s: false, base_volatility: 10 },
+    { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s: false, base_volatility: 25 },
+    { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s: false, base_volatility: 50 },
+    { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s: false, base_volatility: 75 },
+    { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s: false, base_volatility: 100 },
+    // 1-Second Volatilities
+    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s: true, base_volatility: 10 },
+    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s: true, base_volatility: 25 },
+    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true, base_volatility: 50 },
+    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true, base_volatility: 75 },
+    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true, base_volatility: 100 },
+    // Step Indices
     { symbol: 'stpRNG', display_name: 'Step Index 100', is_1s: false, base_volatility: 100 },
     { symbol: 'stpRNG2', display_name: 'Step Index 200', is_1s: false, base_volatility: 200 },
     { symbol: 'stpRNG3', display_name: 'Step Index 300', is_1s: false, base_volatility: 300 },
@@ -799,19 +812,33 @@ const MLTrader = observer(() => {
             // Get display name
             const displayName = recommendation.displayName;
 
-            // Determine market and submarket based on symbol
+            // Determine market, submarket, trade type category based on symbol
             let market = 'synthetic_index';
             let submarket = 'random_index';
-
-            // Check if it's a Step Index (stpRNG, stpRNG2, stpRNG3, stpRNG4, stpRNG5)
-            const isStepIndex = recommendation.symbol.toLowerCase().startsWith('stprng');
-
-            if (isStepIndex) {
-                submarket = 'step_index';
-            }
+            let tradeTypeCategory = 'callput'; // Default for Step Indices
+            let tradeType = 'risefall'; // Default trade type
 
             // Use the symbol directly (already uppercase from DERIV_VOLATILITY_SYMBOLS)
             const symbol = recommendation.symbol;
+
+            // Check symbol type and set appropriate market/submarket/trade type
+            const isStepIndex = recommendation.symbol.toLowerCase().startsWith('stprng');
+            const isNormalVolatility = /^R_(10|25|50|75|100)$/i.test(recommendation.symbol);
+            const is1sVolatility = /^1HZ(10|25|50|75|100)V$/i.test(recommendation.symbol);
+
+            if (isStepIndex) {
+                // Step Index: synthetic_index / step_index / callput
+                market = 'synthetic_index';
+                submarket = 'step_index';
+                tradeTypeCategory = 'callput';
+                tradeType = 'callput';
+            } else if (isNormalVolatility || is1sVolatility) {
+                // Normal or 1s Volatility: synthetic_index / random_index / risefall
+                market = 'synthetic_index';
+                submarket = 'random_index';
+                tradeTypeCategory = 'risefall';
+                tradeType = 'risefall';
+            }
 
             // Set default duration to 2 ticks
             const defaultDuration = 2;
@@ -819,8 +846,13 @@ const MLTrader = observer(() => {
             // Set default stake to 0.35
             const defaultStake = 0.35;
 
-            // Contract type based on action
-            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
+            // Contract type based on action and symbol type
+            let contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
+            
+            // For Rise/Fall (normal and 1s volatilities), use CALLE/PUTE
+            if (isNormalVolatility || is1sVolatility) {
+                contractType = recommendation.action === 'RISE' ? 'CALLE' : 'PUTE';
+            }
 
             // Prepare strategy XML with martingale settings from default bot builder
             const strategyXml = `
@@ -855,8 +887,8 @@ const MLTrader = observer(() => {
                                 <field name="SYMBOL_LIST">${symbol}</field>
                                 <next>
                                     <block type="trade_definition_tradetype" deletable="false" movable="false">
-                                        <field name="TRADETYPECAT_LIST">callput</field>
-                                        <field name="TRADETYPE_LIST">${contractType}</field>
+                                        <field name="TRADETYPECAT_LIST">${tradeTypeCategory}</field>
+                                        <field name="TRADETYPE_LIST">${tradeType}</field>
                                         <next>
                                             <block type="trade_definition_contracttype" deletable="false" movable="false">
                                                 <field name="TYPE_LIST">${contractType}</field>
