@@ -61,7 +61,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [totalSymbols] = useState(12);
     const [selectedTradeType, setSelectedTradeType] = useState<string>('all');
     const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
-    const [isSmartTraderMinimized, setIsSmartTraderMinimized] = useState(false);
+    const [isSmartTraderHidden, setIsSmartTraderHidden] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
@@ -212,10 +212,33 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
-                    // AI scanning phases - Continue loading throughout entire scan
+                    // AI scanning phases - Show results after 5 markets, complete at 12
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
 
-                    if (readySymbolsCount === 0) {
+                    // Show which symbol is being processed
+                    const symbols = Object.keys(currentStats);
+                    if (symbols[readySymbolsCount - 1]) {
+                        const currentSymbol = symbols[readySymbolsCount - 1];
+                        const displayName = symbolMap[currentSymbol] || currentSymbol;
+                        setProcessingSymbol(displayName);
+                    }
+
+                    if (readySymbolsCount >= totalSymbols) {
+                        // All 12 markets complete - show final state
+                        setAiScanningPhase('complete');
+                        setCurrentAiMessage('✅ AI analysis complete - Ready to trade!');
+                        setStatusMessage('🚀 AI has identified the best trading opportunities');
+                        setConnectionStatus('ready');
+                        setIsScanning(false);
+                        setProcessingSymbol('');
+                    } else if (readySymbolsCount >= 5) {
+                        // First 5+ markets ready - DISPLAY RESULTS, continue scanning
+                        setAiScanningPhase('recommending');
+                        setCurrentAiMessage(`🎯 Trading opportunities ready! Continuing scan...`);
+                        setStatusMessage(`✅ Results ready! Scanning ${readySymbolsCount}/${totalSymbols} markets...`);
+                        setConnectionStatus('ready'); // CRITICAL: Set to 'ready' to show results
+                        setIsScanning(false); // Hide progress bar
+                    } else if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
                         setCurrentAiMessage('📊 Loading historical market data...');
                         setStatusMessage('🚀 Fast-loading with historical data...');
@@ -226,47 +249,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
                         setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/${totalSymbols} markets`);
                         setConnectionStatus('scanning');
-
-                        // Show which symbol is being processed
-                        const symbols = Object.keys(currentStats);
-                        if (symbols[readySymbolsCount - 1]) {
-                            const currentSymbol = symbols[readySymbolsCount - 1];
-                            const displayName = symbolMap[currentSymbol] || currentSymbol;
-                            setProcessingSymbol(displayName);
-                        }
-                    } else if (progressPercentage < 70) {
+                    } else {
+                        // Less than 5 markets ready
                         setAiScanningPhase('evaluating');
-                        const msgIndex = Math.floor(((progressPercentage - 30) / 40) * aiScanningMessages.evaluating.length);
-                        setCurrentAiMessage(aiScanningMessages.evaluating[Math.min(msgIndex, aiScanningMessages.evaluating.length - 1)]);
-                        setStatusMessage(`🤖 AI evaluating opportunities... ${readySymbolsCount}/${totalSymbols} complete`);
-                        setConnectionStatus('scanning');
-
-                        // Show which symbol is being processed
-                        const symbols = Object.keys(currentStats);
-                        if (symbols[readySymbolsCount - 1]) {
-                            const currentSymbol = symbols[readySymbolsCount - 1];
-                            const displayName = symbolMap[currentSymbol] || currentSymbol;
-                            setProcessingSymbol(displayName);
-                        }
-                    } else if (readySymbolsCount >= totalSymbols) {
-                        // All markets complete
-                        setAiScanningPhase('complete');
-                        setCurrentAiMessage('✅ AI analysis complete - Ready to trade!');
-                        setStatusMessage('🚀 AI has identified the best trading opportunities');
-                        setConnectionStatus('ready');
-                        setIsScanning(false);
-                        setProcessingSymbol('');
-                    } else if (readySymbolsCount >= 5) {
-                        // Show results after 5 markets are ready, continue scanning in background
-                        setAiScanningPhase('recommending');
-                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
-                        setStatusMessage(`🎯 Trading opportunities ready! Scanning ${readySymbolsCount}/${totalSymbols} markets...`);
-                        setConnectionStatus('ready');
-                        // Don't set isScanning - let it continue naturally
-                    } else if (progressPercentage < 100) {
-                        setAiScanningPhase('recommending');
-                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
-                        setStatusMessage(`🎯 AI preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
+                        setCurrentAiMessage('🤖 AI evaluating opportunities...');
+                        setStatusMessage(`🔍 Preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
                         setConnectionStatus('scanning');
                     }
                 });
@@ -1769,102 +1756,35 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     const handleCloseModal = () => {
-        // Don't allow closing if minimized (user must restore first)
-        if (isSmartTraderMinimized) {
-            return;
-        }
         setIsSmartTraderModalOpen(false);
-        setIsSmartTraderMinimized(false);
+        setIsSmartTraderHidden(false);
         setSelectedTradeSettings(null);
     };
 
-    const handleMinimizeModal = () => {
-        // Close modal completely when minimized
-        setIsSmartTraderModalOpen(false);
-        setIsSmartTraderMinimized(true);
-    };
-
-    const handleRestoreModal = () => {
-        // Reopen modal when restored
-        setIsSmartTraderModalOpen(true);
-        setIsSmartTraderMinimized(false);
+    const handleHideModal = () => {
+        // Hide modal when trading starts - keep component mounted
+        setIsSmartTraderHidden(true);
     };
 
     return (
         <div className="trading-hub-scanner">
-            {/* Smart Trader Modal - Only shown when NOT minimized */}
+            {/* Smart Trader Modal - Hides when trading starts (stays mounted) */}
             <Modal
-                is_open={isSmartTraderModalOpen && !isSmartTraderMinimized}
+                is_open={isSmartTraderModalOpen}
                 title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
                 toggleModal={handleCloseModal}
                 width="900px"
                 height="auto"
+                className={isSmartTraderHidden ? 'smart-trader-hidden' : ''}
             >
                 {selectedTradeSettings && (
                     <SmartTraderWrapper
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
-                        onMinimize={handleMinimizeModal}
+                        onHide={handleHideModal}
                     />
                 )}
             </Modal>
-
-            {/* SmartTraderWrapper running in background when minimized */}
-            {isSmartTraderMinimized && selectedTradeSettings && (
-                <div style={{ display: 'none' }}>
-                    <SmartTraderWrapper
-                        initialSettings={selectedTradeSettings}
-                        onClose={handleCloseModal}
-                        onMinimize={handleMinimizeModal}
-                    />
-                </div>
-            )}
-
-            {/* Minimized Smart Trader Bar */}
-            {isSmartTraderMinimized && (
-                <div 
-                    className="smart-trader-minimized-bar"
-                    onClick={handleRestoreModal}
-                    style={{
-                        position: 'fixed',
-                        bottom: '20px',
-                        right: '20px',
-                        backgroundColor: '#0e0e0e',
-                        border: '1px solid #3d3d3d',
-                        borderRadius: '8px',
-                        padding: '12px 20px',
-                        cursor: 'pointer',
-                        zIndex: 9999,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                        transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-                    }}
-                >
-                    <div style={{ 
-                        width: '8px', 
-                        height: '8px', 
-                        borderRadius: '50%', 
-                        backgroundColor: '#ff444f',
-                        animation: 'pulse 2s infinite'
-                    }} />
-                    <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
-                        Smart Trader Running - Click to Restore
-                    </span>
-                    <span style={{ color: '#85acb0', fontSize: '12px' }}>
-                        {selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}
-                    </span>
-                </div>
-            )}
 
             <div className="scanner-header">
                 <div className="scanner-title">

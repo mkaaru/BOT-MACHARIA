@@ -39,7 +39,7 @@ interface TradeSettings {
 interface SmartTraderWrapperProps {
     initialSettings: TradeSettings;
     onClose: () => void;
-    onMinimize?: () => void;
+    onHide?: () => void;
 }
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
@@ -69,7 +69,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose, onMinimize }) => {
+const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose, onHide }) => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
@@ -394,6 +394,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         run_panel.run_id = `smart-${Date.now()}`;
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
+
+        // Hide Smart Trader modal immediately - all control goes to Run Panel
+        // Keep component mounted so trading continues
+        if (onHide) {
+            onHide();
+        }
 
         // Register observers for Run Panel stop events before starting trading
         if (store?.run_panel?.dbot?.observer) {
@@ -952,11 +958,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                 <button className='smart-trader-wrapper__stop-btn' onClick={stopTrading}>
                                     {localize('Stop')}
                                 </button>
-                                {onMinimize && (
-                                    <button className='smart-trader-wrapper__minimize-btn' onClick={onMinimize}>
-                                        {localize('Minimize')}
-                                    </button>
-                                )}
                             </>
                         )}
                         <button className='smart-trader-wrapper__close-btn' onClick={onClose}>

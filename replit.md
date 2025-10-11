@@ -18,16 +18,13 @@ The platform features multiple trading approaches including a visual bot builder
   - Remaining markets continue scanning in background
   - Progressive loading keeps UI responsive while completing full analysis
   - Status message updates to show "X/12 markets" during background scan
-- **Smart Trader Minimize Feature - Persistent Trade Execution**: Fixed trades stopping when modal is minimized
-  - Modal completely closes when minimized (not just hidden)
-  - SmartTraderWrapper continues running in hidden background container when minimized
-  - Trades execute continuously while minimized - control handled by run panel
-  - Minimize button only appears when trades are actively running
-  - Minimized floating bar shows pulsing indicator and symbol name at bottom-right
-  - Click floating bar to restore modal and regain direct control
-  - Prevents accidental modal closure when minimized (ESC/outside clicks disabled in minimized state)
-  - SmartTraderWrapper remounts in modal when restored without interrupting trading logic
-  - This ensures rapid-fire tick-by-tick trading continues uninterrupted when modal is closed
+- **Smart Trader Auto-Close on Trading Start**: Simplified trading control flow
+  - Smart Trader modal closes automatically when "Start Trading" is clicked
+  - All trading control immediately transfers to Run Panel (no minimize feature needed)
+  - Trading continues uninterrupted after modal closes - fully managed by Run Panel
+  - Run Panel Stop button stops trading from anywhere in the app
+  - Clean separation: Smart Trader = setup/preview, Run Panel = execution/control
+  - This ensures rapid-fire tick-by-tick trading runs independently of UI modal state
 
 ## October 7, 2025
 - **ML Trader Auto-Trading System**: Implemented comprehensive automated trading functionality

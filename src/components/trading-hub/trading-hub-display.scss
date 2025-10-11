@@ -967,3 +967,18 @@
         }
     }
 }
+/* Smart Trader Hidden State - Hides modal but keeps component mounted */
+.dc-modal.smart-trader-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.dc-modal__container.smart-trader-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
