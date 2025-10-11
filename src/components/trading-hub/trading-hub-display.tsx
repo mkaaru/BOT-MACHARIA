@@ -1055,12 +1055,16 @@ const TradingHubDisplay: React.FC = observer(() => {
             barrier: settings.barrier
         });
 
-        // Store the settings and open Smart Trader in auto-start mode
-        // Hide modal BEFORE opening to prevent visual popup
-        setIsSmartTraderHidden(true);
+        // CRITICAL: Hide modal FIRST, then set settings, then open
+        // This prevents any visual popup
+        setIsSmartTraderHidden(true); // Hide FIRST
         setSelectedTradeSettings(settings);
         setAutoStartTrading(true); // Enable auto-start
-        setIsSmartTraderModalOpen(true);
+        
+        // Use setTimeout to ensure state updates in correct order
+        setTimeout(() => {
+            setIsSmartTraderModalOpen(true);
+        }, 0);
     };
 
     // Load trade settings to Smart Trader (legacy function - kept for compatibility)
@@ -1117,6 +1121,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         // Store the settings and open the modal (manual mode - no auto-start)
         setSelectedTradeSettings(settings);
         setAutoStartTrading(false); // Disable auto-start for manual Smart Trader
+        setIsSmartTraderHidden(false); // Ensure modal is visible for manual mode
         setIsSmartTraderModalOpen(true);
     };
 
@@ -1857,16 +1862,30 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     return (
         <div className="trading-hub-scanner">
-            {/* Smart Trader Modal - Hides when trading starts (stays mounted) */}
-            <Modal
-                is_open={isSmartTraderModalOpen}
-                title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
-                toggleModal={handleCloseModal}
-                width="900px"
-                height="auto"
-                className={isSmartTraderHidden ? 'smart-trader-hidden' : ''}
-            >
-                {selectedTradeSettings && (
+            {/* Smart Trader Modal - Only renders when NOT hidden */}
+            {isSmartTraderModalOpen && !isSmartTraderHidden && (
+                <Modal
+                    is_open={true}
+                    title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
+                    toggleModal={handleCloseModal}
+                    width="900px"
+                    height="auto"
+                >
+                    {selectedTradeSettings && (
+                        <SmartTraderWrapper
+                            initialSettings={selectedTradeSettings}
+                            onClose={handleCloseModal}
+                            onHide={handleHideModal}
+                            onTradingStop={handleTradingStop}
+                            autoStart={autoStartTrading}
+                        />
+                    )}
+                </Modal>
+            )}
+            
+            {/* Hidden Smart Trader for background trading */}
+            {isSmartTraderModalOpen && isSmartTraderHidden && selectedTradeSettings && (
+                <div style={{ display: 'none' }}>
                     <SmartTraderWrapper
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
@@ -1874,8 +1893,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                         onTradingStop={handleTradingStop}
                         autoStart={autoStartTrading}
                     />
-                )}
-            </Modal>
+                </div>
+            )}
 
             <div className="scanner-header">
                 <div className="scanner-title">
