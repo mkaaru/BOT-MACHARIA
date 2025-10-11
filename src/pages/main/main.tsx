@@ -167,6 +167,7 @@ const AppWrapper = observer(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
+                'Gold Miner S7.xml',
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
@@ -181,7 +182,6 @@ const AppWrapper = observer(() => {
                 'Classic Martingale Bot.xml',
                 'No Martingale Strategy 2025.xml',
                 'Greenprint Profit Bot.xml',
-                'Gold Miner S7.xml',
             ];
 
             const loadedBots = [];
@@ -269,8 +269,10 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
+                    const botTitle = file === 'Gold Miner S7.xml' ? 'Cortex Dollars' : file.replace('.xml', '');
+                    
                     loadedBots.push({
-                        title: file.replace('.xml', ''),
+                        title: botTitle,
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
                         xmlContent: text,
