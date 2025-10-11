@@ -15,6 +15,10 @@ The platform features multiple trading approaches including a visual bot builder
   - All trades mapped to Run Panel for real-time tracking and control
   - Run Panel Stop button works seamlessly with direct trading
   - Duration types supported: Ticks (t), Seconds (s), Minutes (m), Hours (h), Days (d)
+  - **Settings Hydration Fix**: SmartTraderWrapper now properly hydrates all settings from initialSettings (martingaleMultiplier, stopLoss, takeProfit, ouPredPostLoss)
+  - **Stop Loss/Take Profit Implementation**: Full cumulative profit tracking with automatic trading stop when thresholds reached
+  - **Session Reset**: Cumulative profit resets on each new trading session to ensure independent threshold evaluation
+  - **Type Safety**: TradeSettings interface synchronized between TradingHubDisplay and SmartTraderWrapper with stopLoss/takeProfit fields
 - **Free Bots Library Expansion**: Added 11 new pre-built trading bots to Free Bots section
   - New bots: Candle Mine V3.5, Speed Trading Bot, High & Under Bot, AI Dual Prediction Bot
   - Additional: Bandwagon Entry Point Bot, Entry Point Strategy V1, Alpha Strategy 2025
