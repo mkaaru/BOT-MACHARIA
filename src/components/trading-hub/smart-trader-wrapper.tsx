@@ -34,6 +34,8 @@ interface TradeSettings {
     ouPredPostLoss?: number;
     riskTolerance?: number;
     profitTarget?: number;
+    stopLoss?: number; // Stop loss in USD
+    takeProfit?: number; // Take profit in USD
 }
 
 interface SmartTraderWrapperProps {
@@ -115,9 +117,16 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
     }, [duration, durationType]);
 
-    // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
+    // Martingale/recovery - Hydrate from initialSettings
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(initialSettings.martingaleMultiplier || 1.0);
     const [baseStake, setBaseStake] = useState<number>(initialSettings.stake || 0.5);
+    
+    // Stop loss / Take profit from initialSettings
+    const [stopLoss, setStopLoss] = useState<number>(initialSettings.stopLoss || 0);
+    const [takeProfit, setTakeProfit] = useState<number>(initialSettings.takeProfit || 0);
+    
+    // Cumulative profit tracking for stop loss/take profit
+    const cumulativeProfitRef = useRef<number>(0);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -403,6 +412,11 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         setStatus('');
         setIsRunning(true);
         stopFlagRef.current = false;
+        
+        // Reset cumulative profit for new trading session
+        cumulativeProfitRef.current = 0;
+        console.log('🔄 Cumulative profit reset for new trading session');
+        
         run_panel.toggleDrawer(true);
         run_panel.setActiveTabIndex(1);
         run_panel.run_id = `smart-${Date.now()}`;
@@ -509,6 +523,26 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                                 if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                                 apiRef.current?.connection?.removeEventListener('message', onMsg);
                                                 const profit = Number(poc?.profit || 0);
+
+                                                // Update cumulative profit
+                                                cumulativeProfitRef.current += profit;
+                                                const totalProfit = cumulativeProfitRef.current;
+
+                                                console.log(`💰 Cumulative Profit: ${totalProfit.toFixed(2)} ${account_currency}`);
+
+                                                // Check stop loss condition
+                                                if (stopLoss > 0 && totalProfit <= -stopLoss) {
+                                                    console.log(`🛑 Stop Loss Hit: ${totalProfit.toFixed(2)} ${account_currency} (Limit: -${stopLoss})`);
+                                                    setStatus(`Stop Loss reached: ${totalProfit.toFixed(2)} ${account_currency}`);
+                                                    stopFlagRef.current = true; // Stop trading
+                                                }
+
+                                                // Check take profit condition
+                                                if (takeProfit > 0 && totalProfit >= takeProfit) {
+                                                    console.log(`🎯 Take Profit Hit: ${totalProfit.toFixed(2)} ${account_currency} (Target: ${takeProfit})`);
+                                                    setStatus(`Take Profit reached: ${totalProfit.toFixed(2)} ${account_currency}`);
+                                                    stopFlagRef.current = true; // Stop trading
+                                                }
 
                                                 // Handle win/loss for martingale progression
                                                 if (profit > 0) {

@@ -7,6 +7,14 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 11, 2025
+- **Direct Trading from Best Opportunity Panel**: Bypass Smart Trader modal with direct execution
+  - Added all Smart Trader fields to Best Opportunity panel (stake, duration, duration type, martingale, Over/Under after loss, stop loss, take profit)
+  - Changed recommendation card button from "Smart Trader" to "Start Trading"
+  - Clicking "Start Trading" executes trades directly using Best Opportunity panel settings without opening modal
+  - Auto-start mechanism: Smart Trader loads settings, auto-starts trading, and hides modal immediately
+  - All trades mapped to Run Panel for real-time tracking and control
+  - Run Panel Stop button works seamlessly with direct trading
+  - Duration types supported: Ticks (t), Seconds (s), Minutes (m), Hours (h), Days (d)
 - **Free Bots Library Expansion**: Added 11 new pre-built trading bots to Free Bots section
   - New bots: Candle Mine V3.5, Speed Trading Bot, High & Under Bot, AI Dual Prediction Bot
   - Additional: Bandwagon Entry Point Bot, Entry Point Strategy V1, Alpha Strategy 2025

@@ -42,6 +42,8 @@ interface TradeSettings {
     riskTolerance?: number; // Added for AI Auto Trade specific settings
     profitTarget?: number; // Added for AI Auto Trade specific settings
     ouPredPostLoss?: number; // Added for AI Auto Trade specific settings
+    stopLoss?: number; // Stop loss in USD
+    takeProfit?: number; // Take profit in USD
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
@@ -63,6 +65,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
     const [isSmartTraderHidden, setIsSmartTraderHidden] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
+    const [autoStartTrading, setAutoStartTrading] = useState(false);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
@@ -1026,7 +1029,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             duration: aiTradeConfig.duration,
             durationType: aiTradeConfig.durationType,
             martingaleMultiplier: aiMartingaleMultiplier,
-            ouPredPostLoss: aiTradeConfig.ouPredPostLoss
+            ouPredPostLoss: aiTradeConfig.ouPredPostLoss,
+            stopLoss: aiTradeConfig.stopLoss,
+            takeProfit: aiTradeConfig.takeProfit
         };
 
         // Add prediction/barrier based on strategy
@@ -1052,12 +1057,13 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         // Store the settings and open Smart Trader in auto-start mode
         setSelectedTradeSettings(settings);
+        setAutoStartTrading(true); // Enable auto-start
         setIsSmartTraderModalOpen(true);
         
-        // Auto-hide modal and start trading after a brief delay
+        // Auto-hide modal immediately for direct trading
         setTimeout(() => {
             setIsSmartTraderHidden(true);
-        }, 100);
+        }, 600); // Allow time for trading to start before hiding
     };
 
     // Load trade settings to Smart Trader (legacy function - kept for compatibility)
@@ -1111,8 +1117,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             barrier: settings.barrier
         });
 
-        // Store the settings and open the modal
+        // Store the settings and open the modal (manual mode - no auto-start)
         setSelectedTradeSettings(settings);
+        setAutoStartTrading(false); // Disable auto-start for manual Smart Trader
         setIsSmartTraderModalOpen(true);
     };
 
@@ -1832,6 +1839,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             setIsSmartTraderModalOpen(false);
             setIsSmartTraderHidden(false);
             setSelectedTradeSettings(null);
+            setAutoStartTrading(false); // Reset auto-start flag
         }
     };
 
@@ -1846,6 +1854,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         setIsSmartTraderModalOpen(false);
         setIsSmartTraderHidden(false);
         setSelectedTradeSettings(null);
+        setAutoStartTrading(false); // Reset auto-start flag
         console.log('Smart Trader fully closed after trading stopped');
     };
 
@@ -1866,6 +1875,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         onClose={handleCloseModal}
                         onHide={handleHideModal}
                         onTradingStop={handleTradingStop}
+                        autoStart={autoStartTrading}
                     />
                 )}
             </Modal>
