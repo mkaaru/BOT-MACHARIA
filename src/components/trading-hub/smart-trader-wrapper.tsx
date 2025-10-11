@@ -268,11 +268,21 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             
             const stopHandler = () => {
                 console.log('🛑 Run Panel stop clicked - stopping Smart Trader', { stopFlag: stopFlagRef.current });
-                // Directly stop trading without checking is_running state
-                // because state updates might be delayed
+                // Immediately stop all trading activity
                 stopFlagRef.current = true;
+                contractInProgressRef.current = false;
                 setIsRunning(false);
                 stopTicks();
+                
+                // Force all contract subscriptions to close
+                if (apiRef.current?.connection) {
+                    try {
+                        apiRef.current.connection.removeEventListener('message', messageHandlerRef.current);
+                    } catch (e) {
+                        console.error('Error removing message listeners:', e);
+                    }
+                }
+                
                 run_panel.setIsRunning(false);
                 run_panel.setHasOpenContract(false);
                 run_panel.setContractStage(contract_stages.NOT_RUNNING);
@@ -473,7 +483,10 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
             while (!stopFlagRef.current) {
                 // Check stop flag at the beginning of each iteration
-                if (stopFlagRef.current) break;
+                if (stopFlagRef.current) {
+                    console.log('🛑 Stop flag detected, breaking trading loop');
+                    break;
+                }
 
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
@@ -483,6 +496,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 }
 
                 setStake(effectiveStake);
+
+                // Check stop flag before purchase
+                if (stopFlagRef.current) {
+                    console.log('🛑 Stop flag detected before purchase, breaking trading loop');
+                    break;
+                }
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
 
@@ -513,6 +532,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     // Monitor contract in background without blocking
                     const monitorContract = async () => {
                         try {
+                            // Check stop flag before starting monitoring
+                            if (stopFlagRef.current) {
+                                console.log('🛑 Stop flag detected, skipping contract monitoring');
+                                return;
+                            }
+
                             const res = await apiRef.current.send({
                                 proposal_open_contract: 1,
                                 contract_id: buy?.contract_id,
@@ -530,6 +555,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                             const onMsg = (evt: MessageEvent) => {
                                 try {
+                                    // Check stop flag in message handler
+                                    if (stopFlagRef.current) {
+                                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                        return;
+                                    }
+
                                     const data = JSON.parse(evt.data as any);
                                     if (data?.msg_type === 'proposal_open_contract') {
                                         const poc = data.proposal_open_contract;
@@ -610,11 +642,25 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     monitorContract();
 
                     // Wait only for next tick (minimal delay ~1.2s per tick for rapid-fire mode)
-                    await new Promise(res => setTimeout(res, 1200)); // ~1 tick interval
+                    // Use a cancellable delay that respects stop flag
+                    await new Promise((resolve) => {
+                        const checkInterval = 100; // Check every 100ms
+                        let elapsed = 0;
+                        const interval = setInterval(() => {
+                            elapsed += checkInterval;
+                            if (stopFlagRef.current || elapsed >= 1200) {
+                                clearInterval(interval);
+                                resolve(null);
+                            }
+                        }, checkInterval);
+                    });
                 }
 
                 // Check stop flag before continuing to next trade
-                if (stopFlagRef.current) break;
+                if (stopFlagRef.current) {
+                    console.log('🛑 Stop flag detected after contract, breaking trading loop');
+                    break;
+                }
             }
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
