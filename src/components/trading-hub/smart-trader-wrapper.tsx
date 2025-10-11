@@ -283,6 +283,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 
                 // Force cleanup of ALL active message handlers
                 if (apiRef.current?.connection) {
+                    // Get all event listeners and remove them
                     activeMessageHandlersRef.current.forEach(handler => {
                         try {
                             apiRef.current?.connection?.removeEventListener('message', handler);
@@ -292,6 +293,17 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                         }
                     });
                     activeMessageHandlersRef.current.clear();
+                    
+                    // Also remove any tick stream subscriptions
+                    if (tickStreamIdRef.current) {
+                        try {
+                            apiRef.current?.forget?.({ forget: tickStreamIdRef.current });
+                            tickStreamIdRef.current = null;
+                            console.log('🧹 Removed tick stream subscription');
+                        } catch (e) {
+                            console.error('Error forgetting tick stream:', e);
+                        }
+                    }
                 }
                 
                 run_panel.setIsRunning(false);
