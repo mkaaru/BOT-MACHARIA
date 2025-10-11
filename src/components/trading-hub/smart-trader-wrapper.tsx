@@ -852,24 +852,33 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             setDuration(initialSettings.duration || 1);
             setDurationType(initialSettings.durationType || 't');
 
-            // Set prediction for digits contracts - CRITICAL for correct trade execution
-            if (initialSettings.prediction !== undefined) {
+            // CRITICAL: Update ALL prediction variables based on contract type
+            // For Over/Under: barrier is the prediction value
+            if (primaryTradeType === 'DIGITOVER' || primaryTradeType === 'DIGITUNDER') {
+                const barrierValue = initialSettings.barrier ? parseInt(initialSettings.barrier) : 5;
+                setOuPredPreLoss(barrierValue);
+                setOuPredPostLoss(initialSettings.ouPredPostLoss || barrierValue); // Use same value for post-loss if not specified
+                setPrediction(barrierValue);
+                setBarrier(initialSettings.barrier || String(barrierValue));
+                console.log('📍 Over/Under - PreLoss:', barrierValue, 'PostLoss:', initialSettings.ouPredPostLoss || barrierValue);
+            }
+            // For Match/Differ: use prediction value
+            else if (primaryTradeType === 'DIGITMATCH' || primaryTradeType === 'DIGITDIFF') {
+                const predValue = initialSettings.prediction !== undefined ? initialSettings.prediction : 5;
+                setMdPrediction(predValue);
+                setPrediction(predValue);
+                console.log('📍 Match/Differ prediction:', predValue);
+            }
+            // For other types: set general prediction
+            else if (initialSettings.prediction !== undefined) {
                 setPrediction(initialSettings.prediction);
-                setMdPrediction(initialSettings.prediction);
-                // For Over/Under, set as pre-loss prediction
-                setOuPredPreLoss(initialSettings.prediction);
-                console.log('📍 Prediction set to:', initialSettings.prediction);
+                console.log('📍 General prediction:', initialSettings.prediction);
             }
 
-            // Set barrier for over/under strategies - CRITICAL for correct trade execution
-            if (initialSettings.barrier) {
+            // For CALL/PUT: set barrier if provided
+            if ((primaryTradeType === 'CALL' || primaryTradeType === 'PUT') && initialSettings.barrier) {
                 setBarrier(initialSettings.barrier);
-                // Also set as pre-loss prediction for Over/Under
-                const barrierNum = parseInt(initialSettings.barrier);
-                if (!isNaN(barrierNum)) {
-                    setOuPredPreLoss(barrierNum);
-                }
-                console.log('📍 Barrier set to:', initialSettings.barrier);
+                console.log('📍 Call/Put barrier:', initialSettings.barrier);
             }
 
             console.log('✅ Smart Trader state updated with:', {
