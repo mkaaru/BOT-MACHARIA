@@ -127,6 +127,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     
     // Cumulative profit tracking for stop loss/take profit
     const cumulativeProfitRef = useRef<number>(0);
+    
+    // Track active message handlers for cleanup
+    const activeMessageHandlersRef = useRef<Set<(evt: MessageEvent) => void>>(new Set());
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -267,20 +270,28 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             console.log('🔧 Registering Run Panel stop observers for Smart Trader');
             
             const stopHandler = () => {
-                console.log('🛑 Run Panel stop clicked - stopping Smart Trader', { stopFlag: stopFlagRef.current });
+                console.log('🛑 Run Panel stop clicked - stopping Smart Trader', { 
+                    stopFlag: stopFlagRef.current,
+                    activeHandlers: activeMessageHandlersRef.current.size 
+                });
+                
                 // Immediately stop all trading activity
                 stopFlagRef.current = true;
                 contractInProgressRef.current = false;
                 setIsRunning(false);
                 stopTicks();
                 
-                // Force all contract subscriptions to close
+                // Force cleanup of ALL active message handlers
                 if (apiRef.current?.connection) {
-                    try {
-                        apiRef.current.connection.removeEventListener('message', messageHandlerRef.current);
-                    } catch (e) {
-                        console.error('Error removing message listeners:', e);
-                    }
+                    activeMessageHandlersRef.current.forEach(handler => {
+                        try {
+                            apiRef.current?.connection?.removeEventListener('message', handler);
+                            console.log('🧹 Removed message handler');
+                        } catch (e) {
+                            console.error('Error removing message listener:', e);
+                        }
+                    });
+                    activeMessageHandlersRef.current.clear();
                 }
                 
                 run_panel.setIsRunning(false);
@@ -559,6 +570,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                     if (stopFlagRef.current) {
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                        activeMessageHandlersRef.current.delete(onMsg);
                                         return;
                                     }
 
@@ -582,6 +594,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                                 
                                                 if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                                 apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                                activeMessageHandlersRef.current.delete(onMsg);
                                                 const profit = Number(poc?.profit || 0);
 
                                                 // Update cumulative profit
@@ -632,6 +645,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                     // noop
                                 }
                             };
+                            
+                            // Track this handler so it can be cleaned up on stop
+                            activeMessageHandlersRef.current.add(onMsg);
                             apiRef.current?.connection?.addEventListener('message', onMsg);
                         } catch (subErr) {
                             console.error('background monitor error', subErr);
