@@ -269,52 +269,68 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         if (store?.run_panel?.dbot?.observer) {
             console.log('🔧 Registering Run Panel stop observers for Smart Trader');
             
-            const stopHandler = () => {
-                console.log('🛑 Run Panel stop clicked - stopping Smart Trader', { 
+            const stopHandler = async () => {
+                console.log('🛑 Run Panel stop clicked - stopping Smart Trader IMMEDIATELY', { 
                     stopFlag: stopFlagRef.current,
-                    activeHandlers: activeMessageHandlersRef.current.size 
+                    activeHandlers: activeMessageHandlersRef.current.size,
+                    hasOpenContract: contractInProgressRef.current
                 });
                 
-                // Immediately stop all trading activity
+                // CRITICAL: Set stop flag first before any async operations
                 stopFlagRef.current = true;
                 contractInProgressRef.current = false;
                 setIsRunning(false);
+                
+                // Immediately update Run Panel state
+                run_panel.setIsRunning(false);
+                run_panel.setHasOpenContract(false);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                
+                // Stop tick stream immediately
                 stopTicks();
                 
-                // Force cleanup of ALL active message handlers
+                // Force cleanup of ALL active message handlers synchronously
                 if (apiRef.current?.connection) {
-                    // Get all event listeners and remove them
-                    activeMessageHandlersRef.current.forEach(handler => {
+                    console.log('🧹 Force cleaning up all WebSocket handlers');
+                    
+                    // Clone the set to avoid mutation during iteration
+                    const handlersToRemove = Array.from(activeMessageHandlersRef.current);
+                    handlersToRemove.forEach(handler => {
                         try {
                             apiRef.current?.connection?.removeEventListener('message', handler);
-                            console.log('🧹 Removed message handler');
                         } catch (e) {
                             console.error('Error removing message listener:', e);
                         }
                     });
                     activeMessageHandlersRef.current.clear();
                     
-                    // Also remove any tick stream subscriptions
+                    // Forget all active subscriptions
                     if (tickStreamIdRef.current) {
                         try {
                             apiRef.current?.forget?.({ forget: tickStreamIdRef.current });
                             tickStreamIdRef.current = null;
-                            console.log('🧹 Removed tick stream subscription');
                         } catch (e) {
                             console.error('Error forgetting tick stream:', e);
                         }
                     }
+                    
+                    // Send forget_all to ensure all subscriptions are cancelled
+                    try {
+                        await apiRef.current?.send?.({ forget_all: 'ticks' });
+                        console.log('🧹 Sent forget_all for ticks');
+                    } catch (e) {
+                        console.error('Error sending forget_all:', e);
+                    }
                 }
                 
-                run_panel.setIsRunning(false);
-                run_panel.setHasOpenContract(false);
-                run_panel.setContractStage(contract_stages.NOT_RUNNING);
                 setStatus('Trading stopped by Run Panel');
                 
                 // Notify parent that trading has stopped
                 if (onTradingStop) {
                     onTradingStop();
                 }
+                
+                console.log('✅ Smart Trader fully stopped');
             };
             
             store.run_panel.dbot.observer.register('bot.stop', stopHandler);
@@ -511,9 +527,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             console.log('🚀 Rapid-fire mode enabled for', tradeType);
 
             while (!stopFlagRef.current) {
-                // Check stop flag at the beginning of each iteration
+                // CRITICAL: Multiple stop flag checks to ensure immediate break
                 if (stopFlagRef.current) {
-                    console.log('🛑 Stop flag detected, breaking trading loop');
+                    console.log('🛑 Stop flag detected at loop start, breaking immediately');
                     break;
                 }
 
@@ -526,9 +542,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                 setStake(effectiveStake);
 
-                // Check stop flag before purchase
+                // CRITICAL: Stop flag check before purchase
                 if (stopFlagRef.current) {
-                    console.log('🛑 Stop flag detected before purchase, breaking trading loop');
+                    console.log('🛑 Stop flag detected before purchase, breaking immediately');
                     break;
                 }
 
@@ -536,11 +552,17 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 try {
                     buy = await purchaseOnceWithStake(effectiveStake);
                 } catch (e: any) {
-                    if (e.message === 'Trading stopped') {
-                        console.log('🛑 Purchase aborted due to stop signal');
+                    if (e.message === 'Trading stopped' || stopFlagRef.current) {
+                        console.log('🛑 Purchase aborted - stop signal received');
                         break;
                     }
                     throw e; // Re-throw other errors
+                }
+                
+                // CRITICAL: Stop flag check after purchase
+                if (stopFlagRef.current) {
+                    console.log('🛑 Stop flag detected after purchase, breaking immediately');
+                    break;
                 }
 
                 // No delay - all trade types now fire on every tick without waiting
@@ -685,18 +707,30 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     monitorContract();
 
                     // Wait only for next tick (minimal delay ~1.2s per tick for rapid-fire mode)
-                    // Use a cancellable delay that respects stop flag
+                    // Use a cancellable delay that respects stop flag for IMMEDIATE break
                     await new Promise((resolve) => {
-                        const checkInterval = 100; // Check every 100ms
+                        const checkInterval = 50; // Check every 50ms for faster response
                         let elapsed = 0;
                         const interval = setInterval(() => {
+                            if (stopFlagRef.current) {
+                                // IMMEDIATE break if stop flag is set
+                                clearInterval(interval);
+                                resolve(null);
+                                return;
+                            }
                             elapsed += checkInterval;
-                            if (stopFlagRef.current || elapsed >= 1200) {
+                            if (elapsed >= 1200) {
                                 clearInterval(interval);
                                 resolve(null);
                             }
                         }, checkInterval);
                     });
+                }
+                
+                // FINAL stop flag check before next iteration
+                if (stopFlagRef.current) {
+                    console.log('🛑 Stop flag detected after delay, breaking immediately');
+                    break;
                 }
 
                 // Check stop flag before continuing to next trade
