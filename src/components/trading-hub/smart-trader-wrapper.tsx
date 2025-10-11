@@ -444,13 +444,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             const selectedPrediction = isAfterLoss ? ouPredPostLoss : ouPredPreLoss;
             trade_option.prediction = Number(selectedPrediction);
 
-                isAfterLoss,
-                selectedPrediction,
-                preLossPred: ouPredPreLoss,
-                postLossPred: ouPredPostLoss,
-                tradeType
-            });
-
             setStatus(`${tradeType}: ${trade_option.prediction} ${isAfterLoss ? '(after loss)' : '(pre-loss)'} - Stake: ${stakeAmount}`);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
@@ -466,11 +459,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
-            contract_type: tradeType,
-            prediction: trade_option.prediction,
-            amount: stakeAmount,
-            after_loss: lastOutcomeWasLossRef.current
-        });
 
         // Handle rate limit errors
         try {

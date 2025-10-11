@@ -552,12 +552,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             const shouldSwitch = symbolChanged || tradeTypeChanged;
 
             if (shouldSwitch) {
-                    from: `${currentTradeSymbol} ${currentTradeType}`,
-                    to: `${newSymbol} ${newTradeType} (${newStrategy})`,
-                    confidence: `${bestRecommendation.confidence.toFixed(1)}%`,
-                    reason: bestRecommendation.reason
-                });
-
                 setCurrentTradeSymbol(newSymbol);
                 setCurrentTradeType(newTradeType);
 
@@ -638,13 +632,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const selectedPrediction = isAfterLoss ? aiTradeConfig.ouPredPostLoss : parseInt(recommendation.barrier || '5');
                 trade_option.prediction = Number(selectedPrediction);
 
-                    isAfterLoss,
-                    selectedPrediction,
-                    preLossPred: parseInt(recommendation.barrier || '5'),
-                    postLossPred: aiTradeConfig.ouPredPostLoss,
-                    strategy: recommendation.strategy
-                });
-
                 setAiTradeStatus(`${recommendation.strategy.toUpperCase()}: ${selectedPrediction} ${isAfterLoss ? '(after loss)' : '(pre-loss)'} - Stake: ${currentStake}`);
             } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
                 trade_option.prediction = parseInt(recommendation.barrier || '5');
@@ -677,14 +664,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                     buy_req.parameters.barrier = trade_option.prediction;
                 }
             }
-
-                contract_type: getTradeTypeForStrategy(recommendation.strategy),
-                prediction: trade_option.prediction,
-                amount: currentStake,
-                after_loss: lastOutcomeWasLoss,
-                symbol: recommendation.symbol,
-                full_request: buy_req
-            });
 
             // Execute purchase with proper error handling
             const { buy, error } = await apiRef.current.buy(buy_req);
@@ -732,12 +711,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setContractInProgress(false);
                 return;
             }
-
-                contractId: buy.contract_id,
-                longcode: buy.longcode,
-                amount: currentStake,
-                strategy: recommendation.strategy
-            });
 
             setAiTradeStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
@@ -917,14 +890,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         setContractInProgress(false);
         aiAutoTradeStopFlagRef.current = false; // Reset stop flag
         activeContractSubscriptionsRef.current.clear(); // Clear any old subscriptions
-
-            symbol: bestRecommendation.symbol,
-            strategy: bestRecommendation.strategy,
-            confidence: bestRecommendation.confidence.toFixed(1),
-            initialStake: aiTradeConfig.stake,
-            martingaleMultiplier: aiTradeConfig.martingaleMultiplier,
-            ouPredPostLoss: aiTradeConfig.ouPredPostLoss
-        });
 
         const displayName = symbolMap[bestRecommendation.symbol] || bestRecommendation.symbol;
         setAiTradeStatus(`🚀 AI Auto Trade started: ${displayName} ${bestRecommendation.strategy.toUpperCase()}`);
