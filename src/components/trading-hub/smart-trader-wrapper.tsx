@@ -594,12 +594,14 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
         onRun();
 
-        // Auto-close the popup after starting trading, but don't stop the bot
-        setTimeout(() => {
-            if (onClose && is_running) {
-                onClose();
-            }
-        }, 2000); // Slightly longer delay to ensure trading is properly started
+        // Hide the modal when trading starts (minimize without stopping)
+        if (onHide) {
+            setStatus('Trading started - Modal will minimize. Trading continues in background.');
+            // Small delay to ensure trading starts and user sees the message
+            setTimeout(() => {
+                onHide();
+            }, 1000);
+        }
     };
 
     // Set initial values from Trading Hub recommendation

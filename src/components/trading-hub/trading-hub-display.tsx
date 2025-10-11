@@ -1770,6 +1770,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const handleHideModal = () => {
         // Hide modal when trading starts - keep component mounted
         setIsSmartTraderHidden(true);
+        console.log('Smart Trader modal hidden - trading continues in background');
     };
 
     const handleTradingStop = () => {
@@ -1777,6 +1778,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         setIsSmartTraderModalOpen(false);
         setIsSmartTraderHidden(false);
         setSelectedTradeSettings(null);
+        console.log('Smart Trader fully closed after trading stopped');
     };
 
     return (
