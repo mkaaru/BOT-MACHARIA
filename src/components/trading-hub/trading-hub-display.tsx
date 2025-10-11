@@ -1435,21 +1435,12 @@ const TradingHubDisplay: React.FC = observer(() => {
             const { authorize, error } = await api.authorize(token);
             if (error) throw error;
 
-                symbol: currentRecommendation.symbol,
-                strategy: currentRecommendation.strategy,
-                confidence: currentRecommendation.confidence
-            });
-
             // Main trading loop
             while (isAiAutoTradeActive) {
                 // Check if recommendation has changed and switch if better opportunity exists
                 if (bestRecommendation &&
                     bestRecommendation.symbol !== currentRecommendation.symbol &&
                     bestRecommendation.confidence > currentRecommendation.confidence + 5) {
-
-                        from: `${currentRecommendation.symbol} (${currentRecommendation.confidence.toFixed(1)}%)`,
-                        to: `${bestRecommendation.symbol} (${bestRecommendation.confidence.toFixed(1)}%)`
-                    });
 
                     currentRecommendation = bestRecommendation;
                     setCurrentAiTrade(currentRecommendation);

@@ -809,14 +809,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     // This effect MUST run whenever initialSettings changes to update all trading parameters
     useEffect(() => {
         if (initialSettings) {
-                symbol: initialSettings.symbol,
-                tradeType: initialSettings.tradeType,
-                contractType: initialSettings.contractType,
-                prediction: initialSettings.prediction,
-                barrier: initialSettings.barrier,
-                stake: initialSettings.stake
-            });
-
             // Update all trading parameters from initialSettings
             setSymbol(initialSettings.symbol);
             
@@ -853,13 +845,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             if ((primaryTradeType === 'CALL' || primaryTradeType === 'PUT') && initialSettings.barrier) {
                 setBarrier(initialSettings.barrier);
             }
-
-                symbol: initialSettings.symbol,
-                tradeType: primaryTradeType,
-                contractType: primaryTradeType,
-                prediction: initialSettings.prediction,
-                barrier: initialSettings.barrier
-            });
         }
     }, [initialSettings.symbol, initialSettings.tradeType, initialSettings.contractType, initialSettings.prediction, initialSettings.barrier, initialSettings.stake, initialSettings.duration]);
 
