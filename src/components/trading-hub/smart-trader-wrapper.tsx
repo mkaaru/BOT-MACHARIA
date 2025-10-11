@@ -40,6 +40,7 @@ interface SmartTraderWrapperProps {
     initialSettings: TradeSettings;
     onClose: () => void;
     onHide?: () => void;
+    onTradingStop?: () => void;
 }
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
@@ -69,7 +70,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose, onHide }) => {
+const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose, onHide, onTradingStop }) => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
@@ -573,6 +574,11 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
         setStatus('Trading stopped');
+        
+        // Notify parent that trading has stopped so modal can be fully closed/reset
+        if (onTradingStop) {
+            onTradingStop();
+        }
 
         // Cleanup observers
         if (store?.run_panel?.dbot?.observer) {

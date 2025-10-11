@@ -1756,14 +1756,27 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     const handleCloseModal = () => {
-        setIsSmartTraderModalOpen(false);
-        setIsSmartTraderHidden(false);
-        setSelectedTradeSettings(null);
+        // If trading is running, just hide the modal (keep component mounted)
+        // If trading is NOT running, fully close and unmount
+        if (store?.run_panel?.is_running) {
+            setIsSmartTraderHidden(true);
+        } else {
+            setIsSmartTraderModalOpen(false);
+            setIsSmartTraderHidden(false);
+            setSelectedTradeSettings(null);
+        }
     };
 
     const handleHideModal = () => {
         // Hide modal when trading starts - keep component mounted
         setIsSmartTraderHidden(true);
+    };
+
+    const handleTradingStop = () => {
+        // When trading stops, fully close and reset the modal
+        setIsSmartTraderModalOpen(false);
+        setIsSmartTraderHidden(false);
+        setSelectedTradeSettings(null);
     };
 
     return (
@@ -1782,6 +1795,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
                         onHide={handleHideModal}
+                        onTradingStop={handleTradingStop}
                     />
                 )}
             </Modal>
