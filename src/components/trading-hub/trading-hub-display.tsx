@@ -1056,14 +1056,11 @@ const TradingHubDisplay: React.FC = observer(() => {
         });
 
         // Store the settings and open Smart Trader in auto-start mode
+        // Hide modal BEFORE opening to prevent visual popup
+        setIsSmartTraderHidden(true);
         setSelectedTradeSettings(settings);
         setAutoStartTrading(true); // Enable auto-start
         setIsSmartTraderModalOpen(true);
-        
-        // Auto-hide modal immediately for direct trading
-        setTimeout(() => {
-            setIsSmartTraderHidden(true);
-        }, 600); // Allow time for trading to start before hiding
     };
 
     // Load trade settings to Smart Trader (legacy function - kept for compatibility)

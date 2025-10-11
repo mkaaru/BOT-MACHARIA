@@ -19,6 +19,7 @@ The platform features multiple trading approaches including a visual bot builder
   - **Stop Loss/Take Profit Implementation**: Full cumulative profit tracking with automatic trading stop when thresholds reached
   - **Session Reset**: Cumulative profit resets on each new trading session to ensure independent threshold evaluation
   - **Type Safety**: TradeSettings interface synchronized between TradingHubDisplay and SmartTraderWrapper with stopLoss/takeProfit fields
+  - **Modal Visibility Fix**: Modal is now hidden BEFORE opening during direct trading - no visual popup appears to user
 - **Free Bots Library Expansion**: Added 11 new pre-built trading bots to Free Bots section
   - New bots: Candle Mine V3.5, Speed Trading Bot, High & Under Bot, AI Dual Prediction Bot
   - Additional: Bandwagon Entry Point Bot, Entry Point Strategy V1, Alpha Strategy 2025
