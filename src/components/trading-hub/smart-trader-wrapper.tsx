@@ -152,7 +152,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     };
 
     // Rate limiting helper function
-    const throttleApiRequest = async <T>(requestFn: () => Promise<T>): Promise<T> => {
+    const throttleApiRequest = async <T,>(requestFn: () => Promise<T>): Promise<T> => {
         const minInterval = 1500; // Minimum 1.5 seconds between API requests
         const now = Date.now();
         const timeSinceLastRequest = now - lastRequestTimeRef.current;
