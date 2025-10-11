@@ -948,14 +948,16 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                             {is_running ? localize('Running...') : localize('Start Trading')}
                         </button>
                         {is_running && (
-                            <button className='smart-trader-wrapper__stop-btn' onClick={stopTrading}>
-                                {localize('Stop')}
-                            </button>
-                        )}
-                        {onMinimize && (
-                            <button className='smart-trader-wrapper__minimize-btn' onClick={onMinimize}>
-                                {localize('Minimize')}
-                            </button>
+                            <>
+                                <button className='smart-trader-wrapper__stop-btn' onClick={stopTrading}>
+                                    {localize('Stop')}
+                                </button>
+                                {onMinimize && (
+                                    <button className='smart-trader-wrapper__minimize-btn' onClick={onMinimize}>
+                                        {localize('Minimize')}
+                                    </button>
+                                )}
+                            </>
                         )}
                         <button className='smart-trader-wrapper__close-btn' onClick={onClose}>
                             {localize('Close')}

@@ -6,6 +6,17 @@ The platform features multiple trading approaches including a visual bot builder
 
 # Recent Changes
 
+## October 11, 2025
+- **Smart Trader Minimize Feature - Persistent Trade Execution**: Fixed trades stopping when modal is minimized
+  - Modal now stays mounted when minimized (hidden with CSS instead of unmounting)
+  - SmartTraderWrapper component continues running in background when minimized
+  - Trades execute continuously while minimized - control remains with run panel
+  - Minimize button only appears when trades are actively running
+  - Minimized floating bar shows pulsing indicator and symbol name at bottom-right
+  - Click floating bar to restore modal and regain direct control
+  - Prevents accidental modal closure when minimized (ESC/outside clicks disabled)
+  - This ensures rapid-fire tick-by-tick trading continues uninterrupted when modal is hidden
+
 ## October 7, 2025
 - **ML Trader Auto-Trading System**: Implemented comprehensive automated trading functionality
   - Created `ml-auto-trader.ts` service for intelligent trade execution with risk management

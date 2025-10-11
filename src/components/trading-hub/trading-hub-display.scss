@@ -914,6 +914,13 @@
                 100% { transform: rotate(360deg); }
             }
 
+            /* Hide modal visually when minimized but keep it mounted */
+            :global(.smart-trader-modal-hidden) {
+                display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
+
             /* Responsive design */
             @media (max-width: 768px) {
                 .trading-hub-scanner {

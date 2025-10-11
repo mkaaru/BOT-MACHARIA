@@ -1759,6 +1759,10 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     const handleCloseModal = () => {
+        // Don't allow closing if minimized (user must restore first)
+        if (isSmartTraderMinimized) {
+            return;
+        }
         setIsSmartTraderModalOpen(false);
         setIsSmartTraderMinimized(false);
         setSelectedTradeSettings(null);
@@ -1776,11 +1780,12 @@ const TradingHubDisplay: React.FC = observer(() => {
         <div className="trading-hub-scanner">
             {/* Smart Trader Modal */}
             <Modal
-                is_open={isSmartTraderModalOpen && !isSmartTraderMinimized}
+                is_open={isSmartTraderModalOpen}
                 title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
                 toggleModal={handleCloseModal}
                 width="900px"
                 height="auto"
+                className={isSmartTraderMinimized ? 'smart-trader-modal-hidden' : ''}
             >
                 {selectedTradeSettings && (
                     <SmartTraderWrapper
