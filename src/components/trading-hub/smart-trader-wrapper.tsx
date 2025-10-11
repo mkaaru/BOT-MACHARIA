@@ -263,10 +263,18 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     // Register Run Panel stop observers - keep them active even when modal is hidden
     useEffect(() => {
-        if (is_running && store?.run_panel?.dbot?.observer) {
+        if (store?.run_panel?.dbot?.observer) {
             console.log('🔧 Registering Run Panel stop observers for Smart Trader');
-            store.run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
-            store.run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
+            
+            const stopHandler = () => {
+                if (is_running) {
+                    console.log('🛑 Run Panel stop clicked - stopping Smart Trader');
+                    handleRunPanelStop();
+                }
+            };
+            
+            store.run_panel.dbot.observer.register('bot.stop', stopHandler);
+            store.run_panel.dbot.observer.register('bot.click_stop', stopHandler);
 
             return () => {
                 console.log('🧹 Cleaning up Run Panel stop observers');
@@ -611,7 +619,8 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     // Handle Run Panel stop events
     const handleRunPanelStop = () => {
-        if (is_running) {
+        console.log('🛑 Smart Trader received stop signal', { is_running, stopFlag: stopFlagRef.current });
+        if (is_running || !stopFlagRef.current) {
             stopTrading();
         }
     };

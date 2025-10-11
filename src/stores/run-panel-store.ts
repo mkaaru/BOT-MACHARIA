@@ -231,11 +231,14 @@ export default class RunPanelStore {
         if (is_multiplier && !isSmartTrader) {
             this.showStopMultiplierContractDialog();
         } else {
-            this.stopBot();
-            // Emit stop event for Smart Trader and other external traders
+            // Emit stop event BEFORE calling stopBot to ensure Smart Trader receives it
             if (this.dbot?.observer) {
+                console.log('🔴 Run Panel: Emitting stop events');
                 this.dbot.observer.emit('bot.click_stop');
+                this.dbot.observer.emit('bot.stop');
             }
+            
+            this.stopBot();
         }
     };
 
