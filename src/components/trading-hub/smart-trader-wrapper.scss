@@ -219,6 +219,25 @@
         }
     }
 
+    &__minimize-btn {
+        flex: 1;
+        max-width: 140px;
+        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.875rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 152, 0, 0.4);
+        }
+    }
+
     &__close-btn {
         flex: 1;
         max-width: 120px;
@@ -319,5 +338,17 @@
             height: 35px;
             font-size: 0.9rem;
         }
+    }
+}
+
+// Pulse animation for minimized bar indicator
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
     }
 }

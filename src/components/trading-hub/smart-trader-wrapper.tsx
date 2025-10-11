@@ -39,6 +39,7 @@ interface TradeSettings {
 interface SmartTraderWrapperProps {
     initialSettings: TradeSettings;
     onClose: () => void;
+    onMinimize?: () => void;
 }
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
@@ -68,7 +69,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose }) => {
+const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose, onMinimize }) => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
@@ -949,6 +950,11 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                         {is_running && (
                             <button className='smart-trader-wrapper__stop-btn' onClick={stopTrading}>
                                 {localize('Stop')}
+                            </button>
+                        )}
+                        {onMinimize && (
+                            <button className='smart-trader-wrapper__minimize-btn' onClick={onMinimize}>
+                                {localize('Minimize')}
                             </button>
                         )}
                         <button className='smart-trader-wrapper__close-btn' onClick={onClose}>

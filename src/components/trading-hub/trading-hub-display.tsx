@@ -61,6 +61,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [totalSymbols] = useState(12);
     const [selectedTradeType, setSelectedTradeType] = useState<string>('all');
     const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
+    const [isSmartTraderMinimized, setIsSmartTraderMinimized] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
@@ -1759,14 +1760,23 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     const handleCloseModal = () => {
         setIsSmartTraderModalOpen(false);
+        setIsSmartTraderMinimized(false);
         setSelectedTradeSettings(null);
+    };
+
+    const handleMinimizeModal = () => {
+        setIsSmartTraderMinimized(true);
+    };
+
+    const handleRestoreModal = () => {
+        setIsSmartTraderMinimized(false);
     };
 
     return (
         <div className="trading-hub-scanner">
             {/* Smart Trader Modal */}
             <Modal
-                is_open={isSmartTraderModalOpen}
+                is_open={isSmartTraderModalOpen && !isSmartTraderMinimized}
                 title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
                 toggleModal={handleCloseModal}
                 width="900px"
@@ -1776,9 +1786,56 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <SmartTraderWrapper
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
+                        onMinimize={handleMinimizeModal}
                     />
                 )}
             </Modal>
+
+            {/* Minimized Smart Trader Bar */}
+            {isSmartTraderModalOpen && isSmartTraderMinimized && (
+                <div 
+                    className="smart-trader-minimized-bar"
+                    onClick={handleRestoreModal}
+                    style={{
+                        position: 'fixed',
+                        bottom: '20px',
+                        right: '20px',
+                        backgroundColor: '#0e0e0e',
+                        border: '1px solid #3d3d3d',
+                        borderRadius: '8px',
+                        padding: '12px 20px',
+                        cursor: 'pointer',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                        transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                    }}
+                >
+                    <div style={{ 
+                        width: '8px', 
+                        height: '8px', 
+                        borderRadius: '50%', 
+                        backgroundColor: '#ff444f',
+                        animation: 'pulse 2s infinite'
+                    }} />
+                    <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
+                        Smart Trader Running - Click to Restore
+                    </span>
+                    <span style={{ color: '#85acb0', fontSize: '12px' }}>
+                        {selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}
+                    </span>
+                </div>
+            )}
 
             <div className="scanner-header">
                 <div className="scanner-title">
