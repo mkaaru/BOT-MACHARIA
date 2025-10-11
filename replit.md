@@ -7,16 +7,16 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 11, 2025
-- **Free Bots Library Expansion**: Added 10 new pre-built trading bots to Free Bots section
+- **Free Bots Library Expansion**: Added 11 new pre-built trading bots to Free Bots section
   - New bots: Candle Mine V3.5, Speed Trading Bot, High & Under Bot, AI Dual Prediction Bot
   - Additional: Bandwagon Entry Point Bot, Entry Point Strategy V1, Alpha Strategy 2025
   - Martingale variants: Classic Martingale Bot, No Martingale Strategy 2025
-  - Profit-focused: Greenprint Profit Bot
+  - Profit-focused: Greenprint Profit Bot, Gold Miner S7 (186 blocks, advanced strategy)
   - All bots stored in public/ directory with clean, user-friendly names
-  - Total of 14 bots now available (4 original + 10 new)
+  - Total of 15 bots now available (4 original + 11 new)
   - All bots validated with proper XML structure and complete Blockly trade_definition blocks
   - Files fetch with multiple fallback approaches for cross-browser compatibility
-  - **Display Fix**: Removed 400px max-height limit on Free Bots container - all 14 bots now visible on page load without scrolling (responsive grid: 1-7 columns based on screen size)
+  - **Display Fix**: Removed 400px max-height limit on Free Bots container - all 15 bots now visible on page load without scrolling (responsive grid: 1-7 columns based on screen size)
 - **"Powered by Deriv" Branding**: Added subtle branding to application header
   - Small "Powered by Deriv" logo display next to app logo in header
   - Smaller text size with 70% opacity for subtle appearance

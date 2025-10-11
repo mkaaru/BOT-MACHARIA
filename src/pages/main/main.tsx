@@ -181,6 +181,7 @@ const AppWrapper = observer(() => {
                 'Classic Martingale Bot.xml',
                 'No Martingale Strategy 2025.xml',
                 'Greenprint Profit Bot.xml',
+                'Gold Miner S7.xml',
             ];
 
             const loadedBots = [];
