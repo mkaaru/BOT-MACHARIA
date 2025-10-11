@@ -999,11 +999,21 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Load recommendation to Best Opportunity Smart Trader and auto-start trading
     const startDirectTrading = (recommendation: TradeRecommendation) => {
+        console.log('🎯 START TRADING clicked on recommendation card:', {
+            symbol: recommendation.symbol,
+            strategy: recommendation.strategy,
+            barrier: recommendation.barrier,
+            prediction: recommendation.prediction,
+            confidence: recommendation.confidence
+        });
+        
         // Update the best recommendation to show this one in the embedded Smart Trader
         setBestRecommendation(recommendation);
         
         // Enable auto-start for the embedded Smart Trader
         setAutoStartEmbedded(true);
+        
+        console.log('📍 Best recommendation updated and auto-start enabled');
         
         // Scroll to the Best Opportunity section
         setTimeout(() => {
@@ -1012,8 +1022,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 smartTraderSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }, 100);
-        
-        console.log('📍 Loaded recommendation to Smart Trader with auto-start:', recommendation);
     };
 
     // Load trade settings to Smart Trader (legacy function - kept for compatibility)

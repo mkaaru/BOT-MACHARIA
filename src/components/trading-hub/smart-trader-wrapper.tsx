@@ -823,10 +823,19 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     };
 
     // Set initial values from Trading Hub recommendation
+    // This effect MUST run whenever initialSettings changes to update all trading parameters
     useEffect(() => {
         if (initialSettings) {
-            console.log('Smart Trader receiving Trading Hub settings:', initialSettings);
+            console.log('🔄 Smart Trader UPDATING with new settings:', {
+                symbol: initialSettings.symbol,
+                tradeType: initialSettings.tradeType,
+                contractType: initialSettings.contractType,
+                prediction: initialSettings.prediction,
+                barrier: initialSettings.barrier,
+                stake: initialSettings.stake
+            });
 
+            // Update all trading parameters from initialSettings
             setSymbol(initialSettings.symbol);
             
             // Use contractType as the primary trade type if available
@@ -838,17 +847,19 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             setDuration(initialSettings.duration || 1);
             setDurationType(initialSettings.durationType || 't');
 
-            // Set prediction for digits contracts
+            // Set prediction for digits contracts - CRITICAL for correct trade execution
             if (initialSettings.prediction !== undefined) {
                 setPrediction(initialSettings.prediction);
+                console.log('📍 Prediction set to:', initialSettings.prediction);
             }
 
-            // Set barrier for over/under strategies
+            // Set barrier for over/under strategies - CRITICAL for correct trade execution
             if (initialSettings.barrier) {
                 setBarrier(initialSettings.barrier);
+                console.log('📍 Barrier set to:', initialSettings.barrier);
             }
 
-            console.log('Smart Trader initialized with:', {
+            console.log('✅ Smart Trader state updated with:', {
                 symbol: initialSettings.symbol,
                 tradeType: primaryTradeType,
                 contractType: primaryTradeType,
@@ -856,7 +867,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 barrier: initialSettings.barrier
             });
         }
-    }, [initialSettings]);
+    }, [initialSettings.symbol, initialSettings.tradeType, initialSettings.contractType, initialSettings.prediction, initialSettings.barrier, initialSettings.stake, initialSettings.duration]);
 
 
     return (
