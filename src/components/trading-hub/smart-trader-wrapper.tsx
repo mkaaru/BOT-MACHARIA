@@ -506,6 +506,42 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         cumulativeProfitRef.current = 0;
         console.log('🔄 Cumulative profit reset for new trading session');
         
+        // Register external stop handler with Run Panel
+        const externalStopHandler = () => {
+            console.log('🛑 External stop handler called by Run Panel');
+            stopFlagRef.current = true;
+            contractInProgressRef.current = false;
+            setIsRunning(false);
+            stopTicks();
+            
+            // Force cleanup of ALL active message handlers
+            if (apiRef.current?.connection) {
+                activeMessageHandlersRef.current.forEach(handler => {
+                    try {
+                        apiRef.current?.connection?.removeEventListener('message', handler);
+                    } catch (e) {
+                        console.error('Error removing message listener:', e);
+                    }
+                });
+                activeMessageHandlersRef.current.clear();
+            }
+            
+            run_panel.setIsRunning(false);
+            run_panel.setHasOpenContract(false);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            setStatus('Trading stopped by Run Panel');
+            
+            // Unregister this handler
+            run_panel.unregisterExternalStopHandler();
+            
+            // Notify parent that trading has stopped
+            if (onTradingStop) {
+                onTradingStop();
+            }
+        };
+        
+        run_panel.registerExternalStopHandler(externalStopHandler);
+        
         run_panel.toggleDrawer(true);
         run_panel.setActiveTabIndex(1);
         run_panel.run_id = `smart-${Date.now()}`;
@@ -748,6 +784,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            
+            // Unregister external stop handler when trading ends
+            run_panel.unregisterExternalStopHandler();
         }
     };
 

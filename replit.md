@@ -20,12 +20,15 @@ The platform features multiple trading approaches including a visual bot builder
   - **Session Reset**: Cumulative profit resets on each new trading session to ensure independent threshold evaluation
   - **Type Safety**: TradeSettings interface synchronized between TradingHubDisplay and SmartTraderWrapper with stopLoss/takeProfit fields
   - **Modal Visibility Fix**: Modal is now hidden BEFORE opening during direct trading - no visual popup appears to user
-  - **Run Panel Stop Button Fix**: Implemented comprehensive stop mechanism to ensure Run Panel stop button properly terminates all active trades
-    - All WebSocket message handlers are tracked in activeMessageHandlersRef Set
-    - When stop button clicked, all handlers are forcefully cleaned up
-    - Stop flag checked at start of each purchase - prevents new trades from starting
-    - Purchase function throws "Trading stopped" error if stop flag is set, immediately breaking the trading loop
-    - Works seamlessly with both visible and hidden Smart Trader modal states
+  - **Run Panel Stop Button Fix**: Implemented direct handler registration to bridge Run Panel and Smart Trader architectures
+    - Added `externalStopHandler` registration system in RunPanelStore for Smart Trader integration
+    - Smart Trader registers stop handler with Run Panel when trading starts
+    - Run Panel calls registered handler DIRECTLY on stop button click (bypasses observer events)
+    - Handler persists even when Smart Trader modal is hidden/unmounted
+    - Stop flag checked at start of each purchase - prevents new trades from starting  
+    - All WebSocket message handlers forcefully cleaned up on stop
+    - Handler automatically unregistered when trading ends
+    - Solves architectural mismatch between Bot Skeleton and Smart Trader systems
 - **Free Bots Library Expansion**: Added 11 new pre-built trading bots to Free Bots section
   - New bots: Candle Mine V3.5, Speed Trading Bot, High & Under Bot, AI Dual Prediction Bot
   - Additional: Bandwagon Entry Point Bot, Entry Point Strategy V1, Alpha Strategy 2025

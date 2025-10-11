@@ -28,6 +28,7 @@ export default class RunPanelStore {
     core: TStores;
     disposeReactionsFn: () => void;
     timer: NodeJS.Timeout | null;
+    externalStopHandler: (() => void) | null = null; // For Smart Trader integration
 
     constructor(root_store: RootStore, core: TStores) {
         makeObservable(this, {
@@ -231,6 +232,12 @@ export default class RunPanelStore {
         if (is_multiplier && !isSmartTrader) {
             this.showStopMultiplierContractDialog();
         } else {
+            // Call external stop handler FIRST (for Smart Trader)
+            if (this.externalStopHandler) {
+                console.log('🔴 Run Panel: Calling external stop handler (Smart Trader)');
+                this.externalStopHandler();
+            }
+            
             // Emit stop event BEFORE calling stopBot to ensure Smart Trader receives it
             if (this.dbot?.observer) {
                 console.log('🔴 Run Panel: Emitting stop events');
@@ -240,6 +247,18 @@ export default class RunPanelStore {
             
             this.stopBot();
         }
+    };
+    
+    // Register external stop handler (for Smart Trader)
+    registerExternalStopHandler = (handler: () => void) => {
+        console.log('📝 Run Panel: Registering external stop handler');
+        this.externalStopHandler = handler;
+    };
+    
+    // Unregister external stop handler
+    unregisterExternalStopHandler = () => {
+        console.log('🗑️ Run Panel: Unregistering external stop handler');
+        this.externalStopHandler = null;
     };
 
     onStopBotClick = () => {
