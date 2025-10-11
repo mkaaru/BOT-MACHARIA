@@ -391,6 +391,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     };
 
     const purchaseOnceWithStake = async (stakeAmount: number) => {
+        // Check stop flag immediately - don't start purchase if stopped
+        if (stopFlagRef.current) {
+            console.log('🛑 Stop flag detected in purchaseOnceWithStake - aborting purchase');
+            throw new Error('Trading stopped');
+        }
+        
         await authorizeIfNeeded();
 
         const trade_option: any = {
@@ -514,7 +520,16 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     break;
                 }
 
-                const buy = await purchaseOnceWithStake(effectiveStake);
+                let buy;
+                try {
+                    buy = await purchaseOnceWithStake(effectiveStake);
+                } catch (e: any) {
+                    if (e.message === 'Trading stopped') {
+                        console.log('🛑 Purchase aborted due to stop signal');
+                        break;
+                    }
+                    throw e; // Re-throw other errors
+                }
 
                 // No delay - all trade types now fire on every tick without waiting
                 // This enables rapid-fire tick-by-tick trading for all strategies

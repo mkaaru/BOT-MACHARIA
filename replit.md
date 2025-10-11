@@ -20,10 +20,11 @@ The platform features multiple trading approaches including a visual bot builder
   - **Session Reset**: Cumulative profit resets on each new trading session to ensure independent threshold evaluation
   - **Type Safety**: TradeSettings interface synchronized between TradingHubDisplay and SmartTraderWrapper with stopLoss/takeProfit fields
   - **Modal Visibility Fix**: Modal is now hidden BEFORE opening during direct trading - no visual popup appears to user
-  - **Run Panel Stop Button Fix**: Implemented message handler tracking system to ensure Run Panel stop button properly terminates all active trades
+  - **Run Panel Stop Button Fix**: Implemented comprehensive stop mechanism to ensure Run Panel stop button properly terminates all active trades
     - All WebSocket message handlers are tracked in activeMessageHandlersRef Set
     - When stop button clicked, all handlers are forcefully cleaned up
-    - Prevents trades from continuing after stop is clicked
+    - Stop flag checked at start of each purchase - prevents new trades from starting
+    - Purchase function throws "Trading stopped" error if stop flag is set, immediately breaking the trading loop
     - Works seamlessly with both visible and hidden Smart Trader modal states
 - **Free Bots Library Expansion**: Added 11 new pre-built trading bots to Free Bots section
   - New bots: Candle Mine V3.5, Speed Trading Bot, High & Under Bot, AI Dual Prediction Bot
