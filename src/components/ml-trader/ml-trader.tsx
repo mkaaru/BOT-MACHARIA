@@ -128,7 +128,7 @@ const MLTrader = observer(() => {
     useEffect(() => {
         const checkAutoTrade = () => {
             const config = mlAutoTrader.getConfig();
-            
+
             if (!config.enabled) {
                 return;
             }
@@ -141,7 +141,7 @@ const MLTrader = observer(() => {
             const topRecommendation = recommendations[0];
             console.log(`🔍 Auto-trade check: Top recommendation = ${topRecommendation.displayName} ${topRecommendation.action} (${topRecommendation.confidence.toFixed(1)}%)`);
             console.log(`📊 Contract in progress status: ${contractInProgressRef.current}`);
-            
+
             if (mlAutoTrader.shouldExecuteTrade(topRecommendation)) {
                 if (!contractInProgressRef.current) {
                     console.log('✅ Auto-trade conditions met - executing trade...');
@@ -240,7 +240,7 @@ const MLTrader = observer(() => {
                     if (use_tick_predictor) {
                         const prediction = tickPredictionEngine.processTick(tick.quote, tick.epoch * 1000);
                         setTickPrediction(prediction);
-                        
+
                         // Log prediction updates
                         if (prediction.direction !== 'HOLD') {
                             console.log(`🎯 TICK PREDICTION: ${prediction.direction} @ ${prediction.confidence.toFixed(1)}% - ${prediction.reason}`);
@@ -482,7 +482,7 @@ const MLTrader = observer(() => {
 
         // Get contract configuration based on current strategy state
         const contractConfig = mlAutoTrader.getNextContractConfig(recommendation);
-        
+
         console.log(`🤖 AUTO-TRADE EXECUTING: ${contractConfig.display_label} (${contractConfig.mode}) on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
 
         // Check if symbol is moving before trading
@@ -515,7 +515,7 @@ const MLTrader = observer(() => {
 
             if (proposal_response.proposal) {
                 console.log('✅ Proposal received, ID:', proposal_response.proposal.id);
-                
+
                 const buy_response = await apiRef.current.send({
                     buy: proposal_response.proposal.id,
                     price: stake
@@ -529,9 +529,9 @@ const MLTrader = observer(() => {
                 if (buy_response.buy) {
                     const entryPrice = parseFloat(buy_response.buy.buy_price);
                     const payout = parseFloat(buy_response.buy.payout || 0);
-                    
+
                     console.log(`✅ CONTRACT PURCHASED! Type: ${contractConfig.deriv_contract_type}, ID: ${buy_response.buy.contract_id}, Entry: ${entryPrice}, Payout: ${payout}`);
-                    
+
                     mlAutoTrader.registerTrade(
                         recommendation,
                         buy_response.buy.contract_id,
@@ -848,7 +848,7 @@ const MLTrader = observer(() => {
 
             // Contract type based on action and symbol type
             let contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
-            
+
             // For Rise/Fall (normal and 1s volatilities), use CALLE/PUTE
             if (isNormalVolatility || is1sVolatility) {
                 contractType = recommendation.action === 'RISE' ? 'CALLE' : 'PUTE';
@@ -1346,7 +1346,7 @@ const MLTrader = observer(() => {
                                 <Text size="md" weight="bold">⚡ 2-Tick Prediction Engine</Text>
                                 <Text size="xs" color="general">Ultra-short momentum analysis</Text>
                             </div>
-                            
+
                             <div className={`prediction-signal ${tick_prediction.direction.toLowerCase()}`}>
                                 <div className="signal-direction">
                                     <Text size="xl" weight="bold">
