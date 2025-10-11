@@ -523,12 +523,15 @@ const TradingHubDisplay: React.FC = observer(() => {
         });
     }, [marketStats, realTimeStats, o5u4Opportunities, selectedTradeType]);
 
-    // Update scan results when data changes
+    // Update scan results when data changes - continuously update when ready
     useEffect(() => {
-        if (connectionStatus === 'ready') {
-            setScanResults(generateScanResults());
+        if (connectionStatus === 'ready' || connectionStatus === 'scanning') {
+            const results = generateScanResults();
+            if (results.length > 0) {
+                setScanResults(results);
+            }
         }
-    }, [connectionStatus, generateScanResults]);
+    }, [connectionStatus, generateScanResults, marketStats, realTimeStats]);
 
     // AI Auto Trade API setup
     const apiRef = useRef<any>(null);
@@ -1776,23 +1779,26 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     const handleMinimizeModal = () => {
+        // Close modal completely when minimized
+        setIsSmartTraderModalOpen(false);
         setIsSmartTraderMinimized(true);
     };
 
     const handleRestoreModal = () => {
+        // Reopen modal when restored
+        setIsSmartTraderModalOpen(true);
         setIsSmartTraderMinimized(false);
     };
 
     return (
         <div className="trading-hub-scanner">
-            {/* Smart Trader Modal */}
+            {/* Smart Trader Modal - Only shown when NOT minimized */}
             <Modal
-                is_open={isSmartTraderModalOpen}
+                is_open={isSmartTraderModalOpen && !isSmartTraderMinimized}
                 title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
                 toggleModal={handleCloseModal}
                 width="900px"
                 height="auto"
-                className={isSmartTraderMinimized ? 'smart-trader-modal-hidden' : ''}
             >
                 {selectedTradeSettings && (
                     <SmartTraderWrapper
@@ -1803,8 +1809,19 @@ const TradingHubDisplay: React.FC = observer(() => {
                 )}
             </Modal>
 
+            {/* SmartTraderWrapper running in background when minimized */}
+            {isSmartTraderMinimized && selectedTradeSettings && (
+                <div style={{ display: 'none' }}>
+                    <SmartTraderWrapper
+                        initialSettings={selectedTradeSettings}
+                        onClose={handleCloseModal}
+                        onMinimize={handleMinimizeModal}
+                    />
+                </div>
+            )}
+
             {/* Minimized Smart Trader Bar */}
-            {isSmartTraderModalOpen && isSmartTraderMinimized && (
+            {isSmartTraderMinimized && (
                 <div 
                     className="smart-trader-minimized-bar"
                     onClick={handleRestoreModal}
