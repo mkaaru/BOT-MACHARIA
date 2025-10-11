@@ -248,19 +248,26 @@ const TradingHubDisplay: React.FC = observer(() => {
                             const displayName = symbolMap[currentSymbol] || currentSymbol;
                             setProcessingSymbol(displayName);
                         }
-                    } else if (progressPercentage < 100) {
-                        setAiScanningPhase('recommending');
-                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
-                        setStatusMessage(`🎯 AI preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
-                        setConnectionStatus('scanning');
-                    } else {
-                        // Only mark as ready when 100% complete
+                    } else if (readySymbolsCount >= totalSymbols) {
+                        // All markets complete
                         setAiScanningPhase('complete');
                         setCurrentAiMessage('✅ AI analysis complete - Ready to trade!');
                         setStatusMessage('🚀 AI has identified the best trading opportunities');
                         setConnectionStatus('ready');
                         setIsScanning(false);
                         setProcessingSymbol('');
+                    } else if (readySymbolsCount >= 5) {
+                        // Show results after 5 markets are ready, continue scanning in background
+                        setAiScanningPhase('recommending');
+                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
+                        setStatusMessage(`🎯 Trading opportunities ready! Scanning ${readySymbolsCount}/${totalSymbols} markets...`);
+                        setConnectionStatus('ready');
+                        // Don't set isScanning - let it continue naturally
+                    } else if (progressPercentage < 100) {
+                        setAiScanningPhase('recommending');
+                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
+                        setStatusMessage(`🎯 AI preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
+                        setConnectionStatus('scanning');
                     }
                 });
 

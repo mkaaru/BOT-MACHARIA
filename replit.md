@@ -7,6 +7,17 @@ The platform features multiple trading approaches including a visual bot builder
 # Recent Changes
 
 ## October 11, 2025
+- **"Powered by Deriv" Branding**: Added subtle branding to application header
+  - Small "Powered by Deriv" logo display next to app logo in header
+  - Smaller text size with 70% opacity for subtle appearance
+  - Responsive design - scales down on mobile devices
+  - Clean integration with existing header layout
+- **Trading Hub Fast Loading**: Improved page load time by showing results after 5 markets
+  - Page now displays after 5 markets are scanned (was 12 before)
+  - Reduces initial wait time by ~58% for faster user experience
+  - Remaining markets continue scanning in background
+  - Progressive loading keeps UI responsive while completing full analysis
+  - Status message updates to show "X/12 markets" during background scan
 - **Smart Trader Minimize Feature - Persistent Trade Execution**: Fixed trades stopping when modal is minimized
   - Modal now stays mounted when minimized (hidden with CSS instead of unmounting)
   - SmartTraderWrapper component continues running in background when minimized
@@ -15,6 +26,7 @@ The platform features multiple trading approaches including a visual bot builder
   - Minimized floating bar shows pulsing indicator and symbol name at bottom-right
   - Click floating bar to restore modal and regain direct control
   - Prevents accidental modal closure when minimized (ESC/outside clicks disabled)
+  - Fixed CSS selectors to properly hide modal using dc-modal__container class
   - This ensures rapid-fire tick-by-tick trading continues uninterrupted when modal is hidden
 
 ## October 7, 2025

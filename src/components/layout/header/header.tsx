@@ -218,6 +218,12 @@ const AppHeader = observer(() => {
         >
             <Wrapper variant='left'>
                 <AppLogo />
+                <div className="app-header__powered-by">
+                    <span className="app-header__powered-by-text">Powered by</span>
+                    <svg className="app-header__powered-by-logo" width="60" height="20" viewBox="0 0 200 80" fill="none">
+                        <text x="0" y="60" fontFamily="Arial, sans-serif" fontSize="50" fontWeight="bold" fill="#FF444F">deriv</text>
+                    </svg>
+                </div>
                 <MobileMenu />
                 <InfoIcon />
                 <button

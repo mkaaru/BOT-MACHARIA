@@ -915,10 +915,15 @@
             }
 
             /* Hide modal visually when minimized but keep it mounted */
-            :global(.smart-trader-modal-hidden) {
+            :global(.dc-modal__container_smart-trader-modal-hidden) {
                 display: none !important;
                 visibility: hidden !important;
                 pointer-events: none !important;
+                opacity: 0 !important;
+            }
+            
+            :global(.dc-modal-header_smart-trader-modal-hidden) {
+                display: none !important;
             }
 
             /* Responsive design */
