@@ -254,15 +254,20 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     // Auto-start trading when autoStart prop is true
     useEffect(() => {
-        if (autoStart && !is_running && symbols.length > 0) {
-            console.log('🚀 Auto-starting trading from Best Opportunity panel');
-            // Small delay to ensure component is fully initialized
+        if (autoStart && !is_running && symbols.length > 0 && symbol) {
+            console.log('🚀 Auto-starting trading from recommendation card:', {
+                symbol,
+                tradeType,
+                prediction,
+                barrier
+            });
+            // Small delay to ensure tick stream is ready
             const timer = setTimeout(() => {
                 onRun();
-            }, 500);
+            }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [autoStart, symbols.length]);
+    }, [autoStart, symbols.length, symbol]);
 
     // Register Run Panel stop observers - keep them active even when modal is hidden
     useEffect(() => {
@@ -850,12 +855,20 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             // Set prediction for digits contracts - CRITICAL for correct trade execution
             if (initialSettings.prediction !== undefined) {
                 setPrediction(initialSettings.prediction);
+                setMdPrediction(initialSettings.prediction);
+                // For Over/Under, set as pre-loss prediction
+                setOuPredPreLoss(initialSettings.prediction);
                 console.log('📍 Prediction set to:', initialSettings.prediction);
             }
 
             // Set barrier for over/under strategies - CRITICAL for correct trade execution
             if (initialSettings.barrier) {
                 setBarrier(initialSettings.barrier);
+                // Also set as pre-loss prediction for Over/Under
+                const barrierNum = parseInt(initialSettings.barrier);
+                if (!isNaN(barrierNum)) {
+                    setOuPredPreLoss(barrierNum);
+                }
                 console.log('📍 Barrier set to:', initialSettings.barrier);
             }
 

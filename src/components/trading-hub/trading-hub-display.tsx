@@ -1007,13 +1007,35 @@ const TradingHubDisplay: React.FC = observer(() => {
             confidence: recommendation.confidence
         });
         
+        // Prepare complete trade settings from recommendation
+        const tradeSettings: TradeSettings = {
+            symbol: recommendation.symbol,
+            tradeType: getTradeTypeForStrategy(recommendation.strategy),
+            contractType: getTradeTypeForStrategy(recommendation.strategy),
+            stake: 0.5,
+            duration: 1,
+            durationType: 't',
+            barrier: recommendation.barrier,
+            prediction: parseInt(recommendation.barrier || '5'),
+        };
+
+        console.log('📦 Prepared trade settings for Smart Trader:', tradeSettings);
+        
+        // Set the trade settings for Smart Trader
+        setSelectedTradeSettings(tradeSettings);
+        
         // Update the best recommendation to show this one in the embedded Smart Trader
         setBestRecommendation(recommendation);
         
-        // Enable auto-start for the embedded Smart Trader
+        // Enable auto-start for immediate trading
         setAutoStartEmbedded(true);
         
-        console.log('📍 Best recommendation updated and auto-start enabled');
+        // Also open the Smart Trader modal with auto-start enabled
+        setAutoStartTrading(true);
+        setIsSmartTraderHidden(false);
+        setIsSmartTraderModalOpen(true);
+        
+        console.log('✅ Trade settings loaded, Smart Trader will auto-start trading');
         
         // Scroll to the Best Opportunity section
         setTimeout(() => {
