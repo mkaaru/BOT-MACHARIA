@@ -67,6 +67,10 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
     const [autoStartTrading, setAutoStartTrading] = useState(false);
     const [autoStartEmbedded, setAutoStartEmbedded] = useState(false);
+    
+    // Manual card selection lock - prevents scanner from overwriting clicked recommendation
+    const [manualCardSelection, setManualCardSelection] = useState<TradeRecommendation | null>(null);
+    const [isManualSelectionLocked, setIsManualSelectionLocked] = useState(false);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
@@ -200,7 +204,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setLastUpdateTime(Date.now());
                     }
 
-                    if (recommendation) {
+                    // Only update bestRecommendation if there's no manual card selection locked
+                    if (recommendation && !isManualSelectionLocked) {
                         setBestRecommendation(recommendation);
                     }
 
@@ -999,7 +1004,8 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Load recommendation to Best Opportunity Smart Trader and auto-start trading
     const startDirectTrading = (recommendation: TradeRecommendation) => {
-        console.log('🎯 START TRADING clicked on recommendation card:', {
+        console.log('🎯🎯🎯 CARD START TRADING CLICKED 🎯🎯🎯');
+        console.log('Card recommendation:', {
             symbol: recommendation.symbol,
             strategy: recommendation.strategy,
             barrier: recommendation.barrier,
@@ -1007,35 +1013,15 @@ const TradingHubDisplay: React.FC = observer(() => {
             confidence: recommendation.confidence
         });
         
-        // Prepare complete trade settings from recommendation
-        const tradeSettings: TradeSettings = {
-            symbol: recommendation.symbol,
-            tradeType: getTradeTypeForStrategy(recommendation.strategy),
-            contractType: getTradeTypeForStrategy(recommendation.strategy),
-            stake: 0.5,
-            duration: 1,
-            durationType: 't',
-            barrier: recommendation.barrier,
-            prediction: parseInt(recommendation.barrier || '5'),
-        };
-
-        console.log('📦 Prepared trade settings for Smart Trader:', tradeSettings);
-        
-        // Set the trade settings for Smart Trader
-        setSelectedTradeSettings(tradeSettings);
-        
-        // Update the best recommendation to show this one in the embedded Smart Trader
-        setBestRecommendation(recommendation);
+        // LOCK the manual card selection to prevent scanner from overwriting it
+        setManualCardSelection(recommendation);
+        setIsManualSelectionLocked(true);
+        console.log('🔒 Manual selection LOCKED - Scanner updates blocked');
         
         // Enable auto-start for immediate trading
         setAutoStartEmbedded(true);
         
-        // Also open the Smart Trader modal with auto-start enabled
-        setAutoStartTrading(true);
-        setIsSmartTraderHidden(false);
-        setIsSmartTraderModalOpen(true);
-        
-        console.log('✅ Trade settings loaded, Smart Trader will auto-start trading');
+        console.log('✅ Manual card selection locked and auto-start enabled');
         
         // Scroll to the Best Opportunity section
         setTimeout(() => {
@@ -1906,58 +1892,70 @@ const TradingHubDisplay: React.FC = observer(() => {
                             </div>
                         </div>
 
-                        {bestRecommendation && (
-                            <div className="smart-trader-panel-container">
-                                <div className="panel-header">
-                                    <span className="crown-icon">👑</span>
-                                    <Text size="s" weight="bold">Best Opportunity - Smart Trader</Text>
+                        {(manualCardSelection || bestRecommendation) && (() => {
+                            // Use manual card selection if locked, otherwise use best recommendation
+                            const activeRecommendation = manualCardSelection || bestRecommendation;
+                            if (!activeRecommendation) return null;
+                            
+                            return (
+                                <div className="smart-trader-panel-container">
+                                    <div className="panel-header">
+                                        <span className="crown-icon">👑</span>
+                                        <Text size="s" weight="bold">
+                                            {manualCardSelection ? 'Selected Card' : 'Best Opportunity'} - Smart Trader
+                                        </Text>
+                                        {manualCardSelection && <span className="lock-icon">🔒</span>}
+                                    </div>
+                                    <SmartTraderWrapper
+                                        key={`${activeRecommendation.symbol}-${activeRecommendation.strategy}-${autoStartEmbedded}`}
+                                        initialSettings={{
+                                            symbol: activeRecommendation.symbol,
+                                            tradeType: (() => {
+                                                switch (activeRecommendation.strategy) {
+                                                    case 'over': return 'DIGITOVER';
+                                                    case 'under': return 'DIGITUNDER';
+                                                    case 'even': return 'DIGITEVEN';
+                                                    case 'odd': return 'DIGITODD';
+                                                    case 'matches': return 'DIGITMATCH';
+                                                    case 'differs': return 'DIGITDIFF';
+                                                    default: return 'DIGITOVER';
+                                                }
+                                            })(),
+                                            contractType: (() => {
+                                                switch (activeRecommendation.strategy) {
+                                                    case 'over': return 'DIGITOVER';
+                                                    case 'under': return 'DIGITUNDER';
+                                                    case 'even': return 'DIGITEVEN';
+                                                    case 'odd': return 'DIGITODD';
+                                                    case 'matches': return 'DIGITMATCH';
+                                                    case 'differs': return 'DIGITDIFF';
+                                                    default: return 'DIGITOVER';
+                                                }
+                                            })(),
+                                            stake: aiTradeConfig.stake,
+                                            duration: aiTradeConfig.duration,
+                                            durationType: aiTradeConfig.durationType,
+                                            martingaleMultiplier: aiMartingaleMultiplier,
+                                            ouPredPostLoss: aiTradeConfig.ouPredPostLoss,
+                                            stopLoss: aiTradeConfig.stopLoss,
+                                            takeProfit: aiTradeConfig.takeProfit,
+                                            barrier: activeRecommendation.barrier,
+                                            prediction: activeRecommendation.prediction
+                                        }}
+                                        onClose={() => {}}
+                                        onHide={() => {}}
+                                        onTradingStop={() => {
+                                            // Reset auto-start flag and unlock manual selection when trading stops
+                                            setAutoStartEmbedded(false);
+                                            setManualCardSelection(null);
+                                            setIsManualSelectionLocked(false);
+                                            console.log('🔓 Manual selection unlocked - Scanner updates resumed');
+                                        }}
+                                        autoStart={autoStartEmbedded}
+                                    />
                                 </div>
-                                <SmartTraderWrapper
-                                    key={`${bestRecommendation.symbol}-${bestRecommendation.strategy}-${autoStartEmbedded}`}
-                                    initialSettings={{
-                                        symbol: bestRecommendation.symbol,
-                                        tradeType: (() => {
-                                            switch (bestRecommendation.strategy) {
-                                                case 'over': return 'DIGITOVER';
-                                                case 'under': return 'DIGITUNDER';
-                                                case 'even': return 'DIGITEVEN';
-                                                case 'odd': return 'DIGITODD';
-                                                case 'matches': return 'DIGITMATCH';
-                                                case 'differs': return 'DIGITDIFF';
-                                                default: return 'DIGITOVER';
-                                            }
-                                        })(),
-                                        contractType: (() => {
-                                            switch (bestRecommendation.strategy) {
-                                                case 'over': return 'DIGITOVER';
-                                                case 'under': return 'DIGITUNDER';
-                                                case 'even': return 'DIGITEVEN';
-                                                case 'odd': return 'DIGITODD';
-                                                case 'matches': return 'DIGITMATCH';
-                                                case 'differs': return 'DIGITDIFF';
-                                                default: return 'DIGITOVER';
-                                            }
-                                        })(),
-                                        stake: aiTradeConfig.stake,
-                                        duration: aiTradeConfig.duration,
-                                        durationType: aiTradeConfig.durationType,
-                                        martingaleMultiplier: aiMartingaleMultiplier,
-                                        ouPredPostLoss: aiTradeConfig.ouPredPostLoss,
-                                        stopLoss: aiTradeConfig.stopLoss,
-                                        takeProfit: aiTradeConfig.takeProfit,
-                                        barrier: bestRecommendation.barrier,
-                                        prediction: bestRecommendation.prediction
-                                    }}
-                                    onClose={() => {}}
-                                    onHide={() => {}}
-                                    onTradingStop={() => {
-                                        // Reset auto-start flag when trading stops
-                                        setAutoStartEmbedded(false);
-                                    }}
-                                    autoStart={autoStartEmbedded}
-                                />
-                            </div>
-                        )}
+                            );
+                        })()}
                     </div>
                 )}
 
