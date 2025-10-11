@@ -85,6 +85,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         martingaleMultiplier: 1.0, // Default changed to 1.0
         stake: 0.5,
         duration: 1,
+        durationType: 't', // New field for duration type
         stopLoss: 0,
         takeProfit: 0
     });
@@ -992,7 +993,74 @@ const TradingHubDisplay: React.FC = observer(() => {
         console.log('🧹 Cleared all pending timeouts to prevent delayed trade executions');
     };
 
-    // Load trade settings to Smart Trader
+    // Start direct trading with Best Opportunity panel settings (bypasses Smart Trader modal)
+    const startDirectTrading = (recommendation: TradeRecommendation) => {
+        // Map strategy to proper trade type and contract type
+        const getTradeTypeAndContract = (strategy: string) => {
+            switch (strategy) {
+                case 'over':
+                    return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
+                case 'under':
+                    return { tradeType: 'DIGITUNDER', contractType: 'DIGITUNDER' };
+                case 'even':
+                    return { tradeType: 'DIGITEVEN', contractType: 'DIGITEVEN' };
+                case 'odd':
+                    return { tradeType: 'DIGITODD', contractType: 'DIGITODD' };
+                case 'matches':
+                    return { tradeType: 'DIGITMATCH', contractType: 'DIGITMATCH' };
+                case 'differs':
+                    return { tradeType: 'DIGITDIFF', contractType: 'DIGITDIFF' };
+                default:
+                    return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
+            }
+        };
+
+        const { tradeType, contractType } = getTradeTypeAndContract(recommendation.strategy);
+
+        // Use Best Opportunity panel settings
+        const settings: TradeSettings = {
+            symbol: recommendation.symbol,
+            tradeType: tradeType,
+            contractType: contractType,
+            stake: aiTradeConfig.stake,
+            duration: aiTradeConfig.duration,
+            durationType: aiTradeConfig.durationType,
+            martingaleMultiplier: aiMartingaleMultiplier,
+            ouPredPostLoss: aiTradeConfig.ouPredPostLoss
+        };
+
+        // Add prediction/barrier based on strategy
+        if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+            settings.barrier = recommendation.barrier;
+            settings.prediction = parseInt(recommendation.barrier || '5');
+        } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
+            settings.prediction = parseInt(recommendation.barrier || '5');
+            settings.barrier = recommendation.barrier;
+        }
+
+        console.log('🚀 Starting Direct Trading (Bypassing Smart Trader Modal):', {
+            strategy: recommendation.strategy,
+            symbol: recommendation.symbol,
+            tradeType: tradeType,
+            stake: aiTradeConfig.stake,
+            duration: aiTradeConfig.duration,
+            durationType: aiTradeConfig.durationType,
+            martingale: aiMartingaleMultiplier,
+            prediction: settings.prediction,
+            barrier: settings.barrier
+        });
+
+        // Store the settings and open Smart Trader in auto-start mode
+        setSelectedTradeSettings(settings);
+        setIsSmartTraderModalOpen(true);
+        
+        // Auto-hide modal and start trading after a brief delay
+        setTimeout(() => {
+            setIsSmartTraderHidden(true);
+        }, 100);
+    };
+
+    // Load trade settings to Smart Trader (legacy function - kept for compatibility)
     const loadTradeSettings = (recommendation: TradeRecommendation) => {
         // Map strategy to proper trade type and contract type
         const getTradeTypeAndContract = (strategy: string) => {
@@ -1716,10 +1784,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="recommendation-actions">
                                 <button
                                     className="load-trade-btn"
-                                    onClick={() => loadTradeSettings(rec)}
-                                    title="Load these settings into Smart Trader"
+                                    onClick={() => startDirectTrading(rec)}
+                                    title="Start trading with Best Opportunity panel settings"
                                 >
-                                    ⚡ Smart Trader
+                                    ⚡ Start Trading
                                 </button>
                                 <button
                                     className="load-bot-builder-btn"
@@ -1896,6 +1964,77 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         <div className="ai-config-section">
                                             <div className="ai-config-row">
                                                 <div className="ai-config-field">
+                                                    <label>Stake (USD):</label>
+                                                    <input
+                                                        type="number"
+                                                        min={0.35}
+                                                        step={0.01}
+                                                        value={aiTradeConfig.stake}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            stake: Math.max(0.35, Number(e.target.value))
+                                                        }))}
+                                                    />
+                                                </div>
+                                                <div className="ai-config-field">
+                                                    <label>Duration:</label>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        step={1}
+                                                        value={aiTradeConfig.duration}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            duration: Math.max(1, Number(e.target.value))
+                                                        }))}
+                                                    />
+                                                </div>
+                                                <div className="ai-config-field">
+                                                    <label>Duration Type:</label>
+                                                    <select
+                                                        value={aiTradeConfig.durationType}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            durationType: e.target.value
+                                                        }))}
+                                                    >
+                                                        <option value="t">Ticks</option>
+                                                        <option value="s">Seconds</option>
+                                                        <option value="m">Minutes</option>
+                                                        <option value="h">Hours</option>
+                                                        <option value="d">Days</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="ai-config-row">
+                                                <div className="ai-config-field">
+                                                    <label>Martingale Multiplier:</label>
+                                                    <input
+                                                        id="ai-martingale-multiplier"
+                                                        type="number"
+                                                        min={1}
+                                                        step="0.1"
+                                                        value={aiMartingaleMultiplier}
+                                                        onChange={e => setAiMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                                        placeholder="1.0"
+                                                    />
+                                                </div>
+                                                <div className="ai-config-field">
+                                                    <label>Over/Under (after loss):</label>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        max={9}
+                                                        value={aiTradeConfig.ouPredPostLoss}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            ouPredPostLoss: Math.max(0, Math.min(9, Number(e.target.value)))
+                                                        }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="ai-config-row">
+                                                <div className="ai-config-field">
                                                     <label>Stop Loss (USD):</label>
                                                     <input
                                                         type="number"
@@ -1924,48 +2063,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="ai-config-row">
-                                                <div className="ai-config-field">
-                                                    <label>Over/Under (after loss):</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        max={9}
-                                                        value={aiTradeConfig.ouPredPostLoss}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            ouPredPostLoss: Math.max(0, Math.min(9, Number(e.target.value)))
-                                                        }))}
-                                                    />
-                                                </div>
-                                                <div className="ai-config-field">
-                                                    <label htmlFor="ai-martingale-multiplier">Martingale Multiplier:</label>
-                                                    <input
-                                                        id="ai-martingale-multiplier"
-                                                        type="number"
-                                                        min={1}
-                                                        step="0.1"
-                                                        value={aiMartingaleMultiplier}
-                                                        onChange={e => setAiMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
-                                                        placeholder="1.0"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="ai-config-row">
-                                                <div className="ai-config-field">
-                                                    <label>Stake:</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0.35}
-                                                        step={0.01}
-                                                        value={aiTradeConfig.stake}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            stake: Math.max(0.35, Number(e.target.value))
-                                                        }))}
-                                                    />
-                                                </div>
-                                            </div>
                                         </div>
                                     )}
 
@@ -1980,21 +2077,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     <div className="highlight-actions">
                                         <button
                                             className="highlight-load-btn"
-                                            onClick={() => loadTradeSettings(bestRecommendation)}
+                                            onClick={() => startDirectTrading(bestRecommendation)}
                                         >
-                                            ⚡ Smart Trader
+                                            ⚡ Start Trading
                                         </button>
                                         <button
                                             className="highlight-bot-builder-btn"
                                             onClick={() => loadToBotBuilder(bestRecommendation)}
                                         >
                                             🤖 Bot Builder
-                                        </button>
-                                        <button
-                                            className={`highlight-ai-auto-btn ${isAiAutoTrading ? 'active' : ''}`}
-                                            onClick={isAiAutoTrading ? stopAiAutoTrade : startAiAutoTrade}
-                                        >
-                                            {isAiAutoTrading ? '🛑 Stop AI Auto Trade' : '🤖 AI Auto Trade'}
                                         </button>
                                     </div>
 

@@ -41,6 +41,7 @@ interface SmartTraderWrapperProps {
     onClose: () => void;
     onHide?: () => void;
     onTradingStop?: () => void;
+    autoStart?: boolean; // New prop to auto-start trading
 }
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
@@ -70,7 +71,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose, onHide, onTradingStop }) => {
+const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose, onHide, onTradingStop, autoStart = false }) => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
@@ -238,6 +239,18 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             }
         };
     }, []);
+
+    // Auto-start trading when autoStart prop is true
+    useEffect(() => {
+        if (autoStart && !is_running && symbols.length > 0) {
+            console.log('🚀 Auto-starting trading from Best Opportunity panel');
+            // Small delay to ensure component is fully initialized
+            const timer = setTimeout(() => {
+                onRun();
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [autoStart, symbols.length]);
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
