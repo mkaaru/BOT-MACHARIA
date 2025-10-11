@@ -16,6 +16,7 @@ The platform features multiple trading approaches including a visual bot builder
   - Total of 14 bots now available (4 original + 10 new)
   - All bots validated with proper XML structure and complete Blockly trade_definition blocks
   - Files fetch with multiple fallback approaches for cross-browser compatibility
+  - **Display Fix**: Removed 400px max-height limit on Free Bots container - all 14 bots now visible on page load without scrolling (responsive grid: 1-7 columns based on screen size)
 - **"Powered by Deriv" Branding**: Added subtle branding to application header
   - Small "Powered by Deriv" logo display next to app logo in header
   - Smaller text size with 70% opacity for subtle appearance
