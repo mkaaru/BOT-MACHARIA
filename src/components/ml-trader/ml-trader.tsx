@@ -139,15 +139,11 @@ const MLTrader = observer(() => {
             }
 
             const topRecommendation = recommendations[0];
-            console.log(`🔍 Auto-trade check: Top recommendation = ${topRecommendation.displayName} ${topRecommendation.action} (${topRecommendation.confidence.toFixed(1)}%)`);
-            console.log(`📊 Contract in progress status: ${contractInProgressRef.current}`);
 
             if (mlAutoTrader.shouldExecuteTrade(topRecommendation)) {
                 if (!contractInProgressRef.current) {
-                    console.log('✅ Auto-trade conditions met - executing trade...');
                     executeAutoTrade(topRecommendation);
                 } else {
-                    console.log('⏸️ Contract in progress, skipping trade');
                 }
             } else {
                 console.log('❌ Auto-trade conditions not met (confidence/cooldown/duplicate check)');
@@ -182,7 +178,6 @@ const MLTrader = observer(() => {
                         s.submarket === 'step_index'
                     );
 
-                console.log('🔍 Found Step Index symbols:', stepIndexSymbols.map((s: any) => `${s.symbol} (${s.display_name})`));
 
                 if (stepIndexSymbols.length === 0) {
                     console.warn('⚠️ No Step Index symbols found! Using volatility indices instead.');
@@ -221,7 +216,6 @@ const MLTrader = observer(() => {
      */
     const initializeTickStreams = useCallback(async () => {
         try {
-            console.log('🔄 Initializing tick streams for ML Trader...');
 
             // Subscribe to all volatility symbols
             await tickStreamManager.subscribeToAllVolatilities();
@@ -243,13 +237,11 @@ const MLTrader = observer(() => {
 
                         // Log prediction updates
                         if (prediction.direction !== 'HOLD') {
-                            console.log(`🎯 TICK PREDICTION: ${prediction.direction} @ ${prediction.confidence.toFixed(1)}% - ${prediction.reason}`);
                         }
                     }
                 });
             });
 
-            console.log('✅ Tick streams initialized for all volatility indices');
 
         } catch (error) {
             console.error('Failed to initialize tick streams:', error);
@@ -262,11 +254,9 @@ const MLTrader = observer(() => {
      */
     const initializeVolatilityScanner = useCallback(async () => {
         try {
-            console.log('🔄 Initializing volatility scanner and ML analyzer...');
 
             // Subscribe to scanner status updates
             const statusUnsubscribe = derivVolatilityScanner.onStatusChange((status) => {
-                console.log('📊 Scanner status update:', status);
                 setScannerStatus(status);
                 // Calculate progress based on symbols that have loaded historical data
                 const analyzedSymbols = status.symbolsTracked;
@@ -276,7 +266,6 @@ const MLTrader = observer(() => {
 
             // Subscribe to recommendation updates
             const recommendationsUnsubscribe = derivVolatilityScanner.onRecommendationChange((recs) => {
-                console.log(`🎯 New recommendations: ${recs.length} opportunities found`);
                 setRecommendations(recs);
                 updateSymbolAnalyses();
 
@@ -324,7 +313,6 @@ const MLTrader = observer(() => {
                             // Train ML model on historical data
                             mlTickAnalyzer.processBulkHistoricalData(symbol, formattedData);
 
-                            console.log(`🧠 ML Model trained on ${historicalData.length} ticks for ${symbol}`);
                         } catch (error) {
                             console.error(`Error processing bulk historical data for ${symbol}:`, error);
                         }
@@ -337,22 +325,18 @@ const MLTrader = observer(() => {
             });
 
             await Promise.all(historicalDataPromises);
-            console.log('✅ Historical data processed for ML model training.');
 
             // Perform immediate initial scan now that historical data is loaded
             console.log('🚀 Performing initial scanner scan with historical data...');
             await derivVolatilityScanner.performFullScan();
-            console.log('✅ Initial scan completed');
 
             // Start periodic scanning for ongoing updates (backup to candle-based updates)
             const scanInterval = setInterval(() => {
                 if (is_scanner_active) {
-                    console.log('🔍 Performing periodic scan (backup)...');
                     derivVolatilityScanner.performFullScan();
                 }
             }, 60000); // Scan every 60 seconds as backup
 
-            console.log('✅ Volatility scanner initialized');
             console.log('🕐 Recommendations will update automatically on new 1-minute candles');
 
             // Return cleanup function
@@ -431,7 +415,6 @@ const MLTrader = observer(() => {
         // Apply recommendation to trading interface
         applyRecommendation(topRec);
 
-        console.log(`🎯 Auto-trade switched to: ${topRec.displayName} - ${topRec.action} (${topRec.confidence.toFixed(1)}% confidence)`);
     }, [filter_settings]);
 
     /**
@@ -462,7 +445,6 @@ const MLTrader = observer(() => {
             const price2 = tick2_response.tick.quote;
 
             const isMoving = price1 !== price2;
-            console.log(`📊 Movement check for ${symbol}: Price1=${price1}, Price2=${price2}, Moving=${isMoving}`);
 
             return isMoving;
         } catch (error) {
@@ -483,7 +465,6 @@ const MLTrader = observer(() => {
         // Get contract configuration based on current strategy state
         const contractConfig = mlAutoTrader.getNextContractConfig(recommendation);
 
-        console.log(`🤖 AUTO-TRADE EXECUTING: ${contractConfig.display_label} (${contractConfig.mode}) on ${recommendation.symbol} (${recommendation.displayName}) - Stake: ${stake}`);
 
         // Check if symbol is moving before trading
         const isMoving = await checkSymbolMovement(recommendation.symbol);
@@ -514,7 +495,6 @@ const MLTrader = observer(() => {
             }
 
             if (proposal_response.proposal) {
-                console.log('✅ Proposal received, ID:', proposal_response.proposal.id);
 
                 const buy_response = await apiRef.current.send({
                     buy: proposal_response.proposal.id,
@@ -530,7 +510,6 @@ const MLTrader = observer(() => {
                     const entryPrice = parseFloat(buy_response.buy.buy_price);
                     const payout = parseFloat(buy_response.buy.payout || 0);
 
-                    console.log(`✅ CONTRACT PURCHASED! Type: ${contractConfig.deriv_contract_type}, ID: ${buy_response.buy.contract_id}, Entry: ${entryPrice}, Payout: ${payout}`);
 
                     mlAutoTrader.registerTrade(
                         recommendation,
@@ -685,7 +664,6 @@ const MLTrader = observer(() => {
             stake: Number(contract.buy_price)
         });
 
-        console.log(`🎯 Contract completed:`, contract);
         console.log(`💰 Profit/Loss: ${profit.toFixed(2)} ${account_currency}`);
 
         contractInProgressRef.current = false;
@@ -726,11 +704,9 @@ const MLTrader = observer(() => {
         if (newState) {
             // Start auto-trading
             setStatus('🤖 Auto-trading activated - monitoring recommendations...');
-            console.log('✅ Auto-trading ENABLED - mlAutoTrader config:', mlAutoTrader.getConfig());
         } else {
             // Stop auto-trading
             setStatus('⏹️ Auto-trading stopped');
-            console.log('⏹️ Auto-trading DISABLED');
         }
     }, [trading_interface.is_auto_trading]);
 
@@ -1182,7 +1158,6 @@ const MLTrader = observer(() => {
 
                     // Load to workspace
                     if (window.Blockly?.derivWorkspace) {
-                        console.log('📦 Loading ML Trader strategy to workspace...');
 
                         await load({
                             block_string: strategyXml,
@@ -1196,7 +1171,6 @@ const MLTrader = observer(() => {
 
                         // Center workspace
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ ML Trader strategy loaded to workspace');
 
                         setStatus(`✅ Loaded ${recommendation.action} strategy for ${displayName} to Bot Builder`);
 
@@ -1210,7 +1184,6 @@ const MLTrader = observer(() => {
                                 const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                                 window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                                 window.Blockly.derivWorkspace.scrollCenter();
-                                console.log('✅ ML Trader strategy loaded using fallback method');
                                 setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
                             }
                         }, 500);
@@ -1224,13 +1197,11 @@ const MLTrader = observer(() => {
                         const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                         window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ ML Trader strategy loaded using final fallback');
                         setStatus(`✅ Loaded ${recommendation.action} strategy using final fallback`);
                     }
                 }
             }, 300);
 
-            console.log(`✅ Loaded ${displayName} - ${recommendation.action} strategy to Bot Builder`);
 
         } catch (error) {
             console.error('Error loading recommendation to Bot Builder:', error);

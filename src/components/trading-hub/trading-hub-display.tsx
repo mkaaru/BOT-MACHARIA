@@ -281,7 +281,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                         );
                         
                         if (hasAnyData) {
-                            console.log('🔄 Auto-recovering with available data');
                             setConnectionStatus('ready');
                             setStatusMessage('🎯 Trading opportunities identified - Ready to trade!');
                             setIsScanning(false);
@@ -297,7 +296,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 // Fallback timeout - force ready state after 15 seconds
                 setTimeout(() => {
                     if (connectionStatus === 'scanning' || connectionStatus === 'connecting') {
-                        console.log('⚡ Fallback timeout - proceeding with available data');
                         setAiScanningPhase('complete');
                         setCurrentAiMessage('⚡ Analysis ready - Interface loaded!');
                         setStatusMessage('🎯 Market scanner ready - Limited data available');
@@ -554,7 +552,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             const shouldSwitch = symbolChanged || tradeTypeChanged;
 
             if (shouldSwitch) {
-                console.log(`🔄 AI Auto Trade: Switching recommendation`, {
                     from: `${currentTradeSymbol} ${currentTradeType}`,
                     to: `${newSymbol} ${newTradeType} (${newStrategy})`,
                     confidence: `${bestRecommendation.confidence.toFixed(1)}%`,
@@ -572,7 +569,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (symbolChanged) {
                     setLastOutcomeWasLoss(false);
                     setCurrentStake(baseStake);
-                    console.log(`🔄 Symbol change: Reset stake to base (${baseStake}) and pre-loss state`);
                 }
 
                 // Execute trade with new recommendation after a short delay
@@ -642,7 +638,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const selectedPrediction = isAfterLoss ? aiTradeConfig.ouPredPostLoss : parseInt(recommendation.barrier || '5');
                 trade_option.prediction = Number(selectedPrediction);
 
-                console.log(`🎯 AI Trade Prediction Logic:`, {
                     isAfterLoss,
                     selectedPrediction,
                     preLossPred: parseInt(recommendation.barrier || '5'),
@@ -683,7 +678,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }
             }
 
-            console.log('📦 AI Auto Trade Buy request:', {
                 contract_type: getTradeTypeForStrategy(recommendation.strategy),
                 prediction: trade_option.prediction,
                 amount: currentStake,
@@ -706,7 +700,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setTimeout(() => {
                             // Double check that AI Auto Trade is still active before retrying
                             if (bestRecommendation && isAiAutoTrading) {
-                                console.log('🔄 AI Auto Trade: Retrying after rate limit');
                                 executeAiTrade(bestRecommendation);
                             } else {
                                 console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
@@ -724,7 +717,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setTimeout(() => {
                         // Double check that AI Auto Trade is still active before retrying
                         if (bestRecommendation && isAiAutoTrading) {
-                            console.log('🔄 AI Auto Trade: Retrying after error');
                             executeAiTrade(bestRecommendation);
                         } else {
                             console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
@@ -741,7 +733,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 return;
             }
 
-            console.log(`✅ AI Auto Trade executed successfully:`, {
                 contractId: buy.contract_id,
                 longcode: buy.longcode,
                 amount: currentStake,
@@ -833,7 +824,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         // WIN: Reset progression
                                         setLastOutcomeWasLoss(false);
                                         setCurrentStake(baseStake);
-                                        console.log(`✅ AI WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to pre-loss prediction`);
                                         setAiTradeStatus(`✅ WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to base stake`);
                                     } else {
                                         // LOSS: Set flag for next trade to use after-loss prediction
@@ -890,7 +880,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setTimeout(() => {
                     // Double check that AI Auto Trade is still active before retrying
                     if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
-                        console.log('🔄 AI Auto Trade: Retrying after error');
                         executeAiTrade(bestRecommendation);
                     } else {
                         console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
@@ -929,7 +918,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         aiAutoTradeStopFlagRef.current = false; // Reset stop flag
         activeContractSubscriptionsRef.current.clear(); // Clear any old subscriptions
 
-        console.log(`🤖 AI Auto Trade Started:`, {
             symbol: bestRecommendation.symbol,
             strategy: bestRecommendation.strategy,
             confidence: bestRecommendation.confidence.toFixed(1),
@@ -987,7 +975,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                         connection.removeEventListener('message', listener);
                     });
                 }
-                console.log('🧹 AI Auto Trade cleanup completed - All subscriptions and listeners cancelled');
             }
         } catch (error) {
             console.error('Error during AI Auto Trade cleanup:', error);
@@ -999,12 +986,10 @@ const TradingHubDisplay: React.FC = observer(() => {
         for (let i = 0; i < highestTimeoutId; i++) {
             clearTimeout(i);
         }
-        console.log('🧹 Cleared all pending timeouts to prevent delayed trade executions');
     };
 
     // Load recommendation to Best Opportunity Smart Trader and auto-start trading
     const startDirectTrading = (recommendation: TradeRecommendation) => {
-        console.log('🎯🎯🎯 CARD START TRADING CLICKED 🎯🎯🎯');
         console.log('Card recommendation:', {
             symbol: recommendation.symbol,
             strategy: recommendation.strategy,
@@ -1016,12 +1001,10 @@ const TradingHubDisplay: React.FC = observer(() => {
         // LOCK the manual card selection to prevent scanner from overwriting it
         setManualCardSelection(recommendation);
         setIsManualSelectionLocked(true);
-        console.log('🔒 Manual selection LOCKED - Scanner updates blocked');
         
         // Enable auto-start for immediate trading
         setAutoStartEmbedded(true);
         
-        console.log('✅ Manual card selection locked and auto-start enabled');
         
         // Scroll to the Best Opportunity section
         setTimeout(() => {
@@ -1399,7 +1382,6 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Load to workspace
                     if (window.Blockly?.derivWorkspace) {
-                        console.log('📦 Loading Trading Hub strategy to workspace...');
 
                         await load({
                             block_string: botSkeletonXML,
@@ -1413,7 +1395,6 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                         // Center workspace
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ Trading Hub strategy loaded to workspace');
 
                     } else {
                         console.warn('⚠️ Blockly workspace not ready, using fallback method');
@@ -1425,7 +1406,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
                                 window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                                 window.Blockly.derivWorkspace.scrollCenter();
-                                console.log('✅ Trading Hub strategy loaded using fallback method');
                             }
                         }, 500);
                     }
@@ -1438,12 +1418,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                         const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
                         window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ Trading Hub strategy loaded using final fallback');
                     }
                 }
             }, 300);
 
-            console.log(`✅ Loaded ${displayName} - ${recommendation.strategy.toUpperCase()} ${barrier} strategy to Bot Builder`);
 
         } catch (error) {
             console.error('Error loading recommendation to Bot Builder:', error);
@@ -1492,7 +1470,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             const { authorize, error } = await api.authorize(token);
             if (error) throw error;
 
-            console.log('🤖 AI Auto Trade Engine started with:', {
                 symbol: currentRecommendation.symbol,
                 strategy: currentRecommendation.strategy,
                 confidence: currentRecommendation.confidence
@@ -1505,7 +1482,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                     bestRecommendation.symbol !== currentRecommendation.symbol &&
                     bestRecommendation.confidence > currentRecommendation.confidence + 5) {
 
-                    console.log('🔄 Switching to better opportunity:', {
                         from: `${currentRecommendation.symbol} (${currentRecommendation.confidence.toFixed(1)}%)`,
                         to: `${bestRecommendation.symbol} (${bestRecommendation.confidence.toFixed(1)}%)`
                     });
@@ -1525,14 +1501,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const buyResult = await purchaseAIContract(api, currentRecommendation, currentStake, lastOutcomeWasLoss);
 
                 if (buyResult) {
-                    console.log(`📈 AI Purchase: ${currentRecommendation.strategy.toUpperCase()} ${currentRecommendation.barrier} on ${currentRecommendation.symbol} - Stake: ${currentStake}`);
 
                     // Wait for contract result
                     const contractResult = await monitorContract(api, buyResult.contract_id);
 
                     if (contractResult.profit > 0) {
                         // WIN: Reset progression
-                        console.log(`✅ AI WIN: +${contractResult.profit.toFixed(2)} - Reset progression`);
                         lastOutcomeWasLoss = false;
                         step = 0;
                         currentStake = baseStake;
@@ -1949,7 +1923,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             setAutoStartEmbedded(false);
                                             setManualCardSelection(null);
                                             setIsManualSelectionLocked(false);
-                                            console.log('🔓 Manual selection unlocked - Scanner updates resumed');
                                         }}
                                         autoStart={autoStartEmbedded}
                                     />

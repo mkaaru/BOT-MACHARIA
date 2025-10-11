@@ -296,7 +296,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 
                 // Force cleanup of ALL active message handlers synchronously
                 if (apiRef.current?.connection) {
-                    console.log('🧹 Force cleaning up all WebSocket handlers');
                     
                     // Clone the set to avoid mutation during iteration
                     const handlersToRemove = Array.from(activeMessageHandlersRef.current);
@@ -322,7 +321,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     // Send forget_all to ensure all subscriptions are cancelled
                     try {
                         await apiRef.current?.send?.({ forget_all: 'ticks' });
-                        console.log('🧹 Sent forget_all for ticks');
                     } catch (e) {
                         console.error('Error sending forget_all:', e);
                     }
@@ -335,14 +333,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     onTradingStop();
                 }
                 
-                console.log('✅ Smart Trader fully stopped');
             };
             
             store.run_panel.dbot.observer.register('bot.stop', stopHandler);
             store.run_panel.dbot.observer.register('bot.click_stop', stopHandler);
 
             return () => {
-                console.log('🧹 Cleaning up Run Panel stop observers');
                 store.run_panel.dbot.observer.unregisterAll('bot.stop');
                 store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
             };
@@ -448,7 +444,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             const selectedPrediction = isAfterLoss ? ouPredPostLoss : ouPredPreLoss;
             trade_option.prediction = Number(selectedPrediction);
 
-            console.log(`🎯 Prediction Logic:`, {
                 isAfterLoss,
                 selectedPrediction,
                 preLossPred: ouPredPreLoss,
@@ -471,7 +466,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
-        console.log('📦 Buy request payload:', {
             contract_type: tradeType,
             prediction: trade_option.prediction,
             amount: stakeAmount,
@@ -489,7 +483,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             if (error) throw error;
 
             contractInProgressRef.current = true;
-            console.log(`✅ Purchase confirmed: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
             return buy;
         } catch (e: any) {
              if (e.message?.includes('rate limit') || e.message?.includes('too many requests')) {
@@ -509,7 +502,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         
         // Reset cumulative profit for new trading session
         cumulativeProfitRef.current = 0;
-        console.log('🔄 Cumulative profit reset for new trading session');
         
         // Register external stop handler with Run Panel
         const externalStopHandler = () => {
@@ -702,7 +694,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                                                 // Check take profit condition
                                                 if (takeProfit > 0 && totalProfit >= takeProfit) {
-                                                    console.log(`🎯 Take Profit Hit: ${totalProfit.toFixed(2)} ${account_currency} (Target: ${takeProfit})`);
                                                     setStatus(`Take Profit reached: ${totalProfit.toFixed(2)} ${account_currency}`);
                                                     stopFlagRef.current = true; // Stop trading
                                                 }
@@ -714,7 +705,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                                     lossStreak = 0;
                                                     step = 0;
                                                     setStake(baseStake);
-                                                    console.log(`✅ ${tradeType} WIN: +${profit.toFixed(2)} ${account_currency} - Reset to base stake`);
                                                 } else {
                                                     // LOSS: Increase stake for martingale
                                                     lastOutcomeWasLossRef.current = true;
@@ -831,7 +821,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     // This effect MUST run whenever initialSettings changes to update all trading parameters
     useEffect(() => {
         if (initialSettings) {
-            console.log('🔄 Smart Trader UPDATING with new settings:', {
                 symbol: initialSettings.symbol,
                 tradeType: initialSettings.tradeType,
                 contractType: initialSettings.contractType,
@@ -860,28 +849,23 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 setOuPredPostLoss(initialSettings.ouPredPostLoss || barrierValue); // Use same value for post-loss if not specified
                 setPrediction(barrierValue);
                 setBarrier(initialSettings.barrier || String(barrierValue));
-                console.log('📍 Over/Under - PreLoss:', barrierValue, 'PostLoss:', initialSettings.ouPredPostLoss || barrierValue);
             }
             // For Match/Differ: use prediction value
             else if (primaryTradeType === 'DIGITMATCH' || primaryTradeType === 'DIGITDIFF') {
                 const predValue = initialSettings.prediction !== undefined ? initialSettings.prediction : 5;
                 setMdPrediction(predValue);
                 setPrediction(predValue);
-                console.log('📍 Match/Differ prediction:', predValue);
             }
             // For other types: set general prediction
             else if (initialSettings.prediction !== undefined) {
                 setPrediction(initialSettings.prediction);
-                console.log('📍 General prediction:', initialSettings.prediction);
             }
 
             // For CALL/PUT: set barrier if provided
             if ((primaryTradeType === 'CALL' || primaryTradeType === 'PUT') && initialSettings.barrier) {
                 setBarrier(initialSettings.barrier);
-                console.log('📍 Call/Put barrier:', initialSettings.barrier);
             }
 
-            console.log('✅ Smart Trader state updated with:', {
                 symbol: initialSettings.symbol,
                 tradeType: primaryTradeType,
                 contractType: primaryTradeType,
