@@ -1244,33 +1244,6 @@ const MLTrader = observer(() => {
             style={{ paddingBottom: '10rem', minHeight: '100vh', overflowY: 'auto' }}
             onContextMenu={(e) => e.preventDefault()}
         >
-            <div className="ml-trader__header">
-                <div className="header-title">
-                    <Text size="lg" weight="bold" color="prominent">
-                        {localize('Advanced ML Trader')}
-                    </Text>
-                    <Text size="xs" color="general">
-                        {localize('Momentum-Weighted Multi-Timeframe Analysis')}
-                    </Text>
-                </div>
-
-                <div className="header-stats">
-                    {is_authorized && (
-                        <div className="account-info desktop-only">
-                            <Text size="sm" weight="bold">
-                                {localize('Balance: {{balance}} {{currency}}', {
-                                    balance: account_balance.toFixed(2),
-                                    currency: account_currency
-                                })}
-                            </Text>
-                            <Text size="xs" color="general">
-                                {localize('Win Rate: {{rate}}%', { rate: trading_stats.win_rate.toFixed(1) })}
-                            </Text>
-                        </div>
-                    )}
-                </div>
-            </div>
-
             <div className="ml-trader__status">
                 <div className="status-row">
                     <div className="status-indicator">
