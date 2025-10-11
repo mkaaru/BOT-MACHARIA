@@ -11,7 +11,7 @@ The platform features multiple trading approaches including a visual bot builder
   - New bots: Candle Mine V3.5, Speed Trading Bot, High & Under Bot, AI Dual Prediction Bot
   - Additional: Bandwagon Entry Point Bot, Entry Point Strategy V1, Alpha Strategy 2025
   - Martingale variants: Classic Martingale Bot, No Martingale Strategy 2025
-  - Profit-focused: Greenprint Profit Bot, Gold Miner S7 (186 blocks, advanced strategy)
+  - Profit-focused: Greenprint Profit Bot, Gold Miner S7 (rebuilt with 71 supported blocks, digit entry strategy with martingale)
   - All bots stored in public/ directory with clean, user-friendly names
   - Total of 15 bots now available (4 original + 11 new)
   - All bots validated with proper XML structure and complete Blockly trade_definition blocks
