@@ -18,13 +18,15 @@ The platform features multiple trading approaches including a visual bot builder
   - Remaining markets continue scanning in background
   - Progressive loading keeps UI responsive while completing full analysis
   - Status message updates to show "X/12 markets" during background scan
-- **Smart Trader Auto-Close on Trading Start**: Simplified trading control flow
-  - Smart Trader modal closes automatically when "Start Trading" is clicked
-  - All trading control immediately transfers to Run Panel (no minimize feature needed)
-  - Trading continues uninterrupted after modal closes - fully managed by Run Panel
-  - Run Panel Stop button stops trading from anywhere in the app
+- **Smart Trader Modal Auto-Hide System**: Intelligent modal visibility that keeps trading running
+  - Modal auto-hides when "Start Trading" is clicked - component stays mounted
+  - Clicking X button while trading is running → modal hides (doesn't unmount) → trading continues
+  - Clicking X button while NOT trading → modal fully closes and unmounts normally
+  - When trading stops → modal automatically closes and resets state
+  - Component lifecycle preserved during trading - no cleanup/unmount until stop
+  - Trading continues uninterrupted regardless of modal visibility state
+  - Run Panel Stop button stops trading from anywhere in app
   - Clean separation: Smart Trader = setup/preview, Run Panel = execution/control
-  - This ensures rapid-fire tick-by-tick trading runs independently of UI modal state
 
 ## October 7, 2025
 - **ML Trader Auto-Trading System**: Implemented comprehensive automated trading functionality
