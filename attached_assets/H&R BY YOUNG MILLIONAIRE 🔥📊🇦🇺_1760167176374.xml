@@ -1,0 +1,79 @@
+<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <block type="trade_definition" id="4%x_D1oe{%@Z8]seeBMI" deletable="false" x="0" y="110">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="5:r~bRewP+%t83-jWv/8" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">1HZ100V</field>
+        <next>
+          <block type="trade_definition_tradetype" id="9fiwMqukf4lfDDE0lrF:" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">digits</field>
+            <field name="TRADETYPE_LIST">overunder</field>
+            <next>
+              <block type="trade_definition_contracttype" id="LpTOLB3ID#Phtg_)|YrC" deletable="false" movable="false">
+                <field name="TYPE_LIST">DIGITUNDER</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="$^3*7qt_eJNac[q6x,Nh" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="iWX_PAW1ZHeIn$/`wC!^" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id="4N[~2HnEjUW~ncIO2T*f" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="_XYGB=;f$O}YlnJ28[_3">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+        <field name="DURATIONTYPE_LIST">t</field>
+        <value name="DURATION">
+          <shadow type="math_number_positive" id="tbOn;}pwy8PY+l66tTpn">
+            <field name="NUM">1</field>
+          </shadow>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number_positive" id="9it#!PdON/M7Lc,tQV.P">
+            <field name="NUM">0.35</field>
+          </shadow>
+        </value>
+        <value name="PREDICTION">
+          <shadow type="math_number_positive" id="c`,D@7-GM8vT5mwk96O{" inline="true">
+            <field name="NUM">8</field>
+          </shadow>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="during_purchase" id="mIPsa)nnoBw4vM`!j#w/" x="770" y="110">
+    <statement name="DURING_PURCHASE_STACK">
+      <block type="controls_if" id=".[zl,)bu9wj)7)d.dJ=^">
+        <value name="IF0">
+          <block type="check_sell" id="[AS%::7)DuB_5_tjlCar"></block>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="after_purchase" id="TDRczop6lP(sX^Lb1[20" x="770" y="392">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="trade_again" id="%sTF}~qKCX~Ed[6jv`K5"></block>
+    </statement>
+  </block>
+  <block type="before_purchase" id="Zo;_gYgrk3h7~3[K:EDb" deletable="false" x="0" y="744">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="purchase" id="u%2IXH{e+]f(My]9DN_E">
+        <field name="PURCHASE_LIST">DIGITUNDER</field>
+      </block>
+    </statement>
+  </block>
+</xml>

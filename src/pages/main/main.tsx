@@ -171,6 +171,16 @@ const AppWrapper = observer(() => {
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
                 'Mkorean SV4.xml',
+                'Candle Mine V3.5.xml',
+                'Speed Trading Bot.xml',
+                'High & Under Bot.xml',
+                'AI Dual Prediction Bot.xml',
+                'Bandwagon Entry Point Bot.xml',
+                'Entry Point Strategy V1.xml',
+                'Alpha Strategy 2025.xml',
+                'Classic Martingale Bot.xml',
+                'No Martingale Strategy 2025.xml',
+                'Greenprint Profit Bot.xml',
             ];
 
             const loadedBots = [];
