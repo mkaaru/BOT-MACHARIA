@@ -982,3 +982,33 @@
     pointer-events: none !important;
 }
 
+
+/* Embedded Smart Trader Panel */
+.smart-trader-panel-container {
+    margin-top: 1.5rem;
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    .panel-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f0f0f0;
+
+        .crown-icon {
+            font-size: 1.5rem;
+        }
+    }
+
+    .smart-trader-wrapper {
+        width: 100%;
+        
+        &__header {
+            margin-bottom: 1rem;
+        }
+    }
+}

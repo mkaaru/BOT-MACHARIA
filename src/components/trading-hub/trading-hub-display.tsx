@@ -996,75 +996,20 @@ const TradingHubDisplay: React.FC = observer(() => {
         console.log('🧹 Cleared all pending timeouts to prevent delayed trade executions');
     };
 
-    // Start direct trading with Best Opportunity panel settings (bypasses Smart Trader modal)
+    // Load recommendation to Best Opportunity Smart Trader
     const startDirectTrading = (recommendation: TradeRecommendation) => {
-        // Map strategy to proper trade type and contract type
-        const getTradeTypeAndContract = (strategy: string) => {
-            switch (strategy) {
-                case 'over':
-                    return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
-                case 'under':
-                    return { tradeType: 'DIGITUNDER', contractType: 'DIGITUNDER' };
-                case 'even':
-                    return { tradeType: 'DIGITEVEN', contractType: 'DIGITEVEN' };
-                case 'odd':
-                    return { tradeType: 'DIGITODD', contractType: 'DIGITODD' };
-                case 'matches':
-                    return { tradeType: 'DIGITMATCH', contractType: 'DIGITMATCH' };
-                case 'differs':
-                    return { tradeType: 'DIGITDIFF', contractType: 'DIGITDIFF' };
-                default:
-                    return { tradeType: 'DIGITOVER', contractType: 'DIGITOVER' };
-            }
-        };
-
-        const { tradeType, contractType } = getTradeTypeAndContract(recommendation.strategy);
-
-        // Use Best Opportunity panel settings
-        const settings: TradeSettings = {
-            symbol: recommendation.symbol,
-            tradeType: tradeType,
-            contractType: contractType,
-            stake: aiTradeConfig.stake,
-            duration: aiTradeConfig.duration,
-            durationType: aiTradeConfig.durationType,
-            martingaleMultiplier: aiMartingaleMultiplier,
-            ouPredPostLoss: aiTradeConfig.ouPredPostLoss,
-            stopLoss: aiTradeConfig.stopLoss,
-            takeProfit: aiTradeConfig.takeProfit
-        };
-
-        // Add prediction/barrier based on strategy
-        if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
-            settings.barrier = recommendation.barrier;
-            settings.prediction = parseInt(recommendation.barrier || '5');
-        } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
-            settings.prediction = parseInt(recommendation.barrier || '5');
-            settings.barrier = recommendation.barrier;
-        }
-
-        console.log('🚀 Starting Direct Trading (Bypassing Smart Trader Modal):', {
-            strategy: recommendation.strategy,
-            symbol: recommendation.symbol,
-            tradeType: tradeType,
-            stake: aiTradeConfig.stake,
-            duration: aiTradeConfig.duration,
-            durationType: aiTradeConfig.durationType,
-            martingale: aiMartingaleMultiplier,
-            prediction: settings.prediction,
-            barrier: settings.barrier
-        });
-
-        // CRITICAL: Hide modal FIRST, then set settings, then open
-        // This prevents any visual popup
-        setIsSmartTraderHidden(true); // Hide FIRST
-        setSelectedTradeSettings(settings);
-        setAutoStartTrading(true); // Enable auto-start
+        // Update the best recommendation to show this one in the embedded Smart Trader
+        setBestRecommendation(recommendation);
         
-        // Use setTimeout to ensure state updates in correct order
+        // Scroll to the Best Opportunity section
         setTimeout(() => {
-            setIsSmartTraderModalOpen(true);
-        }, 0);
+            const smartTraderSection = document.querySelector('.smart-trader-panel-container');
+            if (smartTraderSection) {
+                smartTraderSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+        
+        console.log('📍 Loaded recommendation to Smart Trader:', recommendation);
     };
 
     // Load trade settings to Smart Trader (legacy function - kept for compatibility)
@@ -1862,39 +1807,6 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     return (
         <div className="trading-hub-scanner">
-            {/* Smart Trader Modal - Only renders when NOT hidden */}
-            {isSmartTraderModalOpen && !isSmartTraderHidden && (
-                <Modal
-                    is_open={true}
-                    title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
-                    toggleModal={handleCloseModal}
-                    width="900px"
-                    height="auto"
-                >
-                    {selectedTradeSettings && (
-                        <SmartTraderWrapper
-                            initialSettings={selectedTradeSettings}
-                            onClose={handleCloseModal}
-                            onHide={handleHideModal}
-                            onTradingStop={handleTradingStop}
-                            autoStart={autoStartTrading}
-                        />
-                    )}
-                </Modal>
-            )}
-            
-            {/* Hidden Smart Trader for background trading */}
-            {isSmartTraderModalOpen && isSmartTraderHidden && selectedTradeSettings && (
-                <div style={{ display: 'none' }}>
-                    <SmartTraderWrapper
-                        initialSettings={selectedTradeSettings}
-                        onClose={handleCloseModal}
-                        onHide={handleHideModal}
-                        onTradingStop={handleTradingStop}
-                        autoStart={autoStartTrading}
-                    />
-                </div>
-            )}
 
             <div className="scanner-header">
                 <div className="scanner-title">
@@ -1961,181 +1873,50 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
 
                         {bestRecommendation && (
-                            <div className="best-recommendation-highlight">
-                                <div className="highlight-header">
+                            <div className="smart-trader-panel-container">
+                                <div className="panel-header">
                                     <span className="crown-icon">👑</span>
-                                    <Text size="s" weight="bold">Best Opportunity</Text>
-                                    {isAiAutoTrading && (
-                                        <div className="ai-trading-indicator">
-                                            <span className="trading-status-dot"></span>
-                                            AI Auto Trading Active
-                                        </div>
-                                    )}
+                                    <Text size="s" weight="bold">Best Opportunity - Smart Trader</Text>
                                 </div>
-                                <div className="highlight-content">
-                                    <div className="highlight-trade">
-                                        <span className="highlight-symbol">{symbolMap[bestRecommendation.symbol]}</span>
-                                        <span className={`highlight-strategy strategy-label--${bestRecommendation.strategy}`}>
-                                            {bestRecommendation.strategy === 'call' ? 'BUY NOW' :
-                                             bestRecommendation.strategy === 'put' ? 'SELL NOW' :
-                                             bestRecommendation.strategy === 'hold' ? 'PLEASE WAIT' :
-                                             bestRecommendation.strategy.toUpperCase()} {bestRecommendation.barrier}
-                                        </span>
-                                        <span className="highlight-confidence">
-                                            {bestRecommendation.confidence.toFixed(1)}%
-                                        </span>
-                                    </div>
-
-                                    {!isAiAutoTrading && (
-                                        <div className="ai-config-section">
-                                            <div className="ai-config-row">
-                                                <div className="ai-config-field">
-                                                    <label>Stake (USD):</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0.35}
-                                                        step={0.01}
-                                                        value={aiTradeConfig.stake}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            stake: Math.max(0.35, Number(e.target.value))
-                                                        }))}
-                                                    />
-                                                </div>
-                                                <div className="ai-config-field">
-                                                    <label>Duration:</label>
-                                                    <input
-                                                        type="number"
-                                                        min={1}
-                                                        step={1}
-                                                        value={aiTradeConfig.duration}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            duration: Math.max(1, Number(e.target.value))
-                                                        }))}
-                                                    />
-                                                </div>
-                                                <div className="ai-config-field">
-                                                    <label>Duration Type:</label>
-                                                    <select
-                                                        value={aiTradeConfig.durationType}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            durationType: e.target.value
-                                                        }))}
-                                                    >
-                                                        <option value="t">Ticks</option>
-                                                        <option value="s">Seconds</option>
-                                                        <option value="m">Minutes</option>
-                                                        <option value="h">Hours</option>
-                                                        <option value="d">Days</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div className="ai-config-row">
-                                                <div className="ai-config-field">
-                                                    <label>Martingale Multiplier:</label>
-                                                    <input
-                                                        id="ai-martingale-multiplier"
-                                                        type="number"
-                                                        min={1}
-                                                        step="0.1"
-                                                        value={aiMartingaleMultiplier}
-                                                        onChange={e => setAiMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
-                                                        placeholder="1.0"
-                                                    />
-                                                </div>
-                                                <div className="ai-config-field">
-                                                    <label>Over/Under (after loss):</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        max={9}
-                                                        value={aiTradeConfig.ouPredPostLoss}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            ouPredPostLoss: Math.max(0, Math.min(9, Number(e.target.value)))
-                                                        }))}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="ai-config-row">
-                                                <div className="ai-config-field">
-                                                    <label>Stop Loss (USD):</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        step={0.01}
-                                                        value={aiTradeConfig.stopLoss || 0}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            stopLoss: Math.max(0, Number(e.target.value))
-                                                        }))}
-                                                        placeholder="0.00"
-                                                    />
-                                                </div>
-                                                <div className="ai-config-field">
-                                                    <label>Take Profit (USD):</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        step={0.01}
-                                                        value={aiTradeConfig.takeProfit || 0}
-                                                        onChange={(e) => setAiTradeConfig(prev => ({
-                                                            ...prev,
-                                                            takeProfit: Math.max(0, Number(e.target.value))
-                                                        }))}
-                                                        placeholder="0.00"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {aiTradeStatus && (
-                                        <div className="ai-trade-status">
-                                            <Text size="xs" color={aiTradeStatus.includes('Error') || aiTradeStatus.includes('LOSS') ? 'loss-danger' : 'prominent'}>
-                                                {aiTradeStatus}
-                                            </Text>
-                                        </div>
-                                    )}
-
-                                    <div className="highlight-actions">
-                                        <button
-                                            className="highlight-load-btn"
-                                            onClick={() => startDirectTrading(bestRecommendation)}
-                                        >
-                                            ⚡ Start Trading
-                                        </button>
-                                        <button
-                                            className="highlight-bot-builder-btn"
-                                            onClick={() => loadToBotBuilder(bestRecommendation)}
-                                        >
-                                            🤖 Bot Builder
-                                        </button>
-                                    </div>
-
-                                    {/* AI Auto Trade Status */}
-                                    {isAiAutoTradeActive && currentAiTrade && (
-                                        <div className="ai-auto-trade-status">
-                                            <div className="ai-status-header">
-                                                <span className="ai-status-icon">🤖</span>
-                                                <Text size="xs" weight="bold" color="profit-success">
-                                                    AI Auto Trade Active
-                                                </Text>
-                                            </div>
-                                            <Text size="xs" color="general">
-                                                Trading: {symbolMap[currentAiTrade.symbol]} - {currentAiTrade.strategy === 'call' ? 'BUY NOW' :
-                                                 currentAiTrade.strategy === 'put' ? 'SELL NOW' :
-                                                 currentAiTrade.strategy === 'hold' ? 'PLEASE WAIT' :
-                                                 currentAiTrade.strategy.toUpperCase()} {currentAiTrade.barrier}
-                                            </Text>
-                                            <Text size="xs" color="general">
-                                                Confidence: {currentAiTrade.confidence.toFixed(1)}% | Martingale: {aiMartingaleMultiplier}x
-                                            </Text>
-                                        </div>
-                                    )}
-                                </div>
+                                <SmartTraderWrapper
+                                    initialSettings={{
+                                        symbol: bestRecommendation.symbol,
+                                        tradeType: (() => {
+                                            switch (bestRecommendation.strategy) {
+                                                case 'over': return 'DIGITOVER';
+                                                case 'under': return 'DIGITUNDER';
+                                                case 'even': return 'DIGITEVEN';
+                                                case 'odd': return 'DIGITODD';
+                                                case 'matches': return 'DIGITMATCH';
+                                                case 'differs': return 'DIGITDIFF';
+                                                default: return 'DIGITOVER';
+                                            }
+                                        })(),
+                                        contractType: (() => {
+                                            switch (bestRecommendation.strategy) {
+                                                case 'over': return 'DIGITOVER';
+                                                case 'under': return 'DIGITUNDER';
+                                                case 'even': return 'DIGITEVEN';
+                                                case 'odd': return 'DIGITODD';
+                                                case 'matches': return 'DIGITMATCH';
+                                                case 'differs': return 'DIGITDIFF';
+                                                default: return 'DIGITOVER';
+                                            }
+                                        })(),
+                                        stake: aiTradeConfig.stake,
+                                        duration: aiTradeConfig.duration,
+                                        durationType: aiTradeConfig.durationType,
+                                        martingaleMultiplier: aiMartingaleMultiplier,
+                                        ouPredPostLoss: aiTradeConfig.ouPredPostLoss,
+                                        stopLoss: aiTradeConfig.stopLoss,
+                                        takeProfit: aiTradeConfig.takeProfit,
+                                        barrier: bestRecommendation.barrier,
+                                        prediction: bestRecommendation.prediction
+                                    }}
+                                    onClose={() => {}}
+                                    onHide={() => {}}
+                                    onTradingStop={() => {}}
+                                />
                             </div>
                         )}
                     </div>
