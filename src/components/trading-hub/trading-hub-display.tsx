@@ -66,6 +66,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [isSmartTraderHidden, setIsSmartTraderHidden] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
     const [autoStartTrading, setAutoStartTrading] = useState(false);
+    const [autoStartEmbedded, setAutoStartEmbedded] = useState(false);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
@@ -996,10 +997,13 @@ const TradingHubDisplay: React.FC = observer(() => {
         console.log('🧹 Cleared all pending timeouts to prevent delayed trade executions');
     };
 
-    // Load recommendation to Best Opportunity Smart Trader
+    // Load recommendation to Best Opportunity Smart Trader and auto-start trading
     const startDirectTrading = (recommendation: TradeRecommendation) => {
         // Update the best recommendation to show this one in the embedded Smart Trader
         setBestRecommendation(recommendation);
+        
+        // Enable auto-start for the embedded Smart Trader
+        setAutoStartEmbedded(true);
         
         // Scroll to the Best Opportunity section
         setTimeout(() => {
@@ -1009,7 +1013,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
         }, 100);
         
-        console.log('📍 Loaded recommendation to Smart Trader:', recommendation);
+        console.log('📍 Loaded recommendation to Smart Trader with auto-start:', recommendation);
     };
 
     // Load trade settings to Smart Trader (legacy function - kept for compatibility)
@@ -1879,6 +1883,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     <Text size="s" weight="bold">Best Opportunity - Smart Trader</Text>
                                 </div>
                                 <SmartTraderWrapper
+                                    key={`${bestRecommendation.symbol}-${bestRecommendation.strategy}-${autoStartEmbedded}`}
                                     initialSettings={{
                                         symbol: bestRecommendation.symbol,
                                         tradeType: (() => {
@@ -1915,7 +1920,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     }}
                                     onClose={() => {}}
                                     onHide={() => {}}
-                                    onTradingStop={() => {}}
+                                    onTradingStop={() => {
+                                        // Reset auto-start flag when trading stops
+                                        setAutoStartEmbedded(false);
+                                    }}
+                                    autoStart={autoStartEmbedded}
                                 />
                             </div>
                         )}
