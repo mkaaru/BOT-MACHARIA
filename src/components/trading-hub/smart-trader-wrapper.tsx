@@ -261,6 +261,21 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
     }, [autoStart, symbols.length]);
 
+    // Register Run Panel stop observers - keep them active even when modal is hidden
+    useEffect(() => {
+        if (is_running && store?.run_panel?.dbot?.observer) {
+            console.log('🔧 Registering Run Panel stop observers for Smart Trader');
+            store.run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
+            store.run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
+
+            return () => {
+                console.log('🧹 Cleaning up Run Panel stop observers');
+                store.run_panel.dbot.observer.unregisterAll('bot.stop');
+                store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
+            };
+        }
+    }, [is_running, store]);
+
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
 
@@ -429,12 +444,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             onHide();
         }
 
-        // Register observers for Run Panel stop events before starting trading
-        if (store?.run_panel?.dbot?.observer) {
-            store.run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
-            store.run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
-        }
-
         try {
             let lossStreak = 0;
             let step = 0;
@@ -597,12 +606,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
-
-            // Cleanup observers when trading stops
-            if (store?.run_panel?.dbot?.observer) {
-                store.run_panel.dbot.observer.unregisterAll('bot.stop');
-                store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
-            }
         }
     };
 
@@ -625,12 +628,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         // Notify parent that trading has stopped so modal can be fully closed/reset
         if (onTradingStop) {
             onTradingStop();
-        }
-
-        // Cleanup observers
-        if (store?.run_panel?.dbot?.observer) {
-            store.run_panel.dbot.observer.unregisterAll('bot.stop');
-            store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
         }
     };
 
