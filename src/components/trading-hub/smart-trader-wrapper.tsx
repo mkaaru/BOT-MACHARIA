@@ -267,9 +267,20 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             console.log('🔧 Registering Run Panel stop observers for Smart Trader');
             
             const stopHandler = () => {
-                if (is_running) {
-                    console.log('🛑 Run Panel stop clicked - stopping Smart Trader');
-                    handleRunPanelStop();
+                console.log('🛑 Run Panel stop clicked - stopping Smart Trader', { stopFlag: stopFlagRef.current });
+                // Directly stop trading without checking is_running state
+                // because state updates might be delayed
+                stopFlagRef.current = true;
+                setIsRunning(false);
+                stopTicks();
+                run_panel.setIsRunning(false);
+                run_panel.setHasOpenContract(false);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                setStatus('Trading stopped by Run Panel');
+                
+                // Notify parent that trading has stopped
+                if (onTradingStop) {
+                    onTradingStop();
                 }
             };
             
@@ -282,7 +293,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
             };
         }
-    }, [is_running, store]);
+    }, [store]);
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
@@ -614,14 +625,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        }
-    };
-
-    // Handle Run Panel stop events
-    const handleRunPanelStop = () => {
-        console.log('🛑 Smart Trader received stop signal', { is_running, stopFlag: stopFlagRef.current });
-        if (is_running || !stopFlagRef.current) {
-            stopTrading();
         }
     };
 
