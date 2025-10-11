@@ -405,10 +405,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
 
-            // Check if this is a MATCHES strategy - rapid fire mode
-            const isMatchesStrategy = tradeType === 'DIGITMATCH';
+            // All trade types now use rapid-fire mode (no delay between trades)
+            console.log('🚀 Rapid-fire mode enabled for', tradeType);
 
             while (!stopFlagRef.current) {
+                // Check stop flag at the beginning of each iteration
+                if (stopFlagRef.current) break;
+
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
@@ -420,10 +423,8 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
 
-                // For MATCHES: Skip delay to achieve rapid fire; For others: Add delay
-                if (!isMatchesStrategy) {
-                    await new Promise(res => setTimeout(res, 1000));
-                }
+                // No delay - all trade types now fire on every tick without waiting
+                // This enables rapid-fire tick-by-tick trading for all strategies
 
                 try {
                     const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
@@ -443,8 +444,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 run_panel.setHasOpenContract(true);
                 run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
-                // For MATCHES strategy: Fire on every tick without waiting for contract to close
-                if (isMatchesStrategy) {
+                // ALL strategies now use rapid-fire mode: Monitor contracts in background without blocking
+                // This allows trading on every tick without waiting for previous contract to close
+                {
                     // Monitor contract in background without blocking
                     const monitorContract = async () => {
                         try {
@@ -487,10 +489,20 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                                 apiRef.current?.connection?.removeEventListener('message', onMsg);
                                                 const profit = Number(poc?.profit || 0);
 
+                                                // Handle win/loss for martingale progression
                                                 if (profit > 0) {
-                                                    console.log(`✅ MATCHES WIN: +${profit.toFixed(2)} ${account_currency}`);
+                                                    // WIN: Reset to base stake
+                                                    lastOutcomeWasLossRef.current = false;
+                                                    lossStreak = 0;
+                                                    step = 0;
+                                                    setStake(baseStake);
+                                                    console.log(`✅ ${tradeType} WIN: +${profit.toFixed(2)} ${account_currency} - Reset to base stake`);
                                                 } else {
-                                                    console.log(`❌ MATCHES LOSS: ${profit.toFixed(2)} ${account_currency}`);
+                                                    // LOSS: Increase stake for martingale
+                                                    lastOutcomeWasLossRef.current = true;
+                                                    lossStreak++;
+                                                    step = Math.min(step + 1, 10);
+                                                    console.log(`❌ ${tradeType} LOSS: ${profit.toFixed(2)} ${account_currency} - Martingale step ${step}`);
                                                 }
 
                                                 // Clear UI state
@@ -514,92 +526,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     // Start monitoring in background
                     monitorContract();
 
-                    // Wait only for next tick (minimal delay for MATCHES - ~1.2s per tick)
+                    // Wait only for next tick (minimal delay ~1.2s per tick for rapid-fire mode)
                     await new Promise(res => setTimeout(res, 1200)); // ~1 tick interval
-                } else {
-                    // For other strategies: Wait for contract to close before next purchase
-                    try {
-                        const res = await apiRef.current.send({
-                            proposal_open_contract: 1,
-                            contract_id: buy?.contract_id,
-                            subscribe: 1,
-                        });
-                        const { error, proposal_open_contract: pocInit, subscription } = res || {};
-                        if (error) throw error;
-
-                        let pocSubId: string | null = subscription?.id || null;
-                        const targetId = String(buy?.contract_id || '');
-
-                        if (pocInit && String(pocInit?.contract_id || '') === targetId) {
-                            transactions.onBotContractEvent(pocInit);
-                            run_panel.setHasOpenContract(true);
-                        }
-
-                        const onMsg = (evt: MessageEvent) => {
-                            try {
-                                const data = JSON.parse(evt.data as any);
-                                if (data?.msg_type === 'proposal_open_contract') {
-                                    const poc = data.proposal_open_contract;
-                                    if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
-                                    if (String(poc?.contract_id || '') === targetId) {
-                                        transactions.onBotContractEvent(poc);
-                                        run_panel.setHasOpenContract(true);
-
-                                        setCurrentProfit(Number(poc?.profit || 0));
-                                        setContractValue(Number(poc?.bid_price || 0));
-                                        setPotentialPayout(Number(poc?.payout || 0));
-
-                                        if (poc?.date_expiry && !poc?.is_sold) {
-                                            const now = Math.floor(Date.now() / 1000);
-                                            const expiry = Number(poc.date_expiry);
-                                            const remaining = Math.max(0, expiry - now);
-                                            const hours = Math.floor(remaining / 3600);
-                                            const minutes = Math.floor((remaining % 3600) / 60);
-                                            const seconds = remaining % 60;
-                                            setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                                        }
-
-                                        if (poc?.is_sold || poc?.status === 'sold') {
-                                            run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                            run_panel.setHasOpenContract(false);
-                                            if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
-                                            apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                            const profit = Number(poc?.profit || 0);
-
-                                            if (profit > 0) {
-                                                // WIN: Reset to pre-loss state
-                                                lastOutcomeWasLossRef.current = false;
-                                                lossStreak = 0;
-                                                step = 0;
-                                                setStake(baseStake);
-                                                console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
-                                            } else {
-                                                // LOSS: Set flag for next trade to use after-loss prediction
-                                                lastOutcomeWasLossRef.current = true;
-                                                lossStreak++;
-                                                step = Math.min(step + 1, 10);
-                                                console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
-                                            }
-                                            setCurrentProfit(0);
-                                            setContractValue(0);
-                                            setPotentialPayout(0);
-                                            setContractDuration('00:00:00');
-                                        }
-                                    }
-                                }
-                            } catch {
-                                // noop
-                            }
-                        };
-                        apiRef.current?.connection?.addEventListener('message', onMsg);
-                    } catch (subErr) {
-                        console.error('subscribe poc error', subErr);
-                    }
-
-                    // Minimum 3-5 seconds between trades to avoid rate limits
-                    const minTradeInterval = 3000 + Math.random() * 2000; // 3-5 seconds random
-                    await new Promise(res => setTimeout(res, minTradeInterval));
                 }
+
+                // Check stop flag before continuing to next trade
+                if (stopFlagRef.current) break;
             }
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
