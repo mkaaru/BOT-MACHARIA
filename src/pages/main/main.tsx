@@ -1432,12 +1432,12 @@ if __name__ == "__main__":
             <div className='main'>
                 <div className='main__container main-content'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
-                        <div label={<><AITraderIcon /><Localize i18n_default_text='🤖 ML Trader' /></>} id='id-ml-trader'>
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-trading-hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <MLTrader />
+                                <TradingHubDisplay />
                             </div>
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
@@ -1493,12 +1493,12 @@ if __name__ == "__main__":
                         </div>
 
                         </div>
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
+                        <div label={<><AITraderIcon /><Localize i18n_default_text='🤖 ML Trader' /></>} id='id-ml-trader'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <TradingHubDisplay />
+                                <MLTrader />
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
@@ -1553,9 +1553,6 @@ if __name__ == "__main__":
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
                                 <Tutorial handleTabChange={handleTabChange} />
                             </Suspense>
-                        </div>
-                        <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
-                            <SmartTrader />
                         </div>
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
