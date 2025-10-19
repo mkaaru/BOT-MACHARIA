@@ -60,6 +60,13 @@ Preferred communication style: Simple, everyday language.
   * **Contract Gating**: Only executes when `contractInProgressRef` is false, preventing overlapping trades
   * **Visual Indicator**: Blue gradient card displays current AI recommendation, tick count, confidence, and contract status
   * **Lifecycle Management**: Starts with auto-trading, cleans up properly on stop
+- **ML Trader Transaction Panel Integration (October 2025)**: Unified transaction tracking with Trading Hub:
+  * **Trading Hub Pattern**: Uses `transactions.onBotContractEvent()` matching Trading Hub implementation
+  * **Correct Transaction IDs**: Maps `transaction_ids.buy` from actual buy transaction ID (not contract_id) for proper settlement reconciliation
+  * **Multi-Currency Support**: Uses actual `account_currency` from balance response (not hardcoded USD)
+  * **Live Contract Updates**: Subscribes to `proposal_open_contract` and continuously updates Run Panel with contract progress
+  * **3-Second Trade Interval**: Rapid continuous trading with 3-second intervals (reduced from 12 seconds) for faster market opportunities
+  * **Wrapper Function**: `executeTradeAndMapToPanel()` encapsulates trade execution, transaction mapping, and subscription management
 
 # External Dependencies
 
