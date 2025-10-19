@@ -14,6 +14,7 @@ import { AutoTradePanel } from './auto-trade-panel';
 import { tickPredictionEngine } from '@/services/tick-prediction-engine';
 import { executeDirectTrade, getContractTypeFromAction } from '@/services/direct-trade-executor';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
+import { realTimeTrendMonitor, TrendAnalysis, TrendDirection } from '@/services/real-time-trend-monitor';
 import './ml-trader.scss';
 
 
@@ -121,6 +122,11 @@ const MLTrader = observer(() => {
         win_rate: 0,
         auto_trade_count: 0
     });
+
+    // Real-Time Trend Monitoring State
+    const [current_trend, setCurrentTrend] = useState<TrendAnalysis | null>(null);
+    const [trend_override_direction, setTrendOverrideDirection] = useState<'RISE' | 'FALL' | null>(null);
+    const [trend_changes_count, setTrendChangesCount] = useState(0);
 
     // Reinforcement Learning State
     const [rl_state, setRLState] = useState({
@@ -861,27 +867,74 @@ const MLTrader = observer(() => {
                 return;
             }
 
-            // ADAPTIVE SELECTION: Prefer direction with better historical performance
+            // REAL-TIME TREND OVERRIDE: Prioritize trend direction over recommendations
             let selectedRecommendation = viableRecommendations[0];
+            let tradeDirection: 'RISE' | 'FALL';
             
-            if (rl_state.preferred_direction) {
-                // Try to find a recommendation matching the preferred direction
+            if (trend_override_direction) {
+                // TREND-BASED TRADING: Use real-time trend analysis
+                tradeDirection = trend_override_direction;
+                
+                // Try to find a recommendation matching the trend direction
+                const trendMatchingRec = viableRecommendations.find(
+                    rec => rec.action === trend_override_direction
+                );
+                
+                if (trendMatchingRec) {
+                    selectedRecommendation = trendMatchingRec;
+                    console.log(`📈 TREND-DRIVEN: ${trend_override_direction} (Trend: ${current_trend?.direction}, Confidence: ${current_trend?.confidence.toFixed(1)}%)`);
+                } else {
+                    // No matching recommendation, use top one but override its action
+                    console.log(`📈 TREND-OVERRIDE: No ${trend_override_direction} recommendation, overriding top recommendation`);
+                }
+            } else if (rl_state.preferred_direction) {
+                // REINFORCEMENT LEARNING: Prefer direction with better historical performance
+                tradeDirection = rl_state.preferred_direction;
+                
                 const preferredRec = viableRecommendations.find(
                     rec => rec.action === rl_state.preferred_direction
                 );
                 
                 if (preferredRec) {
                     selectedRecommendation = preferredRec;
-                    console.log(`🎯 RL-Optimized: Selected ${rl_state.preferred_direction} (performing better at ${rl_state.preferred_direction === 'RISE' ? rl_state.rise_win_rate : rl_state.fall_win_rate}%)`);
+                    tradeDirection = preferredRec.action;
+                    console.log(`🧠 RL-Optimized: ${rl_state.preferred_direction} (${rl_state.preferred_direction === 'RISE' ? rl_state.rise_win_rate : rl_state.fall_win_rate}% win rate)`);
                 } else {
-                    console.log(`🎯 Default: No ${rl_state.preferred_direction} recommendations available, using top recommendation`);
+                    tradeDirection = selectedRecommendation.action;
+                    console.log(`🎯 Default: Using top recommendation ${selectedRecommendation.action}`);
                 }
+            } else {
+                tradeDirection = selectedRecommendation.action;
+                console.log(`📊 Standard: ${tradeDirection} - Confidence: ${selectedRecommendation.confidence.toFixed(1)}%`);
             }
             
-            console.log(`📊 Selected Trade: ${selectedRecommendation.displayName} (${selectedRecommendation.action}) - Confidence: ${selectedRecommendation.confidence.toFixed(1)}%`);
+            // Execute trade with trend-based or RL-optimized direction
+            const contractType = getContractTypeFromAction(tradeDirection, 't');
             
-            // Execute the trade (has built-in contract guard and RL updates)
-            await applyRecommendation(selectedRecommendation);
+            // Execute trade directly (bypassing applyRecommendation to use trend direction)
+            if (!contractInProgressRef.current) {
+                contractInProgressRef.current = true;
+                
+                const result = await executeDirectTrade({
+                    symbol: selectedRecommendation.symbol,
+                    contract_type: contractType,
+                    stake: trading_interface.stake,
+                    duration: 2,
+                    duration_unit: 't'
+                });
+
+                if (result.success) {
+                    setStatus(`✅ ${tradeDirection} trade executed! Contract: ${result.contract_id}`);
+                    setTimeout(() => {
+                        contractInProgressRef.current = false;
+                        const estimatedProfit = (result.payout || 0) - (result.buy_price || 0);
+                        updateRLState(tradeDirection, estimatedProfit);
+                    }, 10000);
+                } else {
+                    contractInProgressRef.current = false;
+                    updateRLState(tradeDirection, -trading_interface.stake);
+                }
+            }
         };
 
         // Execute first trade immediately
@@ -890,7 +943,7 @@ const MLTrader = observer(() => {
         // Then execute every 12 seconds (allows 10s settlement + 2s buffer)
         // Each cycle re-evaluates market conditions for adaptive trading
         autoTradeIntervalRef.current = setInterval(executeContinuousTrade, 12000);
-    }, [recommendations, rl_state, applyRecommendation]);
+    }, [recommendations, rl_state, trend_override_direction, current_trend, trading_interface.stake, updateRLState]);
 
     /**
      * Toggle auto trading
@@ -912,10 +965,45 @@ const MLTrader = observer(() => {
             globalObserver.emit('bot.running');
             console.log('📡 Emitted bot.running to Run Panel');
             
+            // Start real-time trend monitoring for active symbol
+            const activeSymbol = selected_recommendation?.symbol || trading_interface.symbol;
+            realTimeTrendMonitor.startMonitoring(activeSymbol);
+            console.log(`📈 Started real-time trend monitoring for ${activeSymbol}`);
+            
+            // Subscribe to trend changes - dynamically switch trade direction
+            const unsubscribe = realTimeTrendMonitor.onTrendChange((trend) => {
+                setCurrentTrend(trend);
+                setTrendChangesCount(prev => prev + 1);
+                
+                // Determine new trade direction based on trend
+                const newDirection = trend.direction === 'BULLISH' ? 'RISE' : 'FALL';
+                setTrendOverrideDirection(newDirection);
+                
+                console.log(`🔄 TREND CHANGE #${trend_changes_count + 1}: ${trend.direction} detected → Switching to ${newDirection} trades`);
+                console.log(`   Confidence: ${trend.confidence.toFixed(1)}% | Strength: ${trend.strength.toFixed(1)}% | Price Change: ${trend.priceChange.toFixed(4)}%`);
+            });
+            
+            // Store unsubscribe function for cleanup
+            (window as any)._trendUnsubscribe = unsubscribe;
+            
             // Start auto-trading with continuous loop
-            setStatus('🤖 Auto-trading activated - executing trades continuously...');
+            setStatus('🤖 Auto-trading activated with real-time trend adaptation...');
             startContinuousTrading();
         } else {
+            // Stop real-time trend monitoring
+            realTimeTrendMonitor.stopAll();
+            console.log('⏹️ Stopped real-time trend monitoring');
+            
+            // Unsubscribe from trend changes
+            if ((window as any)._trendUnsubscribe) {
+                (window as any)._trendUnsubscribe();
+                delete (window as any)._trendUnsubscribe;
+            }
+            
+            // Reset trend override
+            setTrendOverrideDirection(null);
+            setCurrentTrend(null);
+            
             // Notify Run Panel that bot is stopping
             globalObserver.emit('bot.stop');
             console.log('📡 Emitted bot.stop to Run Panel');
@@ -2073,6 +2161,31 @@ const MLTrader = observer(() => {
                     </div>
 
                     <div className="trading-form">
+                        {/* Real-Time Trend Indicator */}
+                        {trading_interface.is_auto_trading && current_trend && (
+                            <div style={{
+                                padding: '12px',
+                                marginBottom: '16px',
+                                borderRadius: '8px',
+                                background: current_trend.direction === 'BULLISH' ? 'linear-gradient(135deg, #4CAF50 0%, #81C784 100%)' : 'linear-gradient(135deg, #f44336 0%, #e57373 100%)',
+                                color: 'white',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <Text size="sm" weight="bold" style={{ color: 'white' }}>
+                                        {current_trend.direction === 'BULLISH' ? '📈 BULLISH TREND' : '📉 BEARISH TREND'}
+                                    </Text>
+                                    <span style={{ fontSize: '12px', opacity: 0.9 }}>
+                                        Changes: {trend_changes_count}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '11px', opacity: 0.9 }}>
+                                    <div>Trading: <strong>{trend_override_direction || 'Loading...'}</strong> | Confidence: <strong>{current_trend.confidence.toFixed(1)}%</strong></div>
+                                    <div>Strength: <strong>{current_trend.strength.toFixed(1)}%</strong> | Price Change: <strong>{current_trend.priceChange > 0 ? '+' : ''}{current_trend.priceChange.toFixed(4)}%</strong></div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="form-row">
                             <div className="form-field">
                                 <Text size="xs" color="general">{localize('Duration')}</Text>
