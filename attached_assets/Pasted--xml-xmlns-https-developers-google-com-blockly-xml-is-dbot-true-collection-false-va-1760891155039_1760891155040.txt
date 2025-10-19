@@ -1,0 +1,609 @@
+<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+
+    <variables>
+
+        <variable id="martingale_var">martingale</variable>
+
+        <variable id="loss_count_var">loss_count</variable>
+
+        <variable id="martingale_level_var">martingale_level</variable>
+
+    </variables>
+
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+
+        <statement name="TRADE_OPTIONS">
+
+            <block type="trade_definition_market" deletable="false" movable="false">
+
+                <field name="MARKET_LIST">{market}</field>
+
+                <field name="SUBMARKET_LIST">{submarket}</field>
+
+                <field name="SYMBOL_LIST">{symbol}</field>
+
+                <next>
+
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+
+                        <field name="TRADETYPECAT_LIST">callput</field>
+
+                        <field name="TRADETYPE_LIST">callput</field>
+
+                        <next>
+
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+
+                                <field name="TYPE_LIST">{contractType}</field>
+
+                                <next>
+
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+
+                                        <next>
+
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+
+                                                <next>
+
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+
+                                                        <field name="RESTARTONERROR">TRUE</field>
+
+                                                    </block>
+
+                                                </next>
+
+                                            </block>
+
+                                        </next>
+
+                                    </block>
+
+                                </next>
+
+                            </block>
+
+                        </next>
+
+                    </block>
+
+                </next>
+
+            </block>
+
+        </statement>
+
+        <statement name="INITIALIZATION">
+
+            <block type="variables_set">
+
+                <field name="VAR" id="initial_stake_var">initial_stake</field>
+
+                <value name="VALUE">
+
+                    <block type="math_number">
+
+                        <field name="NUM">{defaultStake}</field>
+
+                    </block>
+
+                </value>
+
+                <next>
+
+                    <block type="variables_set">
+
+                        <field name="VAR" id="stake_var">stake</field>
+
+                        <value name="VALUE">
+
+                            <block type="variables_get">
+
+                                <field name="VAR" id="initial_stake_var">initial_stake</field>
+
+                            </block>
+
+                        </value>
+
+                        <next>
+
+                            <block type="variables_set">
+
+                                <field name="VAR" id="martingale_var">martingale</field>
+
+                                <value name="VALUE">
+
+                                    <block type="math_number">
+
+                                        <field name="NUM">1</field>
+
+                                    </block>
+
+                                </value>
+
+                                <next>
+
+                                    <block type="variables_set">
+
+                                        <field name="VAR" id="loss_count_var">loss_count</field>
+
+                                        <value name="VALUE">
+
+                                            <block type="math_number">
+
+                                                <field name="NUM">0</field>
+
+                                            </block>
+
+                                        </value>
+
+                                        <next>
+
+                                            <block type="variables_set">
+
+                                                <field name="VAR" id="martingale_level_var">martingale_level</field>
+
+                                                <value name="VALUE">
+
+                                                    <block type="math_number">
+
+                                                        <field name="NUM">0</field>
+
+                                                    </block>
+
+                                                </value>
+
+                                            </block>
+
+                                        </next>
+
+                                    </block>
+
+                                </next>
+
+                            </block>
+
+                        </next>
+
+                    </block>
+
+                </next>
+
+            </block>
+
+        </statement>
+
+        <statement name="SUBMARKET">
+
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+
+                <field name="DURATIONTYPE_LIST">t</field>
+
+                <value name="DURATION">
+
+                    <shadow type="math_number">
+
+                        <field name="NUM">2</field>
+
+                    </shadow>
+
+                </value>
+
+                <value name="AMOUNT">
+
+                    <shadow type="math_number">
+
+                        <field name="NUM">{defaultStake}</field>
+
+                    </shadow>
+
+                    <block type="variables_get">
+
+                        <field name="VAR" id="stake_var">stake</field>
+
+                    </block>
+
+                </value>
+
+            </block>
+
+        </statement>
+
+    </block>
+
+    
+
+    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
+
+        <statement name="BEFOREPURCHASE_STACK">
+
+            <block type="controls_if">
+
+                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+
+                <value name="IF0">
+
+                    <block type="logic_compare">
+
+                        <field name="OP">GTE</field>
+
+                        <value name="A">
+
+                            <block type="variables_get">
+
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+
+                            </block>
+
+                        </value>
+
+                        <value name="B">
+
+                            <block type="math_number">
+
+                                <field name="NUM">5</field>
+
+                            </block>
+
+                        </value>
+
+                    </block>
+
+                </value>
+
+                <statement name="DO0">
+
+                    <block type="notify">
+
+                        <field name="NOTIFICATION_TYPE">warn</field>
+
+                        <field name="NOTIFICATION_SOUND">silent</field>
+
+                        <value name="MESSAGE">
+
+                            <shadow type="text">
+
+                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
+
+                            </shadow>
+
+                        </value>
+
+                        <next>
+
+                            <block type="trade_again">
+
+                                <field name="TRADE_AGAIN">FALSE</field>
+
+                            </block>
+
+                        </next>
+
+                    </block>
+
+                </statement>
+
+            </block>
+
+        </statement>
+
+    </block>
+
+    
+
+    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="0">
+
+        <statement name="AFTERPURCHASE_STACK">
+
+            <block type="controls_if">
+
+                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+
+                <value name="IF0">
+
+                    <block type="contract_check_result">
+
+                        <field name="CHECK_RESULT">win</field>
+
+                    </block>
+
+                </value>
+
+                <statement name="DO0">
+
+                    <block type="variables_set">
+
+                        <field name="VAR" id="stake_var">stake</field>
+
+                        <value name="VALUE">
+
+                            <block type="variables_get">
+
+                                <field name="VAR" id="initial_stake_var">initial_stake</field>
+
+                            </block>
+
+                        </value>
+
+                        <next>
+
+                            <block type="variables_set">
+
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+
+                                <value name="VALUE">
+
+                                    <block type="math_number">
+
+                                        <field name="NUM">0</field>
+
+                                    </block>
+
+                                </value>
+
+                                <next>
+
+                                    <block type="variables_set">
+
+                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
+
+                                        <value name="VALUE">
+
+                                            <block type="math_number">
+
+                                                <field name="NUM">0</field>
+
+                                            </block>
+
+                                        </value>
+
+                                    </block>
+
+                                </next>
+
+                            </block>
+
+                        </next>
+
+                    </block>
+
+                </statement>
+
+                <statement name="ELSE">
+
+                    <block type="variables_set">
+
+                        <field name="VAR" id="loss_count_var">loss_count</field>
+
+                        <value name="VALUE">
+
+                            <block type="math_arithmetic">
+
+                                <field name="OP">ADD</field>
+
+                                <value name="A">
+
+                                    <block type="variables_get">
+
+                                        <field name="VAR" id="loss_count_var">loss_count</field>
+
+                                    </block>
+
+                                </value>
+
+                                <value name="B">
+
+                                    <block type="math_number">
+
+                                        <field name="NUM">1</field>
+
+                                    </block>
+
+                                </value>
+
+                            </block>
+
+                        </value>
+
+                        <next>
+
+                            <block type="variables_set">
+
+                                <field name="VAR" id="martingale_level_var">martingale_level</field>
+
+                                <value name="VALUE">
+
+                                    <block type="math_arithmetic">
+
+                                        <field name="OP">ADD</field>
+
+                                        <value name="A">
+
+                                            <block type="variables_get">
+
+                                                <field name="VAR" id="martingale_level_var">martingale_level</field>
+
+                                            </block>
+
+                                        </value>
+
+                                        <value name="B">
+
+                                            <block type="math_number">
+
+                                                <field name="NUM">1</field>
+
+                                            </block>
+
+                                        </value>
+
+                                    </block>
+
+                                </value>
+
+                                <next>
+
+                                    <block type="controls_if">
+
+                                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+
+                                        <value name="IF0">
+
+                                            <block type="logic_compare">
+
+                                                <field name="OP">GTE</field>
+
+                                                <value name="A">
+
+                                                    <block type="variables_get">
+
+                                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
+
+                                                    </block>
+
+                                                </value>
+
+                                                <value name="B">
+
+                                                    <block type="math_number">
+
+                                                        <field name="NUM">3</field>
+
+                                                    </block>
+
+                                                </value>
+
+                                            </block>
+
+                                        </value>
+
+                                        <statement name="DO0">
+
+                                            <block type="variables_set">
+
+                                                <field name="VAR" id="stake_var">stake</field>
+
+                                                <value name="VALUE">
+
+                                                    <block type="variables_get">
+
+                                                        <field name="VAR" id="initial_stake_var">initial_stake</field>
+
+                                                    </block>
+
+                                                </value>
+
+                                                <next>
+
+                                                    <block type="variables_set">
+
+                                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
+
+                                                        <value name="VALUE">
+
+                                                            <block type="math_number">
+
+                                                                <field name="NUM">0</field>
+
+                                                            </block>
+
+                                                        </value>
+
+                                                    </block>
+
+                                                </next>
+
+                                            </block>
+
+                                        </statement>
+
+                                        <statement name="ELSE">
+
+                                            <block type="variables_set">
+
+                                                <field name="VAR" id="stake_var">stake</field>
+
+                                                <value name="VALUE">
+
+                                                    <block type="math_arithmetic">
+
+                                                        <field name="OP">MULTIPLY</field>
+
+                                                        <value name="A">
+
+                                                            <block type="variables_get">
+
+                                                                <field name="VAR" id="stake_var">stake</field>
+
+                                                            </block>
+
+                                                        </value>
+
+                                                        <value name="B">
+
+                                                            <block type="math_arithmetic">
+
+                                                                <field name="OP">ADD</field>
+
+                                                                <value name="A">
+
+                                                                    <block type="variables_get">
+
+                                                                        <field name="VAR" id="martingale_var">martingale</field>
+
+                                                                    </block>
+
+                                                                </value>
+
+                                                                <value name="B">
+
+                                                                    <block type="math_number">
+
+                                                                        <field name="NUM">1</field>
+
+                                                                    </block>
+
+                                                                </value>
+
+                                                            </block>
+
+                                                        </value>
+
+                                                    </block>
+
+                                                </value>
+
+                                            </block>
+
+                                        </statement>
+
+                                    </block>
+
+                                </next>
+
+                            </block>
+
+                        </next>
+
+                    </block>
+
+                </statement>
+
+                <next>
+
+                    <block type="trade_again"></block>
+
+                </next>
+
+            </block>
+
+        </statement>
+
+    </block>
+
+</xml>
