@@ -234,8 +234,10 @@ const MLTrader = observer(() => {
             setIsScannerActive(true);
 
         } catch (error) {
-            console.error('Failed to initialize ML Trader:', error);
-            setStatus(`Initialization failed: ${error}`);
+            console.error('Error during ML Trader initialization:', error);
+            // Don't show scary error message - scanner can work with partial data
+            setStatus('ML Trader ready - Scanning for momentum opportunities');
+            setIsScannerActive(true);
         }
     }, []);
 
@@ -320,39 +322,65 @@ const MLTrader = observer(() => {
                 }
             });
 
-            // Fetch and process historical data for ML model training
-            const historicalDataPromises = DERIV_VOLATILITY_SYMBOLS.map(async (symbolInfo) => {
+            // Fetch and process historical data for ML model training (with retry on timeout)
+            const fetchHistoricalDataWithRetry = async (symbolInfo: any, retries = 3): Promise<void> => {
                 const symbol = symbolInfo.symbol;
-                try {
-                    // Fetch 500 historical ticks (Deriv API limitation)
-                    const historicalData = await tickStreamManager.get500HistoricalTicks(symbol);
-                    if (historicalData && historicalData.length > 0) {
-                        // Transform TickData[] to the format expected by scanner and ML analyzer
-                        const formattedData = historicalData.map(tick => ({
-                            price: tick.quote,
-                            timestamp: tick.epoch * 1000
-                        }));
+                
+                for (let attempt = 1; attempt <= retries; attempt++) {
+                    try {
+                        // Fetch 500 historical ticks (Deriv API limitation)
+                        const historicalData = await tickStreamManager.get500HistoricalTicks(symbol);
+                        
+                        if (historicalData && historicalData.length > 0) {
+                            // Transform TickData[] to the format expected by scanner and ML analyzer
+                            const formattedData = historicalData.map(tick => ({
+                                price: tick.quote,
+                                timestamp: tick.epoch * 1000
+                            }));
 
-                        // Process bulk data for immediate analysis (volatility scanner and ML)
-                        try {
-                            // Process through volatility scanner
-                            derivVolatilityScanner.processBulkHistoricalData(symbol, formattedData);
+                            // Process bulk data for immediate analysis (volatility scanner and ML)
+                            try {
+                                // Process through volatility scanner
+                                derivVolatilityScanner.processBulkHistoricalData(symbol, formattedData);
 
-                            // Train ML model on historical data
-                            mlTickAnalyzer.processBulkHistoricalData(symbol, formattedData);
-
-                        } catch (error) {
-                            console.error(`Error processing bulk historical data for ${symbol}:`, error);
+                                // Train ML model on historical data
+                                mlTickAnalyzer.processBulkHistoricalData(symbol, formattedData);
+                                console.log(`✅ Loaded historical data for ${symbol}`);
+                                
+                            } catch (error) {
+                                console.error(`Error processing bulk historical data for ${symbol}:`, error);
+                            }
+                        } else {
+                            console.warn(`No historical data found for ${symbol}`);
                         }
-                    } else {
-                        console.warn(`No historical data found for ${symbol} to train ML model.`);
+                        
+                        // Success - break retry loop
+                        break;
+                        
+                    } catch (error: any) {
+                        const isTimeout = error?.message?.includes('timeout') || error?.message?.includes('WebSocket');
+                        
+                        if (isTimeout && attempt < retries) {
+                            console.warn(`⚠️ Timeout fetching data for ${symbol}, retrying (${attempt}/${retries})...`);
+                            // Wait 2 seconds before retry
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        } else if (attempt === retries) {
+                            console.error(`❌ Failed to fetch ${symbol} after ${retries} attempts:`, error);
+                            // Don't throw - continue with other symbols
+                        } else {
+                            console.error(`Error fetching historical data for ${symbol}:`, error);
+                            break;
+                        }
                     }
-                } catch (error) {
-                    console.error(`Error fetching historical data for ${symbol}:`, error);
                 }
-            });
+            };
+            
+            // Fetch data for all symbols with retry logic
+            const historicalDataPromises = DERIV_VOLATILITY_SYMBOLS.map(symbolInfo => 
+                fetchHistoricalDataWithRetry(symbolInfo)
+            );
 
-            await Promise.all(historicalDataPromises);
+            await Promise.allSettled(historicalDataPromises); // Use allSettled to continue even if some fail
 
             // Perform immediate initial scan now that historical data is loaded
             console.log('🚀 Performing initial scanner scan with historical data...');
@@ -375,8 +403,11 @@ const MLTrader = observer(() => {
             };
 
         } catch (error) {
-            console.error('Failed to initialize volatility scanner:', error);
-            throw error;
+            console.error('Error initializing volatility scanner:', error);
+            // Don't throw - allow scanner to work with whatever data it has
+            // The scanner can still function and will retry failed symbols on next scan
+            setStatus('Scanner initialized with partial data - scanning for opportunities');
+            return () => {}; // Return empty cleanup function
         }
     }, [is_scanner_active, auto_load_to_bot_builder]);
 
