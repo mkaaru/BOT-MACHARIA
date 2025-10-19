@@ -68,7 +68,7 @@ Preferred communication style: Simple, everyday language.
   * **3-Second Trade Interval**: Rapid continuous trading with 3-second intervals (reduced from 12 seconds) for faster market opportunities
   * **Wrapper Function**: `executeTradeAndMapToPanel()` encapsulates trade execution, transaction mapping, and subscription management
   * **Crash Protection**: All `onBotContractEvent` calls wrapped in try-catch blocks to prevent Transactions panel crashes during active trading
-  * **Complete Data**: Fetches full `proposal_open_contract` response before mapping to ensure all required fields (entry_tick, exit_tick, etc.) are present
+  * **Complete Data Only**: Waits for full `proposal_open_contract` response (pocInit) before sending any data to Run Panel, ensuring all required fields (entry_tick_display_value, entry_tick_time, exit_tick_display_value, exit_tick_time, etc.) are present and preventing crashes from incomplete data
 
 # External Dependencies
 
