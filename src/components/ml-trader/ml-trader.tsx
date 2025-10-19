@@ -128,6 +128,12 @@ const MLTrader = observer(() => {
     const [trend_override_direction, setTrendOverrideDirection] = useState<'RISE' | 'FALL' | null>(null);
     const [trend_changes_count, setTrendChangesCount] = useState(0);
 
+    // Continuous AI Recommendation State (every 3 ticks)
+    const [tick_count, setTickCount] = useState(0);
+    const [continuous_ai_recommendation, setContinuousAIRecommendation] = useState<'RISE' | 'FALL' | null>(null);
+    const [ai_recommendation_confidence, setAIRecommendationConfidence] = useState(0);
+    const tickSubscriptionRef = useRef<(() => void) | null>(null);
+
     // Reinforcement Learning State
     const [rl_state, setRLState] = useState({
         rise_wins: 0,
@@ -827,6 +833,100 @@ const MLTrader = observer(() => {
     }, [trading_interface.stake, updateRLState]);
 
     /**
+     * Start continuous AI recommendations every 3 ticks
+     * Generates trade recommendations when no active contract
+     */
+    const startContinuousAIRecommendations = useCallback((symbol: string) => {
+        if (!apiRef.current) return;
+        
+        console.log(`🤖 Starting continuous AI recommendations for ${symbol} (every 3 ticks)`);
+        
+        let tickCounter = 0;
+        
+        // Subscribe to tick stream
+        const unsubscribe = apiRef.current.subscribe({
+            ticks: symbol,
+            subscribe: 1
+        }).subscribe((tick: any) => {
+            if (tick.error) {
+                console.error('Tick stream error:', tick.error);
+                return;
+            }
+            
+            if (tick.tick) {
+                tickCounter++;
+                setTickCount(tickCounter);
+                
+                // Process tick with prediction engine
+                const prediction = tickPredictionEngine.processTick(
+                    tick.tick.quote,
+                    Date.now()
+                );
+                
+                // Every 3 ticks, if no active contract, generate recommendation
+                if (tickCounter % 3 === 0) {
+                    console.log(`🎯 AI Recommendation Cycle #${Math.floor(tickCounter / 3)}: ${prediction.direction} (Confidence: ${prediction.confidence}%)`);
+                    
+                    // Convert prediction to trade direction
+                    if (prediction.direction === 'CALL') {
+                        setContinuousAIRecommendation('RISE');
+                        setAIRecommendationConfidence(prediction.confidence);
+                    } else if (prediction.direction === 'PUT') {
+                        setContinuousAIRecommendation('FALL');
+                        setAIRecommendationConfidence(prediction.confidence);
+                    }
+                    
+                    // If no contract in progress and high confidence, execute trade
+                    if (!contractInProgressRef.current && prediction.confidence >= 75) {
+                        const tradeDirection = prediction.direction === 'CALL' ? 'RISE' : 'FALL';
+                        console.log(`🚀 AUTO-EXECUTING AI RECOMMENDATION: ${tradeDirection} (${prediction.confidence}% confidence)`);
+                        
+                        // Execute trade using the AI recommendation
+                        (async () => {
+                            contractInProgressRef.current = true;
+                            const contractType = getContractTypeFromAction(tradeDirection, 't');
+                            
+                            const result = await executeDirectTrade({
+                                symbol: symbol,
+                                contract_type: contractType,
+                                stake: trading_interface.stake,
+                                duration: 2,
+                                duration_unit: 't'
+                            });
+                            
+                            if (result.success) {
+                                setStatus(`✅ AI ${tradeDirection} trade executed! Confidence: ${prediction.confidence}%`);
+                                setTimeout(() => {
+                                    contractInProgressRef.current = false;
+                                    const estimatedProfit = (result.payout || 0) - (result.buy_price || 0);
+                                    updateRLState(tradeDirection, estimatedProfit);
+                                }, 10000);
+                            } else {
+                                contractInProgressRef.current = false;
+                                updateRLState(tradeDirection, -trading_interface.stake);
+                            }
+                        })();
+                    }
+                }
+            }
+        });
+        
+        // Store unsubscribe function
+        tickSubscriptionRef.current = unsubscribe;
+    }, [trading_interface.stake, updateRLState]);
+    
+    /**
+     * Stop continuous AI recommendations
+     */
+    const stopContinuousAIRecommendations = useCallback(() => {
+        if (tickSubscriptionRef.current) {
+            tickSubscriptionRef.current();
+            tickSubscriptionRef.current = null;
+            console.log('⏹️ Stopped continuous AI recommendations');
+        }
+    }, []);
+
+    /**
      * Continuous trading loop with reinforcement learning
      * Adapts to market conditions by continuously scanning and updating recommendations
      * Can trade both RISE and FALL based on changing market analysis
@@ -986,10 +1086,16 @@ const MLTrader = observer(() => {
             // Store unsubscribe function for cleanup
             (window as any)._trendUnsubscribe = unsubscribe;
             
+            // Start continuous AI recommendation system (every 3 ticks)
+            startContinuousAIRecommendations(activeSymbol);
+            
             // Start auto-trading with continuous loop
             setStatus('🤖 Auto-trading activated with real-time trend adaptation...');
             startContinuousTrading();
         } else {
+            // Stop continuous AI recommendations
+            stopContinuousAIRecommendations();
+            
             // Stop real-time trend monitoring
             realTimeTrendMonitor.stopAll();
             console.log('⏹️ Stopped real-time trend monitoring');
@@ -1000,9 +1106,12 @@ const MLTrader = observer(() => {
                 delete (window as any)._trendUnsubscribe;
             }
             
-            // Reset trend override
+            // Reset trend override and AI recommendations
             setTrendOverrideDirection(null);
             setCurrentTrend(null);
+            setContinuousAIRecommendation(null);
+            setAIRecommendationConfidence(0);
+            setTickCount(0);
             
             // Notify Run Panel that bot is stopping
             globalObserver.emit('bot.stop');
@@ -1039,6 +1148,9 @@ const MLTrader = observer(() => {
         autoTradingRef.current = false;
         contractInProgressRef.current = false;
 
+        // Stop continuous AI recommendations
+        stopContinuousAIRecommendations();
+        
         // Clear auto-trading interval
         if (autoTradeIntervalRef.current) {
             clearInterval(autoTradeIntervalRef.current);
@@ -2182,6 +2294,31 @@ const MLTrader = observer(() => {
                                 <div style={{ fontSize: '11px', opacity: 0.9 }}>
                                     <div>Trading: <strong>{trend_override_direction || 'Loading...'}</strong> | Confidence: <strong>{current_trend.confidence.toFixed(1)}%</strong></div>
                                     <div>Strength: <strong>{current_trend.strength.toFixed(1)}%</strong> | Price Change: <strong>{current_trend.priceChange > 0 ? '+' : ''}{current_trend.priceChange.toFixed(4)}%</strong></div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Continuous AI Recommendation Indicator */}
+                        {trading_interface.is_auto_trading && continuous_ai_recommendation && (
+                            <div style={{
+                                padding: '10px',
+                                marginBottom: '16px',
+                                borderRadius: '8px',
+                                background: 'linear-gradient(135deg, #2196F3 0%, #64B5F6 100%)',
+                                color: 'white',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                border: '2px solid rgba(255,255,255,0.3)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <Text size="sm" weight="bold" style={{ color: 'white' }}>
+                                        🤖 AI RECOMMENDATION: {continuous_ai_recommendation}
+                                    </Text>
+                                    <span style={{ fontSize: '11px', opacity: 0.9 }}>
+                                        Ticks: {tick_count} | Confidence: {ai_recommendation_confidence.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>
+                                    {contractInProgressRef.current ? '⏳ Contract in progress...' : '✅ Ready to execute on next cycle'}
                                 </div>
                             </div>
                         )}
