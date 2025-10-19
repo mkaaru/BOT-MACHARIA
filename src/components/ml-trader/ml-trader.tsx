@@ -786,25 +786,42 @@ const MLTrader = observer(() => {
         });
 
         if (result.success && result.contract_id) {
+            console.log('✅ Trade result received:', result.contract_id);
+            
             // Subscribe to contract updates and ONLY send complete data (Trading Hub pattern)
             if (apiRef.current) {
                 try {
+                    console.log('📡 Subscribing to contract updates...');
                     const res = await apiRef.current.send({
                         proposal_open_contract: 1,
                         contract_id: result.contract_id,
                         subscribe: 1
                     });
 
+                    console.log('📡 Subscription response received:', res ? 'OK' : 'NULL');
                     const { proposal_open_contract: pocInit, subscription } = res || {};
+                    
+                    console.log('📡 pocInit:', pocInit ? 'PRESENT' : 'MISSING', 'subscription:', subscription ? 'PRESENT' : 'MISSING');
                     
                     // ONLY send to Run Panel once we have complete data (prevents crash)
                     if (pocInit && String(pocInit.contract_id) === String(result.contract_id)) {
+                        console.log('📡 Sending contract to Run Panel...');
+                        console.log('📡 Contract data:', {
+                            contract_id: pocInit.contract_id,
+                            has_transaction_ids: !!pocInit.transaction_ids,
+                            has_entry_tick: !!pocInit.entry_tick_display_value,
+                            has_exit_tick: !!pocInit.exit_tick_display_value,
+                            status: pocInit.status
+                        });
+                        
                         try {
                             transactions.onBotContractEvent(pocInit);
-                            console.log('📡 Mapped complete contract to Run Panel:', result.contract_id);
+                            console.log('✅ Mapped complete contract to Run Panel:', result.contract_id);
                         } catch (error) {
                             console.error('❌ Error mapping contract:', error);
                         }
+                    } else {
+                        console.warn('⚠️ pocInit missing or contract_id mismatch');
                     }
 
                     // Subscribe to ongoing updates
