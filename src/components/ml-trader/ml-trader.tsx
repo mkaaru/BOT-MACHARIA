@@ -786,25 +786,7 @@ const MLTrader = observer(() => {
         });
 
         if (result.success && result.contract_id) {
-            // Map initial contract to Run Panel (Trading Hub style with minimal data first)
-            try {
-                transactions.onBotContractEvent({
-                    contract_id: result.contract_id,
-                    transaction_ids: { buy: result.transaction_id },
-                    buy_price: result.buy_price,
-                    currency: account_currency,
-                    contract_type: contractType,
-                    underlying: symbol,
-                    display_name: displayName || symbol,
-                    date_start: Math.floor(Date.now() / 1000),
-                    status: 'open',
-                } as any);
-                console.log('📡 Mapped initial contract to Run Panel:', result.contract_id);
-            } catch (error) {
-                console.error('❌ Error mapping initial contract:', error);
-            }
-
-            // Subscribe to contract updates with full data
+            // Subscribe to contract updates and ONLY send complete data (Trading Hub pattern)
             if (apiRef.current) {
                 try {
                     const res = await apiRef.current.send({
@@ -815,17 +797,17 @@ const MLTrader = observer(() => {
 
                     const { proposal_open_contract: pocInit, subscription } = res || {};
                     
-                    // Update with complete initial data if available
+                    // ONLY send to Run Panel once we have complete data (prevents crash)
                     if (pocInit && String(pocInit.contract_id) === String(result.contract_id)) {
                         try {
                             transactions.onBotContractEvent(pocInit);
-                            console.log('📡 Updated with complete contract data');
+                            console.log('📡 Mapped complete contract to Run Panel:', result.contract_id);
                         } catch (error) {
-                            console.error('❌ Error updating contract data:', error);
+                            console.error('❌ Error mapping contract:', error);
                         }
                     }
 
-                    // Subscribe to ongoing updates using the initial subscription
+                    // Subscribe to ongoing updates
                     if (subscription?.id) {
                         const onMessage = (evt: MessageEvent) => {
                             try {
@@ -843,19 +825,19 @@ const MLTrader = observer(() => {
                                         if (poc.is_sold || poc.is_settled) {
                                             apiRef.current?.forget?.({ forget: subscription.id });
                                             apiRef.current?.connection?.removeEventListener('message', onMessage);
-                                            console.log('✅ Contract settled, unsubscribed');
+                                            console.log('✅ Contract settled');
                                         }
                                     }
                                 }
                             } catch (error) {
-                                console.error('❌ Error processing contract message:', error);
+                                console.error('❌ Error processing message:', error);
                             }
                         };
 
                         apiRef.current?.connection?.addEventListener('message', onMessage);
                     }
                 } catch (error) {
-                    console.error('❌ Error setting up contract subscription:', error);
+                    console.error('❌ Error setting up subscription:', error);
                 }
             }
         }
