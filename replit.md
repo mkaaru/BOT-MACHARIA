@@ -38,6 +38,15 @@ Preferred communication style: Simple, everyday language.
 - **Auto-Trading System**: `ml-auto-trader.ts` service for intelligent trade execution with risk management, including configurable stake, min confidence, max trades/hour, cooldown, stop-loss, and take-profit. Features symbol rotation and a contract type alternation strategy (Equals vs. Plain contracts) based on win/loss streaks.
 - **Deriv API Integration**: Corrected contract type mapping (Rise as PUT, Fall as CALL) and enforced 2-tick duration. Optimized for Step Indices to reduce API load and improve rate limit avoidance.
 - **Bot Builder Market Hierarchy**: Correct XML structure for Blockly to properly populate market, submarket, and symbol dropdowns, particularly for Step Indices.
+- **Intelligent ML Trader Bot (October 2025)**: Enhanced "Load to Bot Builder" feature that generates adaptive trading bots with tick-stream analysis capabilities:
+  * **John Ehlers Technical Indicators**: Utilizes `ehlers-indicators.ts` with Supersmoother filter, Instantaneous Trendline, and Cyber Cycle for market analysis
+  * **Adaptive Direction Detection**: Bot learns from real-time tick patterns and switches between RISE/FALL based on detected market trends
+  * **Confidence-Based Trading**: Only executes trades when confidence >= 70%, preventing low-quality signals
+  * **Rolling Window Buffer**: Maintains 150-tick history with automatic memory management to prevent bloat
+  * **Periodic Analysis**: Recalculates market direction every 60 trades using simplified trend detection (last tick vs first tick comparison)
+  * **3-Tick Duration**: Uses 3 ticks (upgraded from 2) for better market direction analysis on Step Indices
+  * **Risk Management**: Preserves martingale progression and consecutive loss limits (max 5) while adding intelligent market timing
+  * **Initial Bootstrap**: Starts with 75% confidence to enable initial trades, then adapts based on market learning
 
 # External Dependencies
 

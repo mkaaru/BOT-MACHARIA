@@ -127,20 +127,42 @@ export function analyzeMarketDirection(prices: number[], minConfidence: number =
 
     // Determine direction based on signal alignment
     let direction: 'RISE' | 'FALL' | 'NEUTRAL' = 'NEUTRAL';
-    let signalCount = 0;
+    
+    // Count bullish and bearish signals
+    let bullishCount = 0;
+    let bearishCount = 0;
 
-    if (priceAboveTrend) signalCount++;
-    if (trendRising) signalCount++;
-    if (cycleRising) signalCount++;
+    if (priceAboveTrend) bullishCount++;
+    else bearishCount++;
+    
+    if (trendRising) bullishCount++;
+    else bearishCount++;
+    
+    if (cycleRising) bullishCount++;
+    else bearishCount++;
 
-    if (priceAboveTrend && trendRising && cycleRising) {
+    // Determine direction and alignment strength
+    let alignmentStrength = 0;
+    if (bullishCount === 3) {
         direction = 'RISE';
-    } else if (!priceAboveTrend && !trendRising && !cycleRising) {
+        alignmentStrength = 3; // Perfect bullish alignment
+    } else if (bearishCount === 3) {
         direction = 'FALL';
+        alignmentStrength = 3; // Perfect bearish alignment
+    } else if (bullishCount >= 2) {
+        direction = 'RISE';
+        alignmentStrength = bullishCount; // Partial bullish alignment
+    } else if (bearishCount >= 2) {
+        direction = 'FALL';
+        alignmentStrength = bearishCount; // Partial bearish alignment
+    } else {
+        direction = 'NEUTRAL';
+        alignmentStrength = 0; // Mixed signals
     }
 
     // Calculate confidence (0-100)
-    const baseConfidence = (signalCount / 3) * 100;
+    // High confidence when all 3 signals align (either RISE or FALL)
+    const baseConfidence = (alignmentStrength / 3) * 100;
     const trendBonus = Math.min(20, trendStrength);
     const confidence = Math.min(100, baseConfidence + trendBonus);
 
