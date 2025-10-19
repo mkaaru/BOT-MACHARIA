@@ -786,57 +786,57 @@ const MLTrader = observer(() => {
         });
 
         if (result.success && result.contract_id) {
-            // Map to Run Panel using Trading Hub approach
-            try {
-                transactions.onBotContractEvent({
-                    contract_id: result.contract_id,
-                    transaction_ids: { buy: result.transaction_id }, // Use actual buy transaction ID
-                    buy_price: result.buy_price,
-                    currency: account_currency, // Use actual account currency
-                    contract_type: contractType,
-                    underlying: symbol,
-                    display_name: displayName || symbol,
-                    date_start: Math.floor(Date.now() / 1000),
-                    status: 'open',
-                    payout: result.payout,
-                    longcode: result.longcode
-                } as any);
-                
-                console.log('📡 Mapped contract to Run Panel:', result.contract_id, 'Transaction:', result.transaction_id);
-            } catch (error) {
-                console.error('Error mapping to transaction panel:', error);
-            }
-
-            // Subscribe to contract updates
+            // Subscribe to contract updates and map to Run Panel (Trading Hub style)
             if (apiRef.current) {
                 try {
-                    const subscription = apiRef.current.subscribe({
+                    const res = await apiRef.current.send({
                         proposal_open_contract: 1,
                         contract_id: result.contract_id,
                         subscribe: 1
                     });
 
-                    subscription.subscribe(
-                        (pocResponse: any) => {
-                            if (pocResponse.proposal_open_contract) {
-                                const poc = pocResponse.proposal_open_contract;
-                                
-                                // Update Run Panel with contract progress
-                                transactions.onBotContractEvent(poc);
-                                console.log('📊 Contract update:', poc.status);
-                                
-                                if (poc.is_sold || poc.is_settled) {
-                                    subscription.unsubscribe();
-                                    console.log('✅ Contract settled');
+                    const { proposal_open_contract: pocInit, subscription } = res || {};
+                    
+                    // Send initial contract data to Run Panel (wrapped in try-catch like Trading Hub)
+                    if (pocInit && String(pocInit.contract_id) === String(result.contract_id)) {
+                        try {
+                            transactions.onBotContractEvent(pocInit);
+                            console.log('📡 Mapped initial contract to Run Panel:', result.contract_id);
+                        } catch {}
+                    }
+
+                    // Subscribe to ongoing updates
+                    if (subscription) {
+                        const subscriptionObj = apiRef.current.subscribe({
+                            proposal_open_contract: 1,
+                            contract_id: result.contract_id,
+                            subscribe: 1
+                        });
+
+                        subscriptionObj.subscribe(
+                            (pocResponse: any) => {
+                                if (pocResponse.proposal_open_contract) {
+                                    const poc = pocResponse.proposal_open_contract;
+                                    
+                                    // Update Run Panel with contract progress (wrapped in try-catch)
+                                    try {
+                                        transactions.onBotContractEvent(poc);
+                                        console.log('📊 Contract update:', poc.status);
+                                    } catch {}
+                                    
+                                    if (poc.is_sold || poc.is_settled) {
+                                        subscriptionObj.unsubscribe();
+                                        console.log('✅ Contract settled');
+                                    }
                                 }
+                            },
+                            (error: any) => {
+                                console.error('❌ Contract subscription error:', error);
                             }
-                        },
-                        (error: any) => {
-                            console.error('❌ Contract subscription error:', error);
-                        }
-                    );
+                        );
+                    }
                 } catch (error) {
-                    console.error('Error subscribing to contract updates:', error);
+                    console.error('Error setting up contract subscription:', error);
                 }
             }
         }
