@@ -67,6 +67,7 @@ interface TradingInterface {
 
 const MLTrader = observer(() => {
     const store = useStore();
+    const { transactions, run_panel } = store;
 
     const apiRef = useRef<any>(null);
     const contractInProgressRef = useRef(false);
@@ -768,6 +769,82 @@ const MLTrader = observer(() => {
     }, []);
 
     /**
+     * Execute trade and map to Run Panel (Trading Hub style)
+     */
+    const executeTradeAndMapToPanel = useCallback(async (
+        symbol: string,
+        contractType: 'CALL' | 'PUT' | 'CALLE' | 'PUTE',
+        stake: number,
+        displayName?: string
+    ) => {
+        const result = await executeDirectTrade({
+            symbol,
+            contract_type: contractType,
+            stake,
+            duration: 2,
+            duration_unit: 't'
+        });
+
+        if (result.success && result.contract_id) {
+            // Map to Run Panel using Trading Hub approach
+            try {
+                transactions.onBotContractEvent({
+                    contract_id: result.contract_id,
+                    transaction_ids: { buy: result.contract_id }, // Use contract_id as transaction id
+                    buy_price: result.buy_price,
+                    currency: 'USD',
+                    contract_type: contractType,
+                    underlying: symbol,
+                    display_name: displayName || symbol,
+                    date_start: Math.floor(Date.now() / 1000),
+                    status: 'open',
+                    payout: result.payout,
+                    longcode: result.longcode
+                } as any);
+                
+                console.log('📡 Mapped contract to Run Panel:', result.contract_id);
+            } catch (error) {
+                console.error('Error mapping to transaction panel:', error);
+            }
+
+            // Subscribe to contract updates
+            if (apiRef.current) {
+                try {
+                    const subscription = apiRef.current.subscribe({
+                        proposal_open_contract: 1,
+                        contract_id: result.contract_id,
+                        subscribe: 1
+                    });
+
+                    subscription.subscribe(
+                        (pocResponse: any) => {
+                            if (pocResponse.proposal_open_contract) {
+                                const poc = pocResponse.proposal_open_contract;
+                                
+                                // Update Run Panel with contract progress
+                                transactions.onBotContractEvent(poc);
+                                console.log('📊 Contract update:', poc.status);
+                                
+                                if (poc.is_sold || poc.is_settled) {
+                                    subscription.unsubscribe();
+                                    console.log('✅ Contract settled');
+                                }
+                            }
+                        },
+                        (error: any) => {
+                            console.error('❌ Contract subscription error:', error);
+                        }
+                    );
+                } catch (error) {
+                    console.error('Error subscribing to contract updates:', error);
+                }
+            }
+        }
+
+        return result;
+    }, [transactions]);
+
+    /**
      * Apply recommendation and execute trade directly via API (bypasses Bot Builder)
      */
     const applyRecommendation = useCallback(async (recommendation: ScannerRecommendation) => {
@@ -786,14 +863,13 @@ const MLTrader = observer(() => {
             // For tick-based contracts, ALWAYS use CALL/PUT (not CALLE/PUTE)
             const contractType = getContractTypeFromAction(tradeDirection, 't');
             
-            // Execute trade directly via Deriv API using configured stake
-            const result = await executeDirectTrade({
-                symbol: recommendation.symbol,
-                contract_type: contractType,
-                stake: trading_interface.stake, // Use configured stake from UI
-                duration: 2, // 2 ticks
-                duration_unit: 't'
-            });
+            // Execute trade and map to Run Panel
+            const result = await executeTradeAndMapToPanel(
+                recommendation.symbol,
+                contractType,
+                trading_interface.stake,
+                recommendation.displayName
+            );
 
             if (result.success) {
                 setStatus(`✅ Trade executed successfully! Contract ID: ${result.contract_id}, Stake: $${result.buy_price?.toFixed(2)}, Potential Payout: $${result.payout?.toFixed(2)}`);
@@ -892,13 +968,11 @@ const MLTrader = observer(() => {
                             contractInProgressRef.current = true;
                             const contractType = getContractTypeFromAction(tradeDirection, 't');
                             
-                            const result = await executeDirectTrade({
-                                symbol: symbol,
-                                contract_type: contractType,
-                                stake: trading_interface.stake,
-                                duration: 2,
-                                duration_unit: 't'
-                            });
+                            const result = await executeTradeAndMapToPanel(
+                                symbol,
+                                contractType,
+                                trading_interface.stake
+                            );
                             
                             if (result.success) {
                                 setStatus(`✅ AI ${tradeDirection} trade executed! Confidence: ${prediction.confidence}%`);
@@ -1025,17 +1099,16 @@ const MLTrader = observer(() => {
             // Execute trade with trend-based or RL-optimized direction
             const contractType = getContractTypeFromAction(tradeDirection, 't');
             
-            // Execute trade directly (bypassing applyRecommendation to use trend direction)
+            // Execute trade and map to Run Panel
             if (!contractInProgressRef.current) {
                 contractInProgressRef.current = true;
                 
-                const result = await executeDirectTrade({
-                    symbol: selectedRecommendation.symbol,
-                    contract_type: contractType,
-                    stake: trading_interface.stake,
-                    duration: 2,
-                    duration_unit: 't'
-                });
+                const result = await executeTradeAndMapToPanel(
+                    selectedRecommendation.symbol,
+                    contractType,
+                    trading_interface.stake,
+                    selectedRecommendation.displayName
+                );
 
                 if (result.success) {
                     setStatus(`✅ ${tradeDirection} trade executed! Contract: ${result.contract_id}`);
@@ -1054,9 +1127,9 @@ const MLTrader = observer(() => {
         // Execute first trade immediately
         executeContinuousTrade();
 
-        // Then execute every 12 seconds (allows 10s settlement + 2s buffer)
+        // Then execute every 3 seconds for rapid continuous trading
         // Each cycle re-evaluates market conditions for adaptive trading
-        autoTradeIntervalRef.current = setInterval(executeContinuousTrade, 12000);
+        autoTradeIntervalRef.current = setInterval(executeContinuousTrade, 3000);
     }, [recommendations, rl_state, trend_override_direction, current_trend, trading_interface.stake, updateRLState]);
 
     /**
