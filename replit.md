@@ -67,6 +67,8 @@ Preferred communication style: Simple, everyday language.
   * **Live Contract Updates**: Subscribes to `proposal_open_contract` and continuously updates Run Panel with contract progress
   * **3-Second Trade Interval**: Rapid continuous trading with 3-second intervals (reduced from 12 seconds) for faster market opportunities
   * **Wrapper Function**: `executeTradeAndMapToPanel()` encapsulates trade execution, transaction mapping, and subscription management
+  * **Crash Protection**: All `onBotContractEvent` calls wrapped in try-catch blocks to prevent Transactions panel crashes during active trading
+  * **Complete Data**: Fetches full `proposal_open_contract` response before mapping to ensure all required fields (entry_tick, exit_tick, etc.) are present
 
 # External Dependencies
 
