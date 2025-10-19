@@ -790,9 +790,9 @@ const MLTrader = observer(() => {
             try {
                 transactions.onBotContractEvent({
                     contract_id: result.contract_id,
-                    transaction_ids: { buy: result.contract_id }, // Use contract_id as transaction id
+                    transaction_ids: { buy: result.transaction_id }, // Use actual buy transaction ID
                     buy_price: result.buy_price,
-                    currency: 'USD',
+                    currency: account_currency, // Use actual account currency
                     contract_type: contractType,
                     underlying: symbol,
                     display_name: displayName || symbol,
@@ -802,7 +802,7 @@ const MLTrader = observer(() => {
                     longcode: result.longcode
                 } as any);
                 
-                console.log('📡 Mapped contract to Run Panel:', result.contract_id);
+                console.log('📡 Mapped contract to Run Panel:', result.contract_id, 'Transaction:', result.transaction_id);
             } catch (error) {
                 console.error('Error mapping to transaction panel:', error);
             }

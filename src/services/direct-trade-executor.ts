@@ -21,6 +21,7 @@ export interface DirectTradeParams {
 export interface DirectTradeResult {
     success: boolean;
     contract_id?: string;
+    transaction_id?: string;
     buy_price?: number;
     payout?: number;
     error?: string;
@@ -103,6 +104,7 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
 
         if (buyResponse.buy) {
             const contract_id = buyResponse.buy.contract_id;
+            const transaction_id = buyResponse.buy.transaction_id;
             const buy_price = parseFloat(buyResponse.buy.buy_price);
             const payout = parseFloat(buyResponse.buy.payout || 0);
             
@@ -121,7 +123,7 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
                 is_completed: false,
                 date_start: Math.floor(Date.now() / 1000),
                 transaction_ids: {
-                    buy: buyResponse.buy.transaction_id
+                    buy: transaction_id
                 }
             };
 
@@ -167,6 +169,7 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
             const result = {
                 success: true,
                 contract_id,
+                transaction_id,
                 buy_price,
                 payout,
                 longcode: buyResponse.buy.longcode
