@@ -1,0 +1,550 @@
+
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (21.4% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 50.0%, Recommendation: NO_TRADE
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 8 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (25.0% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (9.6% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 14 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (21.4% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG3: OHLC(11754.70000, 11755.30000, 11754.70000, 11755.00000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (9.6% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 50.0%, Recommendation: NO_TRADE
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG: OHLC(8088.40000, 8088.40000, 8087.90000, 8087.90000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 13 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG4: OHLC(9027.60000, 9028.40000, 9027.20000, 9028.00000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (8.7% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 50.0%, Recommendation: NO_TRADE
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG5: OHLC(7381.50000, 7384.00000, 7381.00000, 7384.00000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (66.0% confidence, 4 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG2: OHLC(11032.20000, 11033.20000, 11032.20000, 11033.20000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 8 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (43.5% confidence, 3 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 6 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (9.3% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (8.7% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 37.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 8 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 6 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (9.0% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (9.3% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 13 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (9.0% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 13 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (9.0% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 7 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 10 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 8 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 10 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (8.7% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (22.6% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (8.4% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (9.0% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 7 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 8 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 7 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 6 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (9.0% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (8.1% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (8.1% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (22.0% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 7 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+content_script.js:7165 Content limit: 612032839.68
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (22.0% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 10 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (7.8% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 10 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (100.0% confidence, 7 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (100.0% confidence, 6 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 13 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (7.8% confidence, 1 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 50.0%, Recommendation: NO_TRADE
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG: OHLC(8088.00000, 8088.00000, 8087.70000, 8087.70000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 10 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG3: OHLC(11755.30000, 11755.60000, 11755.00000, 11755.60000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (19.6% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 50.0%, Recommendation: NO_TRADE
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG4: OHLC(9028.40000, 9028.40000, 9026.40000, 9026.40000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (100.0% confidence, 7 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG5: OHLC(7384.50000, 7385.50000, 7383.00000, 7383.00000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (66.0% confidence, 4 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 50.0%, Recommendation: NO_TRADE
+2ehlers-predictive-system.ts:123 📊 10s candle for stpRNG2: OHLC(11033.40000, 11034.00000, 11033.40000, 11033.60000) with 10 ticks
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 8 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (64.8% confidence, 4 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (100.0% confidence, 8 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 16 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (20.2% confidence, 2 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG2 (Step Index 200)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG2
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG2: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG2: NEUTRAL (100.0% confidence, 6 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG2, Confidence: 12.5%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG5 (Step Index 500)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG5
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG5: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG5: NEUTRAL (66.0% confidence, 4 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG5, Confidence: 85.0%, Recommendation: RISE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG (Step Index 100)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG: NEUTRAL (100.0% confidence, 11 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG3 (Step Index 300)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG3
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG3: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG3: NEUTRAL (35.4% confidence, 3 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG3, Confidence: 50.0%, Recommendation: NO_TRADE
+deriv-volatility-scanner.ts:363 🔷 Updating analysis for Step Index: stpRNG4 (Step Index 400)
+ml-tick-analyzer.ts:91 🧠 ML Training: Processing 600 historical ticks for stpRNG4
+ml-tick-analyzer.ts:512 🔧 Updated ML weights for stpRNG4: Object
+ml-tick-analyzer.ts:106 ✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (100.0% confidence, 9 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+ml-trader.tsx:786 🚀 Loading recommendation to Bot Builder: Object
+ml-trader.tsx:841 XML Generation Variables: Object
+ml-trader.tsx:1484 📄 Loading ML Trader strategy with continuous trading to Bot Builder...
+ml-trader.tsx:744 ML Trader cleanup completed
+tick-stream-manager.ts:408 Unsubscribed from stpRNG
+blockly_compressed.js:197  Ignoring non-existent field DETAIL_LIST in block read_details
+domToField$$module$build$src$core$xml @ blockly_compressed.js:197
+blockly_compressed.js:197  Ignoring non-existent field TRADE_AGAIN_TYPE in block trade_again
+domToField$$module$build$src$core$xml @ blockly_compressed.js:197
+tick-stream-manager.ts:408 Unsubscribed from stpRNG2
+tick-stream-manager.ts:408 Unsubscribed from stpRNG3
+tick-stream-manager.ts:408 Unsubscribed from stpRNG4
+tick-stream-manager.ts:408 Unsubscribed from stpRNG5
+content_script.js:7165 Content limit: 612032839.68
+react-dom.development.js:86  Warning: findDOMNode is deprecated and will be removed in the next major release. Instead, add a ref directly to the element you want to reference. Learn more about using refs safely here: https://reactjs.org/link/strict-mode-find-node
+    at CellMeasurer (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:26103:86)
+    at div
+    at div
+    at Grid (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:28032:86)
+    at List (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:30914:86)
+    at div
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at div
+    at TransitionGroup (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:25212:30)
+    at div
+    at AutoSizer (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:25862:86)
+    at div
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:3692:11
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23074:11)
+    at DrawerContent (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:14356:11)
+    at div
+    at div
+    at div
+    at div
+    at Drawer (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:20150:11)
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at Desktop (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:1084:11)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4556:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4413:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23479:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
