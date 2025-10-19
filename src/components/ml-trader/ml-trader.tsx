@@ -816,8 +816,8 @@ const MLTrader = observer(() => {
                 tradeType = 'risefall';
             }
 
-            // Set default duration to 3 ticks for better analysis
-            const defaultDuration = 3;
+            // Set default duration to 2 ticks
+            const defaultDuration = 2;
 
             // Set default stake to 0.35
             const defaultStake = 0.35;
@@ -926,7 +926,7 @@ const MLTrader = observer(() => {
                                                         <field name="VAR" id="durationTicks">durationTicks</field>
                                                         <value name="VALUE">
                                                             <block type="math_number">
-                                                                <field name="NUM">3</field>
+                                                                <field name="NUM">2</field>
                                                             </block>
                                                         </value>
                                                         <next>
@@ -1022,10 +1022,10 @@ const MLTrader = observer(() => {
                                 <field name="DURATIONTYPE_LIST">t</field>
                                 <value name="DURATION">
                                     <shadow type="math_number">
-                                        <field name="NUM">3</field>
+                                        <field name="NUM">2</field>
                                     </shadow>
                                     <block type="math_number">
-                                        <field name="NUM">3</field>
+                                        <field name="NUM">2</field>
                                     </block>
                                 </value>
                                 <value name="AMOUNT">

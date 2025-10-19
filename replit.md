@@ -40,11 +40,11 @@ Preferred communication style: Simple, everyday language.
 - **Bot Builder Market Hierarchy**: Correct XML structure for Blockly to properly populate market, submarket, and symbol dropdowns, particularly for Step Indices.
 - **Intelligent ML Trader Bot (October 2025)**: Enhanced "Load to Bot Builder" feature that generates adaptive trading bots with tick-stream analysis capabilities:
   * **John Ehlers Technical Indicators**: Utilizes `ehlers-indicators.ts` with Supersmoother filter, Instantaneous Trendline, and Cyber Cycle for market analysis
-  * **Adaptive Direction Detection**: Bot learns from real-time tick patterns and switches between RISE/FALL based on detected market trends
+  * **Adaptive Bi-Directional Trading**: Bot learns from real-time tick patterns and switches between RISE/FALL based on detected market trends with symmetric confidence scoring for both bullish and bearish alignments
   * **Confidence-Based Trading**: Only executes trades when confidence >= 70%, preventing low-quality signals
   * **Rolling Window Buffer**: Maintains 150-tick history with automatic memory management to prevent bloat
   * **Periodic Analysis**: Recalculates market direction every 60 trades using simplified trend detection (last tick vs first tick comparison)
-  * **3-Tick Duration**: Uses 3 ticks (upgraded from 2) for better market direction analysis on Step Indices
+  * **2-Tick Duration**: Uses 2 ticks for Step Indices and volatility markets
   * **Risk Management**: Preserves martingale progression and consecutive loss limits (max 5) while adding intelligent market timing
   * **Initial Bootstrap**: Starts with 75% confidence to enable initial trades, then adapts based on market learning
 
