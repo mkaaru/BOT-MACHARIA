@@ -12,10 +12,6 @@ export interface TradeRecommendation {
     reason: string;
     timestamp: number;
     score?: number;
-    // Reinforcement Learning fields
-    originalConfidence?: number;  // Original confidence before RL adjustment
-    rlWinRate?: number;           // Historical win rate for this symbol+strategy
-    rlTotalTrades?: number;       // Total trades executed for this symbol+strategy
 }
 
 export interface MarketStats {
