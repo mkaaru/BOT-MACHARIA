@@ -1,0 +1,48 @@
+when load fo bot builder is cliked in the ml trader this is what is expected
+
+Looking at the ML Trader code in src/components/ml-trader/ml-trader.tsx, I can see the bot that gets loaded when clicking "Load to Bot Builder" on a recommendation.
+
+Yes, I can see the bot strategy that's loaded. Here's what happens:
+
+Current ML Trader Bot Strategy
+When you click "Load to Bot Builder" on a recommendation, it generates an XML strategy with these key features:
+
+Martingale system with consecutive loss tracking
+2-tick duration contracts
+Stop-loss after 5 consecutive losses
+Automatic stake multiplier that increases on loss and resets on win
+Contract type based on recommendation:
+For Step Indices: Uses CALL/PUT
+For normal/1s volatilities: Uses CALLE/PUTE (Equals contracts)
+The bot structure includes:
+
+Initialization: Sets up variables for stake, max consecutive loss (5), and martingale multiplier (1)
+Before Purchase: Checks if max consecutive losses reached, if so stops trading
+After Purchase:
+On win: Resets consecutive loss count and multiplier to 1
+On loss: Increments loss count and multiplies stake by martingale value
+Continues trading if under max loss threshold
+The key part of the generated strategy is in the loadToBotBuilder function around lines 665-882, which creates a complete Blockly XML with:
+
+Trade definition (market, symbol, contract type)
+Duration of 2 ticks
+Default stake of 0.35
+Martingale logic with max 5 consecutive losses
+Functions for calculating trade amounts
+This is a complete, functional bot that implements risk management through the consecutive loss limit, making it safer than unlimited martingale strategies.
+
+Scroll to latest
+Assistant mode
+just like it was 10 hours ago ,
+
+remove the current complex bot builder and load the one that you loaded before
+
+17 minutes ago
+
+16 messages & 37 actions
+I understand! You want the simple martingale bot from before, not the complex one with all the tick analysis. Let me revert the "Load to Bot Builder" to the simpler version:
+Checkpoint made
+11 minutes ago
+Revert to a simpler martingale bot strategy for the ML Trader
+6 minutes of work
+Agent encountered an error while running, we are investigating the issue.
