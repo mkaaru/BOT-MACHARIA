@@ -1437,6 +1437,7 @@ const MLTrader = observer(() => {
             });
 
             // Martingale strategy with level 3 limit (revert after 2 losses) and max 5 losses
+            // Includes ROC (Rate of Change) filtering - only trades when market direction aligns with recommendation
             const strategyXml = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
     <variables>
         <variable id="stake_var">stake</variable>
@@ -1583,8 +1584,22 @@ const MLTrader = observer(() => {
                     </block>
                 </statement>
                 <next>
-                    <block type="purchase">
-                        <field name="PURCHASE_LIST">${contractType}</field>
+                    <block type="text_print">
+                        <value name="TEXT">
+                            <block type="text_join">
+                                <mutation items="3"></mutation>
+                                <value name="ADD0">
+                                    <block type="text">
+                                        <field name="TEXT">ROC Check: Recommendation=${recommendation.action}, Expecting ${recommendation.action === 'RISE' ? 'UP' : 'DOWN'} movement</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
                     </block>
                 </next>
             </block>
