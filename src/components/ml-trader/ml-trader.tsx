@@ -1410,38 +1410,14 @@ const MLTrader = observer(() => {
                 displayName
             });
 
-            // Prepare enhanced strategy XML with John Ehlers tick analysis
+            // Simple martingale strategy XML
             const strategyXml = `
                 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                     <variables>
-                        <variable id="x]b3MHpbtR?cJQDP@,eG">martingale:resultIsWin</variable>
-                        <variable id="[M$5RsD\`g|8-P;C+mbf4">martingale:profit</variable>
-                        <variable id="]6T=O624:eVRioXro1kh">Notification:currentStake</variable>
-                        <variable id="Kb@{Vb{+5IqV=d~y*dcr">martingale:totalProfit</variable>
-                        <variable id="6G^6o^Ic@rjF|sHv*m.6">martingale:tradeAgain</variable>
-                        <variable id="3^~61:59m?#VJ(:SG^^[">Maximum Stake</variable>
-                        <variable id="*p5|Lkk9Q^ZuPBQ-48g2">martingale:profitThreshold</variable>
-                        <variable id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</variable>
-                        <variable id="[$B]vBH,~wrN\`PUt5m/f">martingale:initialStake</variable>
-                        <variable id="Gh~KH=(G5Q?:C:QU{3(P">stake</variable>
-                        <variable id="a1BTYNHC?_yR4sfvNJ7N">martingale:lossThreshold</variable>
-                        <variable id="4vh+dtelQS#?}@cNPcN!">maxStake</variable>
-                        <variable id="p#@Pr/Y.sKueWX#oRSPl">Notification:totalProfit</variable>
-                        <variable id="/VZkC:5@oNcl%%_S,N)K">martingale</variable>
-                        <variable id="ipD5?_dQ1Zkvf%v|[?DQ">martingale:size</variable>
-                        <variable id="I--KAm(C+#{d?~ip*23e">Notification:profitThresholdReached</variable>
-                        <variable id="5SwcMzq.f)VNUzjbKfrw">Notification:lossThresholdReached</variable>
                         <variable id="consecutiveLossCount">consecutiveLossCount</variable>
                         <variable id="maxConsecutiveLoss">maxConsecutiveLoss</variable>
-                        <variable id="durationTicks">durationTicks</variable>
-                        <variable id="tickBuffer">tickBuffer</variable>
-                        <variable id="tickCount">tickCount</variable>
-                        <variable id="ticksUntilRecalc">ticksUntilRecalc</variable>
-                        <variable id="currentDirection">currentDirection</variable>
-                        <variable id="currentConfidence">currentConfidence</variable>
-                        <variable id="trendRising">trendRising</variable>
-                        <variable id="minConfidenceThreshold">minConfidenceThreshold</variable>
-                        <variable id="adaptiveContractType">adaptiveContractType</variable>
+                        <variable id="Gh~KH=(G5Q?:C:QU{3(P">stake</variable>
+                        <variable id="/VZkC:5@oNcl%%_S,N)K">martingale</variable>
                     </variables>
                     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
                         <statement name="TRADE_OPTIONS">
@@ -1502,93 +1478,13 @@ const MLTrader = observer(() => {
                                                     </block>
                                                 </value>
                                                 <next>
-                                                    <block type="variables_set" id="init_duration_ticks">
-                                                        <field name="VAR" id="durationTicks">durationTicks</field>
+                                                    <block type="variables_set" id="init_martingale">
+                                                        <field name="VAR" id="/VZkC:5@oNcl%%_S,N)K">martingale</field>
                                                         <value name="VALUE">
                                                             <block type="math_number">
-                                                                <field name="NUM">2</field>
+                                                                <field name="NUM">1</field>
                                                             </block>
                                                         </value>
-                                                        <next>
-                                                            <block type="variables_set" id="init_martingale">
-                                                                <field name="VAR" id="/VZkC:5@oNcl%%_S,N)K">martingale</field>
-                                                                <value name="VALUE">
-                                                                    <block type="math_number">
-                                                                        <field name="NUM">1</field>
-                                                                    </block>
-                                                                </value>
-                                                                <next>
-                                                                    <block type="variables_set" id="init_tick_buffer">
-                                                                        <field name="VAR" id="tickBuffer">tickBuffer</field>
-                                                                        <value name="VALUE">
-                                                                            <block type="lists_create_with">
-                                                                                <mutation items="0"></mutation>
-                                                                            </block>
-                                                                        </value>
-                                                                        <next>
-                                                                            <block type="variables_set" id="init_tick_count">
-                                                                                <field name="VAR" id="tickCount">tickCount</field>
-                                                                                <value name="VALUE">
-                                                                                    <block type="math_number">
-                                                                                        <field name="NUM">0</field>
-                                                                                    </block>
-                                                                                </value>
-                                                                                <next>
-                                                                                    <block type="variables_set" id="init_ticks_until_recalc">
-                                                                                        <field name="VAR" id="ticksUntilRecalc">ticksUntilRecalc</field>
-                                                                                        <value name="VALUE">
-                                                                                            <block type="math_number">
-                                                                                                <field name="NUM">60</field>
-                                                                                            </block>
-                                                                                        </value>
-                                                                                        <next>
-                                                                                            <block type="variables_set" id="init_current_direction">
-                                                                                                <field name="VAR" id="currentDirection">currentDirection</field>
-                                                                                                <value name="VALUE">
-                                                                                                    <block type="text">
-                                                                                                        <field name="TEXT">RISE</field>
-                                                                                                    </block>
-                                                                                                </value>
-                                                                                                <next>
-                                                                                                    <block type="variables_set" id="init_current_confidence">
-                                                                                                        <field name="VAR" id="currentConfidence">currentConfidence</field>
-                                                                                                        <value name="VALUE">
-                                                                                                            <block type="math_number">
-                                                                                                                <field name="NUM">75</field>
-                                                                                                            </block>
-                                                                                                        </value>
-                                                                                                        <next>
-                                                                                                            <block type="variables_set" id="init_min_confidence">
-                                                                                                                <field name="VAR" id="minConfidenceThreshold">minConfidenceThreshold</field>
-                                                                                                                <value name="VALUE">
-                                                                                                                    <block type="math_number">
-                                                                                                                        <field name="NUM">70</field>
-                                                                                                                    </block>
-                                                                                                                </value>
-                                                                                                                <next>
-                                                                                                                    <block type="variables_set" id="init_adaptive_contract_type">
-                                                                                                                        <field name="VAR" id="adaptiveContractType">adaptiveContractType</field>
-                                                                                                                        <value name="VALUE">
-                                                                                                                            <block type="text">
-                                                                                                                                <field name="TEXT">${initialContractType}</field>
-                                                                                                                            </block>
-                                                                                                                        </value>
-                                                                                                                    </block>
-                                                                                                                </next>
-                                                                                                            </block>
-                                                                                                        </next>
-                                                                                                    </block>
-                                                                                                </next>
-                                                                                            </block>
-                                                                                        </next>
-                                                                                    </block>
-                                                                                </next>
-                                                                            </block>
-                                                                        </next>
-                                                                    </block>
-                                                                </next>
-                                                            </block>
-                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
@@ -1621,69 +1517,38 @@ const MLTrader = observer(() => {
                     </block>
                     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
                         <statement name="BEFOREPURCHASE_STACK">
-                            <block type="controls_if" id="check_confidence">
-                                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                            <block type="controls_if" id="check_consecutive_loss">
                                 <value name="IF0">
                                     <block type="logic_compare">
                                         <field name="OP">GTE</field>
                                         <value name="A">
                                             <block type="variables_get">
-                                                <field name="VAR" id="currentConfidence">currentConfidence</field>
+                                                <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
                                             </block>
                                         </value>
                                         <value name="B">
                                             <block type="variables_get">
-                                                <field name="VAR" id="minConfidenceThreshold">minConfidenceThreshold</field>
+                                                <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
                                             </block>
                                         </value>
                                     </block>
                                 </value>
                                 <statement name="DO0">
-                                    <block type="controls_if" id="check_consecutive_loss">
-                                        <value name="IF0">
-                                            <block type="logic_compare">
-                                                <field name="OP">GTE</field>
-                                                <value name="A">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
-                                                    </block>
-                                                </value>
-                                                <value name="B">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
-                                                    </block>
-                                                </value>
-                                            </block>
-                                        </value>
-                                        <statement name="DO0">
-                                            <block type="notify">
-                                                <field name="NOTIFICATION_TYPE">error</field>
-                                                <field name="NOTIFICATION_SOUND">silent</field>
-                                                <value name="MESSAGE">
-                                                    <shadow type="text">
-                                                        <field name="TEXT">Stop loss triggered: Maximum consecutive losses reached</field>
-                                                    </shadow>
-                                                </value>
-                                            </block>
-                                        </statement>
-                                        <next>
-                                            <block type="purchase" id="purchase">
-                                                <field name="PURCHASE_LIST">${initialContractType}</field>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </statement>
-                                <statement name="ELSE">
                                     <block type="notify">
-                                        <field name="NOTIFICATION_TYPE">warn</field>
+                                        <field name="NOTIFICATION_TYPE">error</field>
                                         <field name="NOTIFICATION_SOUND">silent</field>
                                         <value name="MESSAGE">
                                             <shadow type="text">
-                                                <field name="TEXT">Confidence too low - waiting for better signal</field>
+                                                <field name="TEXT">Stop loss: Max ${defaultStake} consecutive losses reached</field>
                                             </shadow>
                                         </value>
                                     </block>
                                 </statement>
+                                <next>
+                                    <block type="purchase" id="purchase">
+                                        <field name="PURCHASE_LIST">${initialContractType}</field>
+                                    </block>
+                                </next>
                             </block>
                         </statement>
                     </block>
@@ -1705,8 +1570,8 @@ const MLTrader = observer(() => {
                                             </block>
                                         </value>
                                         <next>
-                                            <block type="variables_set" id="reset_multiplier_win">
-                                                <field name="VAR" id="FRbI:RhI/\`[lrO\`o;=P,">martingale:multiplier</field>
+                                            <block type="variables_set" id="reset_martingale_win">
+                                                <field name="VAR" id="/VZkC:5@oNcl%%_S,N)K">martingale</field>
                                                 <value name="VALUE">
                                                     <block type="math_number">
                                                         <field name="NUM">1</field>
