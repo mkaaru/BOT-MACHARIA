@@ -829,12 +829,21 @@ const MLTrader = observer(() => {
             // Set default stake to 0.35
             const defaultStake = 0.35;
 
-            // Initial contract type based on action and symbol type (will be adaptive based on analysis)
-            let initialContractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
-
-            // For Rise/Fall (normal and 1s volatilities), use CALLE/PUTE
+            // Initial contract type based on action and symbol type
+            let initialContractType: string;
+            
             if (isNormalVolatility || is1sVolatility) {
+                // For Rise/Fall (normal and 1s volatilities), use CALLE/PUTE
                 initialContractType = recommendation.action === 'RISE' ? 'CALLE' : 'PUTE';
+            } else {
+                // For everything else (Step Indices, etc), use CALL/PUT
+                initialContractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
+            }
+            
+            // Ensure initialContractType is never undefined
+            if (!initialContractType) {
+                console.error('❌ Contract type is undefined, defaulting to CALL');
+                initialContractType = 'CALL';
             }
 
             // Debug log all variables before XML generation
