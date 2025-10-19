@@ -12,6 +12,7 @@ import { statisticsEmitter } from '@/utils/statistics-emitter';
 import { mlAutoTrader } from '@/services/ml-auto-trader';
 import { AutoTradePanel } from './auto-trade-panel';
 import { tickPredictionEngine } from '@/services/tick-prediction-engine';
+import { executeDirectTrade, getContractTypeFromAction } from '@/services/direct-trade-executor';
 import './ml-trader.scss';
 
 
@@ -670,20 +671,38 @@ const MLTrader = observer(() => {
     }, [account_currency]);
 
     /**
-     * Apply recommendation to trading interface
+     * Apply recommendation and execute trade directly via API (bypasses Bot Builder)
      */
-    const applyRecommendation = useCallback((recommendation: ScannerRecommendation) => {
-        setTradingInterface(prev => ({
-            ...prev,
-            symbol: recommendation.symbol,
-            contract_type: recommendation.action === 'RISE' ? 'CALL' : 'PUT',
-            duration: DURATION_OPTIONS.find(d => d.value === recommendation.duration)?.seconds || 180,
-            duration_unit: 's'
-        }));
+    const applyRecommendation = useCallback(async (recommendation: ScannerRecommendation) => {
+        try {
+            setStatus(`🔄 Executing ${recommendation.action} trade for ${recommendation.displayName}...`);
+            
+            // For tick-based contracts, ALWAYS use CALL/PUT (not CALLE/PUTE)
+            const contractType = getContractTypeFromAction(recommendation.action, 't');
+            
+            // Execute trade directly via Deriv API
+            const result = await executeDirectTrade({
+                symbol: recommendation.symbol,
+                contract_type: contractType,
+                stake: 0.35, // Default stake
+                duration: 2, // 2 ticks
+                duration_unit: 't'
+            });
 
-        setSelectedRecommendation(recommendation);
-
-        setStatus(`Applied recommendation: ${recommendation.action} ${recommendation.displayName} (${recommendation.confidence.toFixed(1)}% confidence)`);
+            if (result.success) {
+                setStatus(`✅ Trade executed successfully! Contract ID: ${result.contract_id}, Stake: $${result.buy_price?.toFixed(2)}, Potential Payout: $${result.payout?.toFixed(2)}`);
+                console.log('✅ Direct trade executed:', result);
+                
+                // Emit trade statistics
+                statisticsEmitter.emitTradeRun();
+            } else {
+                setStatus(`❌ Trade failed: ${result.error}`);
+                console.error('❌ Direct trade failed:', result.error);
+            }
+        } catch (error: any) {
+            setStatus(`❌ Error executing trade: ${error.message}`);
+            console.error('❌ Direct trade error:', error);
+        }
     }, []);
 
     /**
