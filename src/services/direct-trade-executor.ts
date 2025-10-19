@@ -3,9 +3,11 @@
  * 
  * Executes trades directly via Deriv API without Bot Builder
  * Bypasses Blockly XML generation and uses WebSocket API directly
+ * Emits contract events to transaction panel for visibility
  */
 
 import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
+import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 
 export interface DirectTradeParams {
     symbol: string;
@@ -100,11 +102,67 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
         }
 
         if (buyResponse.buy) {
+            const contract_id = buyResponse.buy.contract_id;
+            const buy_price = parseFloat(buyResponse.buy.buy_price);
+            const payout = parseFloat(buyResponse.buy.payout || 0);
+            
+            // Emit initial contract event to transaction panel
+            const contractData = {
+                contract_id,
+                contract_type: params.contract_type,
+                buy_price,
+                payout,
+                longcode: buyResponse.buy.longcode,
+                underlying: params.symbol,
+                is_completed: false,
+                date_start: Math.floor(Date.now() / 1000),
+                transaction_ids: {
+                    buy: buyResponse.buy.transaction_id
+                }
+            };
+
+            // Emit contract event so it shows in transaction panel
+            globalObserver.emit('bot.contract', contractData);
+            console.log('📡 Emitted bot.contract event for transaction panel');
+
+            // Subscribe to contract updates using proper subscription
+            // This ensures the transaction panel receives all updates including settlement
+            const subscription = api.subscribe({
+                proposal_open_contract: 1,
+                contract_id,
+                subscribe: 1
+            });
+
+            subscription.subscribe(
+                (pocResponse: any) => {
+                    if (pocResponse.proposal_open_contract) {
+                        const poc = pocResponse.proposal_open_contract;
+                        
+                        // Emit updated contract with current status to transaction panel
+                        globalObserver.emit('bot.contract', {
+                            ...poc,
+                            underlying: params.symbol
+                        });
+                        
+                        console.log('📊 Contract update:', poc.status, poc.is_sold ? '(SETTLED)' : '(ACTIVE)');
+                        
+                        // Unsubscribe when contract is settled
+                        if (poc.is_sold || poc.is_settled) {
+                            subscription.unsubscribe();
+                            console.log('✅ Contract settled, unsubscribed from updates');
+                        }
+                    }
+                },
+                (error: any) => {
+                    console.error('❌ Contract subscription error:', error);
+                }
+            );
+
             const result = {
                 success: true,
-                contract_id: buyResponse.buy.contract_id,
-                buy_price: parseFloat(buyResponse.buy.buy_price),
-                payout: parseFloat(buyResponse.buy.payout || 0),
+                contract_id,
+                buy_price,
+                payout,
                 longcode: buyResponse.buy.longcode
             };
 
@@ -123,14 +181,8 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
             success: false,
             error: error.message || 'Unknown error occurred'
         };
-    } finally {
-        // Cleanup: disconnect the API instance
-        try {
-            api?.disconnect?.();
-        } catch (e) {
-            // Silent cleanup
-        }
     }
+    // Note: Don't disconnect API here - we need it for contract updates
 }
 
 /**

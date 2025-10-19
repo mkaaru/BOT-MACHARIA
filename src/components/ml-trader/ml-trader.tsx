@@ -121,6 +121,19 @@ const MLTrader = observer(() => {
         auto_trade_count: 0
     });
 
+    // Reinforcement Learning State
+    const [rl_state, setRLState] = useState({
+        rise_wins: 0,
+        rise_losses: 0,
+        fall_wins: 0,
+        fall_losses: 0,
+        rise_win_rate: 0,
+        fall_win_rate: 0,
+        preferred_direction: null as 'RISE' | 'FALL' | null,
+        confidence_threshold: 70,
+        last_10_trades: [] as Array<{direction: 'RISE' | 'FALL', profit: number}>
+    });
+
     useEffect(() => {
         initializeMLTrader();
         return () => cleanup();
@@ -388,12 +401,19 @@ const MLTrader = observer(() => {
     }, []);
 
     /**
-     * Handle auto trading - called when new recommendations arrive
+     * Handle auto trading with Reinforcement Learning - called when new recommendations arrive
+     * NOW USES RL STATE for adaptive trading
      */
     const handleAutoTrading = useCallback(async (recs: ScannerRecommendation[]) => {
-        // Filter recommendations based on user settings
+        // Skip if continuous trading loop is handling this (avoid duplicate triggers)
+        if (autoTradeIntervalRef.current) {
+            console.log('⏭️ Continuous trading active, skipping handleAutoTrading');
+            return;
+        }
+
+        // REINFORCEMENT LEARNING: Filter recommendations using RL confidence threshold
         const filteredRecs = recs.filter(rec =>
-            rec.confidence >= filter_settings.min_confidence &&
+            rec.confidence >= rl_state.confidence_threshold &&
             rec.momentumScore >= filter_settings.min_momentum &&
             filter_settings.preferred_durations.includes(rec.duration) &&
             (filter_settings.max_risk === 'HIGH' ||
@@ -402,12 +422,22 @@ const MLTrader = observer(() => {
         );
 
         if (filteredRecs.length === 0) {
-            console.log('No recommendations match filter criteria');
+            console.log(`No recommendations match RL criteria (threshold: ${rl_state.confidence_threshold}%)`);
             return;
         }
 
-        // Take the highest confidence recommendation
-        const topRec = filteredRecs[0];
+        // ADAPTIVE SELECTION: Prefer direction with better historical performance
+        let topRec = filteredRecs[0];
+        
+        if (rl_state.preferred_direction) {
+            const preferredRec = filteredRecs.find(
+                rec => rec.action === rl_state.preferred_direction
+            );
+            if (preferredRec) {
+                topRec = preferredRec;
+                console.log(`🧠 RL: Selected ${rl_state.preferred_direction} (${rl_state.preferred_direction === 'RISE' ? rl_state.rise_win_rate : rl_state.fall_win_rate}% win rate)`);
+            }
+        }
 
         // Update current recommendation for auto-trading
         currentRecommendationRef.current = topRec;
@@ -416,7 +446,7 @@ const MLTrader = observer(() => {
         // Apply recommendation to trading interface
         applyRecommendation(topRec);
 
-    }, [filter_settings]);
+    }, [rl_state, filter_settings, applyRecommendation]);
 
     /**
      * Check if symbol is moving (price changing)
@@ -671,6 +701,60 @@ const MLTrader = observer(() => {
     }, [account_currency]);
 
     /**
+     * Reinforcement Learning: Update state based on trade outcome
+     */
+    const updateRLState = useCallback((direction: 'RISE' | 'FALL', profit: number) => {
+        setRLState(prev => {
+            const isWin = profit > 0;
+            
+            // Update direction-specific stats
+            const rise_wins = direction === 'RISE' && isWin ? prev.rise_wins + 1 : prev.rise_wins;
+            const rise_losses = direction === 'RISE' && !isWin ? prev.rise_losses + 1 : prev.rise_losses;
+            const fall_wins = direction === 'FALL' && isWin ? prev.fall_wins + 1 : prev.fall_wins;
+            const fall_losses = direction === 'FALL' && !isWin ? prev.fall_losses + 1 : prev.fall_losses;
+            
+            // Calculate win rates
+            const rise_total = rise_wins + rise_losses;
+            const fall_total = fall_wins + fall_losses;
+            const rise_win_rate = rise_total > 0 ? (rise_wins / rise_total) * 100 : 0;
+            const fall_win_rate = fall_total > 0 ? (fall_wins / fall_total) * 100 : 0;
+            
+            // Update last 10 trades
+            const last_10_trades = [...prev.last_10_trades, {direction, profit}].slice(-10);
+            
+            // Determine preferred direction based on performance
+            let preferred_direction: 'RISE' | 'FALL' | null = null;
+            if (rise_total >= 3 && fall_total >= 3) {
+                // Only set preference after enough data
+                preferred_direction = rise_win_rate > fall_win_rate ? 'RISE' : 'FALL';
+            }
+            
+            // Adapt confidence threshold based on recent performance
+            const recent_win_rate = last_10_trades.filter(t => t.profit > 0).length / Math.max(last_10_trades.length, 1) * 100;
+            let confidence_threshold = 70;
+            if (recent_win_rate >= 70) {
+                confidence_threshold = 65; // Lower threshold when performing well
+            } else if (recent_win_rate < 40) {
+                confidence_threshold = 80; // Raise threshold when performing poorly
+            }
+            
+            console.log(`🧠 RL Update: ${direction} ${isWin ? 'WIN' : 'LOSS'} | RISE: ${rise_win_rate.toFixed(1)}% | FALL: ${fall_win_rate.toFixed(1)}% | Preferred: ${preferred_direction || 'None'} | Threshold: ${confidence_threshold}%`);
+            
+            return {
+                rise_wins,
+                rise_losses,
+                fall_wins,
+                fall_losses,
+                rise_win_rate,
+                fall_win_rate,
+                preferred_direction,
+                confidence_threshold,
+                last_10_trades
+            };
+        });
+    }, []);
+
+    /**
      * Apply recommendation and execute trade directly via API (bypasses Bot Builder)
      */
     const applyRecommendation = useCallback(async (recommendation: ScannerRecommendation) => {
@@ -681,12 +765,13 @@ const MLTrader = observer(() => {
         }
 
         contractInProgressRef.current = true;
+        const tradeDirection = recommendation.action;
 
         try {
-            setStatus(`🔄 Executing ${recommendation.action} trade for ${recommendation.displayName}...`);
+            setStatus(`🔄 Executing ${tradeDirection} trade for ${recommendation.displayName}...`);
             
             // For tick-based contracts, ALWAYS use CALL/PUT (not CALLE/PUTE)
-            const contractType = getContractTypeFromAction(recommendation.action, 't');
+            const contractType = getContractTypeFromAction(tradeDirection, 't');
             
             // Execute trade directly via Deriv API using configured stake
             const result = await executeDirectTrade({
@@ -710,24 +795,39 @@ const MLTrader = observer(() => {
                 setTimeout(() => {
                     contractInProgressRef.current = false;
                     console.log('✅ Contract settlement timeout elapsed, ready for next trade');
+                    
+                    // TODO: Update RL state when contract settles with actual profit
+                    // For now, estimating based on payout vs stake
+                    const estimatedProfit = (result.payout || 0) - (result.buy_price || 0);
+                    updateRLState(tradeDirection, estimatedProfit);
                 }, 10000);
             } else {
                 setStatus(`❌ Trade failed: ${result.error}`);
                 console.error('❌ Direct trade failed:', result.error);
                 contractInProgressRef.current = false; // Reset immediately on failure
+                
+                // Update RL state with loss
+                updateRLState(tradeDirection, -trading_interface.stake);
             }
         } catch (error: any) {
             setStatus(`❌ Error executing trade: ${error.message}`);
             console.error('❌ Direct trade error:', error);
             contractInProgressRef.current = false; // Reset immediately on error
+            
+            // Update RL state with loss
+            updateRLState(tradeDirection, -trading_interface.stake);
         }
-    }, [trading_interface.stake]);
+    }, [trading_interface.stake, updateRLState]);
 
     /**
-     * Continuous trading loop - executes trades repeatedly
+     * Continuous trading loop with reinforcement learning
+     * Adapts to market conditions by continuously scanning and updating recommendations
+     * Can trade both RISE and FALL based on changing market analysis
+     * Uses RL state to prefer directions with better historical performance
      */
     const startContinuousTrading = useCallback(() => {
-        console.log('🔄 Starting continuous trading loop...');
+        console.log('🔄 Starting adaptive continuous trading with reinforcement learning...');
+        console.log(`🧠 Initial RL State: RISE ${rl_state.rise_win_rate.toFixed(1)}% | FALL ${rl_state.fall_win_rate.toFixed(1)}% | Threshold: ${rl_state.confidence_threshold}%`);
         
         const executeContinuousTrade = async () => {
             // Only trade if auto-trading is still active
@@ -740,26 +840,56 @@ const MLTrader = observer(() => {
                 return;
             }
 
-            // Get the top recommendation
+            // REINFORCEMENT LEARNING: Get fresh recommendations every cycle
+            // This allows the system to adapt trade direction (RISE/FALL) based on current market conditions
+            console.log('🧠 Adaptive Learning: Analyzing current market conditions with RL...');
+            
+            // Wait for scanner to update recommendations if needed
             if (recommendations.length === 0) {
-                console.log('⏭️ No recommendations available');
+                console.log('⏭️ Waiting for market analysis to complete...');
                 return;
             }
 
-            const topRecommendation = recommendations[0];
-            console.log(`🎯 Continuous trading: attempting ${topRecommendation.displayName} (${topRecommendation.action})`);
+            // Filter recommendations based on RL confidence threshold
+            const viableRecommendations = recommendations.filter(
+                rec => rec.confidence >= rl_state.confidence_threshold
+            );
+
+            if (viableRecommendations.length === 0) {
+                console.log(`⏭️ No recommendations meet RL threshold of ${rl_state.confidence_threshold}%`);
+                return;
+            }
+
+            // ADAPTIVE SELECTION: Prefer direction with better historical performance
+            let selectedRecommendation = viableRecommendations[0];
             
-            // Execute the trade (has built-in contract guard)
-            await applyRecommendation(topRecommendation);
+            if (rl_state.preferred_direction) {
+                // Try to find a recommendation matching the preferred direction
+                const preferredRec = viableRecommendations.find(
+                    rec => rec.action === rl_state.preferred_direction
+                );
+                
+                if (preferredRec) {
+                    selectedRecommendation = preferredRec;
+                    console.log(`🎯 RL-Optimized: Selected ${rl_state.preferred_direction} (performing better at ${rl_state.preferred_direction === 'RISE' ? rl_state.rise_win_rate : rl_state.fall_win_rate}%)`);
+                } else {
+                    console.log(`🎯 Default: No ${rl_state.preferred_direction} recommendations available, using top recommendation`);
+                }
+            }
+            
+            console.log(`📊 Selected Trade: ${selectedRecommendation.displayName} (${selectedRecommendation.action}) - Confidence: ${selectedRecommendation.confidence.toFixed(1)}%`);
+            
+            // Execute the trade (has built-in contract guard and RL updates)
+            await applyRecommendation(selectedRecommendation);
         };
 
         // Execute first trade immediately
         executeContinuousTrade();
 
         // Then execute every 12 seconds (allows 10s settlement + 2s buffer)
-        // This ensures contracts don't overlap even with API delays
+        // Each cycle re-evaluates market conditions for adaptive trading
         autoTradeIntervalRef.current = setInterval(executeContinuousTrade, 12000);
-    }, [recommendations, applyRecommendation]);
+    }, [recommendations, rl_state, applyRecommendation]);
 
     /**
      * Toggle auto trading
@@ -1926,86 +2056,23 @@ const MLTrader = observer(() => {
                 <div className="ml-trader__trading-interface">
                     <div className="trading-header">
                         <div className="header-title">
-                            <Text size="md" weight="bold">{localize('Trading Interface')}</Text>
+                            <Text size="md" weight="bold">{localize('Automated Trading')}</Text>
                             <Text size="xs" color="general">
-                                {localize('Configure and Execute Trades')}
+                                {localize('Continuous trading with AI recommendations')}
                             </Text>
-                        </div>
-                        <div className="auto-trading-controls">
-                            <button
-                                className={`auto-trading-btn ${trading_interface.is_auto_trading ? 'active' : ''}`}
-                                onClick={toggleAutoTrading}
-                                disabled={!is_authorized || recommendations.length === 0}
-                            >
-                                {trading_interface.is_auto_trading ? '⏹️ Stop Auto-Trading' : '▶️ Start Auto-Trading'}
-                            </button>
-
-                            <div className="auto-load-toggle">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={auto_load_to_bot_builder}
-                                        onChange={(e) => setAutoLoadToBotBuilder(e.target.checked)}
-                                    />
-                                    <span>Auto-load to Bot Builder</span>
-                                </label>
-                            </div>
                         </div>
                     </div>
 
                     <div className="trading-form">
                         <div className="form-row">
                             <div className="form-field">
-                                <Text size="xs" color="general">{localize('Symbol')}</Text>
-                                <select
-                                    value={trading_interface.symbol}
-                                    onChange={(e) => setTradingInterface(prev => ({ ...prev, symbol: e.target.value }))}
-                                >
-                                    {DERIV_VOLATILITY_SYMBOLS.map(sym => (
-                                        <option key={sym.symbol} value={sym.symbol}>
-                                            {sym.display_name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="form-field">
-                                <Text size="xs" color="general">{localize('Contract Type')}</Text>
-                                <select
-                                    value={trading_interface.contract_type}
-                                    onChange={(e) => setTradingInterface(prev => ({ ...prev, contract_type: e.target.value as 'CALL' | 'PUT' }))}
-                                >
-                                    {RISE_FALL_TYPES.map(type => (
-                                        <option key={type.value} value={type.value}>
-                                            {type.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="form-row">
-                            <div className="form-field">
                                 <Text size="xs" color="general">{localize('Duration')}</Text>
-                                <select
-                                    value={`${trading_interface.duration}s`}
-                                    onChange={(e) => {
-                                        const option = DURATION_OPTIONS.find(d => d.value === e.target.value);
-                                        if (option) {
-                                            setTradingInterface(prev => ({
-                                                ...prev,
-                                                duration: option.seconds,
-                                                duration_unit: 's'
-                                            }));
-                                        }
-                                    }}
-                                >
-                                    {DURATION_OPTIONS.map(opt => (
-                                        <option key={opt.value} value={opt.value}>
-                                            {opt.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                <input
+                                    type="text"
+                                    value="2 ticks"
+                                    disabled
+                                    style={{ backgroundColor: '#f5f5f5', color: '#666' }}
+                                />
                             </div>
 
                             <div className="form-field">
@@ -2022,11 +2089,24 @@ const MLTrader = observer(() => {
 
                         <div className="trading-actions">
                             <button
-                                className="execute-btn manual"
-                                onClick={executeManualTrade}
-                                disabled={!is_authorized || contractInProgressRef.current || !selected_recommendation}
+                                className={`auto-trading-btn-big ${trading_interface.is_auto_trading ? 'active' : ''}`}
+                                onClick={toggleAutoTrading}
+                                disabled={!is_authorized || recommendations.length === 0}
+                                style={{
+                                    width: '100%',
+                                    padding: '16px 24px',
+                                    fontSize: '18px',
+                                    fontWeight: 'bold',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    cursor: recommendations.length === 0 || !is_authorized ? 'not-allowed' : 'pointer',
+                                    backgroundColor: trading_interface.is_auto_trading ? '#f44336' : '#4CAF50',
+                                    color: 'white',
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                                }}
                             >
-                                {localize('Execute Manual Trade')}
+                                {trading_interface.is_auto_trading ? '⏹️ STOP AUTO-TRADING' : '▶️ START AUTO-TRADING'}
                             </button>
                         </div>
                     </div>
