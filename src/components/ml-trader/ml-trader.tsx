@@ -280,7 +280,7 @@ const MLTrader = observer(() => {
                     if (roc_enabled) {
                         const rocCalc = getROCCalculator(tick.symbol, roc_period);
                         const rocData = rocCalc.addPrice(tick.quote);
-                        
+
                         // Update ROC state if this is the selected symbol
                         if (tick.symbol === (selected_recommendation?.symbol || trading_interface.symbol)) {
                             setCurrentROC({
@@ -339,12 +339,12 @@ const MLTrader = observer(() => {
             // Fetch and process historical data for ML model training (with retry on timeout)
             const fetchHistoricalDataWithRetry = async (symbolInfo: any, retries = 3): Promise<void> => {
                 const symbol = symbolInfo.symbol;
-                
+
                 for (let attempt = 1; attempt <= retries; attempt++) {
                     try {
                         // Fetch 500 historical ticks (Deriv API limitation)
                         const historicalData = await tickStreamManager.get500HistoricalTicks(symbol);
-                        
+
                         if (historicalData && historicalData.length > 0) {
                             // Transform TickData[] to the format expected by scanner and ML analyzer
                             const formattedData = historicalData.map(tick => ({
@@ -360,20 +360,20 @@ const MLTrader = observer(() => {
                                 // Train ML model on historical data
                                 mlTickAnalyzer.processBulkHistoricalData(symbol, formattedData);
                                 console.log(`✅ Loaded historical data for ${symbol}`);
-                                
+
                             } catch (error) {
                                 console.error(`Error processing bulk historical data for ${symbol}:`, error);
                             }
                         } else {
                             console.warn(`No historical data found for ${symbol}`);
                         }
-                        
+
                         // Success - break retry loop
                         break;
-                        
+
                     } catch (error: any) {
                         const isTimeout = error?.message?.includes('timeout') || error?.message?.includes('WebSocket');
-                        
+
                         if (isTimeout && attempt < retries) {
                             console.warn(`⚠️ Timeout fetching data for ${symbol}, retrying (${attempt}/${retries})...`);
                             // Wait 2 seconds before retry
@@ -388,14 +388,14 @@ const MLTrader = observer(() => {
                     }
                 }
             };
-            
+
             // Fetch data for all symbols with retry logic
             const historicalDataPromises = DERIV_VOLATILITY_SYMBOLS.map(symbolInfo => 
                 fetchHistoricalDataWithRetry(symbolInfo)
             );
 
             const results = await Promise.allSettled(historicalDataPromises); // Use allSettled to continue even if some fail
-            
+
             // Log summary of historical data loading
             const successful = results.filter(r => r.status === 'fulfilled').length;
             const failed = results.filter(r => r.status === 'rejected').length;
@@ -493,7 +493,7 @@ const MLTrader = observer(() => {
 
         // ADAPTIVE SELECTION: Prefer direction with better historical performance
         let topRec = filteredRecs[0];
-        
+
         if (rl_state.preferred_direction) {
             const preferredRec = filteredRecs.find(
                 rec => rec.action === rl_state.preferred_direction
@@ -771,29 +771,29 @@ const MLTrader = observer(() => {
     const updateRLState = useCallback((direction: 'RISE' | 'FALL', profit: number) => {
         setRLState(prev => {
             const isWin = profit > 0;
-            
+
             // Update direction-specific stats
             const rise_wins = direction === 'RISE' && isWin ? prev.rise_wins + 1 : prev.rise_wins;
             const rise_losses = direction === 'RISE' && !isWin ? prev.rise_losses + 1 : prev.rise_losses;
             const fall_wins = direction === 'FALL' && isWin ? prev.fall_wins + 1 : prev.fall_wins;
             const fall_losses = direction === 'FALL' && !isWin ? prev.fall_losses + 1 : prev.fall_losses;
-            
+
             // Calculate win rates
             const rise_total = rise_wins + rise_losses;
             const fall_total = fall_wins + fall_losses;
             const rise_win_rate = rise_total > 0 ? (rise_wins / rise_total) * 100 : 0;
             const fall_win_rate = fall_total > 0 ? (fall_wins / fall_total) * 100 : 0;
-            
+
             // Update last 10 trades
             const last_10_trades = [...prev.last_10_trades, {direction, profit}].slice(-10);
-            
+
             // Determine preferred direction based on performance
             let preferred_direction: 'RISE' | 'FALL' | null = null;
             if (rise_total >= 3 && fall_total >= 3) {
                 // Only set preference after enough data
                 preferred_direction = rise_win_rate > fall_win_rate ? 'RISE' : 'FALL';
             }
-            
+
             // Adapt confidence threshold based on recent performance
             const recent_win_rate = last_10_trades.filter(t => t.profit > 0).length / Math.max(last_10_trades.length, 1) * 100;
             let confidence_threshold = 70;
@@ -802,9 +802,9 @@ const MLTrader = observer(() => {
             } else if (recent_win_rate < 40) {
                 confidence_threshold = 80; // Raise threshold when performing poorly
             }
-            
+
             console.log(`🧠 RL Update: ${direction} ${isWin ? 'WIN' : 'LOSS'} | RISE: ${rise_win_rate.toFixed(1)}% | FALL: ${fall_win_rate.toFixed(1)}% | Preferred: ${preferred_direction || 'None'} | Threshold: ${confidence_threshold}%`);
-            
+
             return {
                 rise_wins,
                 rise_losses,
@@ -838,7 +838,7 @@ const MLTrader = observer(() => {
 
         if (result.success && result.contract_id) {
             console.log('✅ Trade result received:', result.contract_id);
-            
+
             // Subscribe to contract updates and ONLY send complete data (Trading Hub pattern)
             if (apiRef.current) {
                 try {
@@ -851,9 +851,9 @@ const MLTrader = observer(() => {
 
                     console.log('📡 Subscription response received:', res ? 'OK' : 'NULL');
                     const { proposal_open_contract: pocInit, subscription } = res || {};
-                    
+
                     console.log('📡 pocInit:', pocInit ? 'PRESENT' : 'MISSING', 'subscription:', subscription ? 'PRESENT' : 'MISSING');
-                    
+
                     // ONLY send to Run Panel once we have complete data (prevents crash)
                     if (pocInit && String(pocInit.contract_id) === String(result.contract_id)) {
                         console.log('📡 Sending contract to Run Panel...');
@@ -864,7 +864,7 @@ const MLTrader = observer(() => {
                             has_exit_tick: !!pocInit.exit_tick_display_value,
                             status: pocInit.status
                         });
-                        
+
                         try {
                             transactions.onBotContractEvent(pocInit);
                             console.log('✅ Mapped complete contract to Run Panel:', result.contract_id);
@@ -889,7 +889,7 @@ const MLTrader = observer(() => {
                                         } catch (error) {
                                             console.error('❌ Error updating contract:', error);
                                         }
-                                        
+
                                         if (poc.is_sold || poc.is_settled) {
                                             apiRef.current?.forget?.({ forget: subscription.id });
                                             apiRef.current?.connection?.removeEventListener('message', onMessage);
@@ -946,10 +946,10 @@ const MLTrader = observer(() => {
 
         try {
             setStatus(`🔄 Executing ${tradeDirection} trade for ${recommendation.displayName}...`);
-            
+
             // For tick-based contracts, ALWAYS use CALL/PUT (not CALLE/PUTE)
             const contractType = getContractTypeFromAction(tradeDirection, 't');
-            
+
             // Execute trade and map to Run Panel
             const result = await executeTradeAndMapToPanel(
                 recommendation.symbol,
@@ -961,7 +961,7 @@ const MLTrader = observer(() => {
             if (result.success) {
                 setStatus(`✅ Trade executed successfully! Contract ID: ${result.contract_id}, Stake: $${result.buy_price?.toFixed(2)}, Potential Payout: $${result.payout?.toFixed(2)}`);
                 console.log('✅ Direct trade executed:', result);
-                
+
                 // Emit trade statistics
                 statisticsEmitter.emitTradeRun();
 
@@ -971,7 +971,7 @@ const MLTrader = observer(() => {
                 setTimeout(() => {
                     contractInProgressRef.current = false;
                     console.log('✅ Contract settlement timeout elapsed, ready for next trade');
-                    
+
                     // TODO: Update RL state when contract settles with actual profit
                     // For now, estimating based on payout vs stake
                     const estimatedProfit = (result.payout || 0) - (result.buy_price || 0);
@@ -981,7 +981,7 @@ const MLTrader = observer(() => {
                 setStatus(`❌ Trade failed: ${result.error}`);
                 console.error('❌ Direct trade failed:', result.error);
                 contractInProgressRef.current = false; // Reset immediately on failure
-                
+
                 // Update RL state with loss
                 updateRLState(tradeDirection, -trading_interface.stake);
             }
@@ -989,7 +989,7 @@ const MLTrader = observer(() => {
             setStatus(`❌ Error executing trade: ${error.message}`);
             console.error('❌ Direct trade error:', error);
             contractInProgressRef.current = false; // Reset immediately on error
-            
+
             // Update RL state with loss
             updateRLState(tradeDirection, -trading_interface.stake);
         }
@@ -1001,11 +1001,11 @@ const MLTrader = observer(() => {
      */
     const startContinuousAIRecommendations = useCallback((symbol: string) => {
         if (!apiRef.current) return;
-        
+
         console.log(`🤖 Starting continuous AI recommendations for ${symbol} (every 3 ticks)`);
-        
+
         let tickCounter = 0;
-        
+
         // Subscribe to tick stream
         const unsubscribe = apiRef.current.subscribe({
             ticks: symbol,
@@ -1015,21 +1015,21 @@ const MLTrader = observer(() => {
                 console.error('Tick stream error:', tick.error);
                 return;
             }
-            
+
             if (tick.tick) {
                 tickCounter++;
                 setTickCount(tickCounter);
-                
+
                 // Process tick with prediction engine
                 const prediction = tickPredictionEngine.processTick(
                     tick.tick.quote,
                     Date.now()
                 );
-                
+
                 // Every 3 ticks, generate recommendation
                 if (tickCounter % 3 === 0) {
                     console.log(`🎯 AI Recommendation Cycle #${Math.floor(tickCounter / 3)}: ${prediction.direction} (Confidence: ${prediction.confidence}%)`);
-                    
+
                     // Convert prediction to trade direction and update state
                     if (prediction.direction === 'CALL') {
                         setContinuousAIRecommendation('RISE');
@@ -1043,24 +1043,24 @@ const MLTrader = observer(() => {
                         setAIRecommendationConfidence(prediction.confidence);
                         console.log(`⏸️ AI suggests HOLD (${prediction.confidence}% confidence) - ${prediction.reason}`);
                     }
-                    
+
                     // If no contract in progress and high confidence, execute trade
                     if (!contractInProgressRef.current && prediction.direction !== 'HOLD' && prediction.confidence >= 75) {
                         const tradeDirection = prediction.direction === 'CALL' ? 'RISE' : 'FALL';
                         console.log(`🚀 AUTO-EXECUTING AI RECOMMENDATION: ${tradeDirection} (${prediction.confidence}% confidence)`);
                         console.log(`   Reason: ${prediction.reason}`);
-                        
+
                         // Execute trade using the AI recommendation
                         (async () => {
                             contractInProgressRef.current = true;
                             const contractType = getContractTypeFromAction(tradeDirection, 't');
-                            
+
                             const result = await executeTradeAndMapToPanel(
                                 symbol,
                                 contractType,
                                 trading_interface.stake
                             );
-                            
+
                             if (result.success) {
                                 setStatus(`✅ AI ${tradeDirection} trade executed! Confidence: ${prediction.confidence}%`);
                                 setTimeout(() => {
@@ -1079,13 +1079,13 @@ const MLTrader = observer(() => {
                 }
             }
         });
-        
+
         // Store subscription for cleanup
         tickSubscriptionRef.current = unsubscribe;
-        
+
         console.log('✅ Continuous AI recommendations started successfully');
     }, [trading_interface.stake, updateRLState]);
-    
+
     /**
      * Stop continuous AI recommendations
      */
@@ -1110,7 +1110,7 @@ const MLTrader = observer(() => {
     const startContinuousTrading = useCallback(() => {
         console.log('🔄 Starting adaptive continuous trading with reinforcement learning...');
         console.log(`🧠 Initial RL State: RISE ${rl_state.rise_win_rate.toFixed(1)}% | FALL ${rl_state.fall_win_rate.toFixed(1)}% | Threshold: ${rl_state.confidence_threshold}%`);
-        
+
         const executeContinuousTrade = async () => {
             // Only trade if auto-trading is still active
             if (!autoTradingRef.current) {
@@ -1125,7 +1125,7 @@ const MLTrader = observer(() => {
             // REINFORCEMENT LEARNING: Get fresh recommendations every cycle
             // This allows the system to adapt trade direction (RISE/FALL) based on current market conditions
             console.log('🧠 Adaptive Learning: Analyzing current market conditions with RL...');
-            
+
             // Wait for scanner to update recommendations if needed
             if (recommendations.length === 0) {
                 console.log('⏭️ Waiting for market analysis to complete...');
@@ -1145,16 +1145,16 @@ const MLTrader = observer(() => {
             // REAL-TIME TREND OVERRIDE: Prioritize trend direction over recommendations
             let selectedRecommendation = viableRecommendations[0];
             let tradeDirection: 'RISE' | 'FALL';
-            
+
             if (trend_override_direction) {
                 // TREND-BASED TRADING: Use real-time trend analysis
                 tradeDirection = trend_override_direction;
-                
+
                 // Try to find a recommendation matching the trend direction
                 const trendMatchingRec = viableRecommendations.find(
                     rec => rec.action === trend_override_direction
                 );
-                
+
                 if (trendMatchingRec) {
                     selectedRecommendation = trendMatchingRec;
                     console.log(`📈 TREND-DRIVEN: ${trend_override_direction} (Trend: ${current_trend?.direction}, Confidence: ${current_trend?.confidence.toFixed(1)}%)`);
@@ -1165,11 +1165,11 @@ const MLTrader = observer(() => {
             } else if (rl_state.preferred_direction) {
                 // REINFORCEMENT LEARNING: Prefer direction with better historical performance
                 tradeDirection = rl_state.preferred_direction;
-                
+
                 const preferredRec = viableRecommendations.find(
                     rec => rec.action === rl_state.preferred_direction
                 );
-                
+
                 if (preferredRec) {
                     selectedRecommendation = preferredRec;
                     tradeDirection = preferredRec.action;
@@ -1182,7 +1182,7 @@ const MLTrader = observer(() => {
                 tradeDirection = selectedRecommendation.action;
                 console.log(`📊 Standard: ${tradeDirection} - Confidence: ${selectedRecommendation.confidence.toFixed(1)}%`);
             }
-            
+
             // ROC FILTERING: Check if ROC direction matches trade direction
             if (roc_enabled && current_roc && current_roc.symbol === selectedRecommendation.symbol) {
                 const rocDirection = current_roc.direction;
@@ -1199,14 +1199,14 @@ const MLTrader = observer(() => {
 
                 console.log(`✅ ROC FILTER PASSED (Continuous): ${tradeDirection} aligns with ROC ${rocDirection} (${current_roc.roc.toFixed(4)}%)`);
             }
-            
+
             // Execute trade with trend-based or RL-optimized direction
             const contractType = getContractTypeFromAction(tradeDirection, 't');
-            
+
             // Execute trade and map to Run Panel
             if (!contractInProgressRef.current) {
                 contractInProgressRef.current = true;
-                
+
                 const result = await executeTradeAndMapToPanel(
                     selectedRecommendation.symbol,
                     contractType,
@@ -1255,62 +1255,62 @@ const MLTrader = observer(() => {
             // Notify Run Panel that bot is starting (no parameters needed)
             globalObserver.emit('bot.running');
             console.log('📡 Emitted bot.running to Run Panel');
-            
+
             // Start real-time trend monitoring for active symbol
             const activeSymbol = selected_recommendation?.symbol || trading_interface.symbol;
             realTimeTrendMonitor.startMonitoring(activeSymbol);
             console.log(`📈 Started real-time trend monitoring for ${activeSymbol}`);
-            
+
             // Subscribe to trend changes - dynamically switch trade direction
             const unsubscribe = realTimeTrendMonitor.onTrendChange((trend) => {
                 setCurrentTrend(trend);
                 setTrendChangesCount(prev => prev + 1);
-                
+
                 // Determine new trade direction based on trend
                 const newDirection = trend.direction === 'BULLISH' ? 'RISE' : 'FALL';
                 setTrendOverrideDirection(newDirection);
-                
+
                 console.log(`🔄 TREND CHANGE #${trend_changes_count + 1}: ${trend.direction} detected → Switching to ${newDirection} trades`);
                 console.log(`   Confidence: ${trend.confidence.toFixed(1)}% | Strength: ${trend.strength.toFixed(1)}% | Price Change: ${trend.priceChange.toFixed(4)}%`);
             });
-            
+
             // Store unsubscribe function for cleanup
             (window as any)._trendUnsubscribe = unsubscribe;
-            
+
             // Start continuous AI recommendation system (every 3 ticks)
             startContinuousAIRecommendations(activeSymbol);
-            
+
             // Start auto-trading with continuous loop
             setStatus('🤖 Auto-trading activated with real-time trend adaptation...');
             startContinuousTrading();
         } else {
             // Stop continuous AI recommendations
             stopContinuousAIRecommendations();
-            
+
             // Stop real-time trend monitoring
             realTimeTrendMonitor.stopAll();
             console.log('⏹️ Stopped real-time trend monitoring');
-            
+
             // Unsubscribe from trend changes
             if ((window as any)._trendUnsubscribe) {
                 (window as any)._trendUnsubscribe();
                 delete (window as any)._trendUnsubscribe;
             }
-            
+
             // Reset trend override and AI recommendations
             setTrendOverrideDirection(null);
             setCurrentTrend(null);
             setContinuousAIRecommendation(null);
             setAIRecommendationConfidence(0);
             setTickCount(0);
-            
+
             // Notify Run Panel that bot is stopping
             globalObserver.emit('bot.stop');
             console.log('📡 Emitted bot.stop to Run Panel');
-            
+
             // Stop auto-trading
             setStatus('⏹️ Auto-trading stopped');
-            
+
             // Clear the continuous trading interval
             if (autoTradeIntervalRef.current) {
                 clearInterval(autoTradeIntervalRef.current);
@@ -1341,7 +1341,7 @@ const MLTrader = observer(() => {
 
         // Stop continuous AI recommendations
         stopContinuousAIRecommendations();
-        
+
         // Clear auto-trading interval
         if (autoTradeIntervalRef.current) {
             clearInterval(autoTradeIntervalRef.current);
@@ -1438,6 +1438,7 @@ const MLTrader = observer(() => {
 
             // Martingale strategy with level 3 limit (revert after 2 losses) and max 5 losses
             // Includes ROC (Rate of Change) filtering - only trades when market direction aligns with recommendation
+            // Includes Step Index movement validation - checks for valid tick movement before purchase
             const strategyXml = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
     <variables>
         <variable id="stake_var">stake</variable>
@@ -1445,6 +1446,8 @@ const MLTrader = observer(() => {
         <variable id="martingale_var">martingale</variable>
         <variable id="loss_count_var">loss_count</variable>
         <variable id="martingale_level_var">martingale_level</variable>
+        <variable id="last_tick_var">last_tick</variable>
+        <variable id="movement_valid_var">movement_valid</variable>
     </variables>
     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
         <statement name="TRADE_OPTIONS">
@@ -1520,6 +1523,26 @@ const MLTrader = observer(() => {
                                                         <field name="NUM">0</field>
                                                     </block>
                                                 </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_tick_var">last_tick</field>
+                                                        <value name="VALUE">
+                                                            <block type="math_number">
+                                                                <field name="NUM">0</field>
+                                                            </block>
+                                                        </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                                                <value name="VALUE">
+                                                                    <block type="logic_boolean">
+                                                                        <field name="BOOL">FALSE</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
                                             </block>
                                         </next>
                                     </block>
@@ -1552,6 +1575,7 @@ const MLTrader = observer(() => {
     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
         <statement name="BEFOREPURCHASE_STACK">
             <block type="controls_if">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
                 <value name="IF0">
                     <block type="logic_compare">
                         <field name="OP">GTE</field>
@@ -1584,8 +1608,144 @@ const MLTrader = observer(() => {
                     </block>
                 </statement>
                 <next>
-                    <block type="purchase">
-                        <field name="PURCHASE_LIST">${contractType}</field>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_boolean">
+                                        <field name="BOOL">TRUE</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </statement>
+                    </block>
+                </next>
+                        <value name="B">
+                            <block type="controls_if">
+                                <value name="IF0">
+                                    <block type="logic_operation">
+                                        <field name="OP">AND</field>
+                                        <value name="A">
+                                            <block type="logic_compare">
+                                                <field name="OP">EQ</field>
+                                                <value name="A">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="logic_boolean">
+                                                        <field name="BOOL">TRUE</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="logic_compare">
+                                                <field name="OP">EQ</field>
+                                                <value name="A">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="last_tick_var">last_tick</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="text_prompt_ext">
+                                                        <mutation type="NUMBER"></mutation>
+                                                        <field name="TEXT"></field>
+                                                        <value name="VALUE">
+                                                            <block type="math_number">
+                                                                <field name="NUM">0</field>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                                <statement name="DO0">
+                                    <block type="controls_if">
+                                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                        <value name="IF0">
+                                            <block type="logic_compare">
+                                                <field name="OP">EQ</field>
+                                                <value name="A">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="last_tick_var">last_tick</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <statement name="DO0">
+                                            <block type="trade_again">
+                                                <field name="TRADE_AGAIN">FALSE</field>
+                                            </block>
+                                        </statement>
+                                        <statement name="ELSE">
+                                            <block type="purchase">
+                                                <field name="PURCHASE_LIST">${contractType}</field>
+                                            </block>
+                                        </statement>
+                                    </block>
+                                </statement>
+                            </block>
+                        </value>
+                    </block>
+                </value>
+                <statement name="DO0">
+                    <block type="notify">
+                        <field name="NOTIFICATION_TYPE">warn</field>
+                        <field name="NOTIFICATION_SOUND">silent</field>
+                        <value name="MESSAGE">
+                            <shadow type="text">
+                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
+                            </shadow>
+                        </value>
+                        <next>
+                            <block type="trade_again">
+                                <field name="TRADE_AGAIN">FALSE</field>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_boolean">
+                                        <field name="BOOL">TRUE</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </statement>
                     </block>
                 </next>
             </block>
@@ -1624,6 +1784,26 @@ const MLTrader = observer(() => {
                                                 <field name="NUM">0</field>
                                             </block>
                                         </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="last_tick_var">last_tick</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                                        <value name="VALUE">
+                                                            <block type="logic_boolean">
+                                                                <field name="BOOL">FALSE</field>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
                                     </block>
                                 </next>
                             </block>
