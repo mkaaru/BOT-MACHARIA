@@ -69,6 +69,7 @@ Preferred communication style: Simple, everyday language.
   * **Wrapper Function**: `executeTradeAndMapToPanel()` encapsulates trade execution, transaction mapping, and subscription management
   * **Crash Protection**: All `onBotContractEvent` calls wrapped in try-catch blocks to prevent Transactions panel crashes during active trading
   * **Complete Data Only**: Waits for full `proposal_open_contract` response (pocInit) before sending any data to Run Panel, ensuring all required fields (entry_tick_display_value, entry_tick_time, exit_tick_display_value, exit_tick_time, etc.) are present and preventing crashes from incomplete data
+  * **WebSocket Resilience**: Automatic retry logic (3 attempts with 2-second delays) for fetching historical data; uses `Promise.allSettled` to continue even if some symbols fail; graceful error handling prevents "Initialization failed" errors requiring page refresh
 
 # External Dependencies
 
