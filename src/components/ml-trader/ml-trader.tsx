@@ -1446,8 +1446,6 @@ const MLTrader = observer(() => {
         <variable id="martingale_var">martingale</variable>
         <variable id="loss_count_var">loss_count</variable>
         <variable id="martingale_level_var">martingale_level</variable>
-        <variable id="last_tick_var">last_tick</variable>
-        <variable id="movement_valid_var">movement_valid</variable>
     </variables>
     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
         <statement name="TRADE_OPTIONS">
@@ -1523,26 +1521,6 @@ const MLTrader = observer(() => {
                                                         <field name="NUM">0</field>
                                                     </block>
                                                 </value>
-                                                <next>
-                                                    <block type="variables_set">
-                                                        <field name="VAR" id="last_tick_var">last_tick</field>
-                                                        <value name="VALUE">
-                                                            <block type="math_number">
-                                                                <field name="NUM">0</field>
-                                                            </block>
-                                                        </value>
-                                                        <next>
-                                                            <block type="variables_set">
-                                                                <field name="VAR" id="movement_valid_var">movement_valid</field>
-                                                                <value name="VALUE">
-                                                                    <block type="logic_boolean">
-                                                                        <field name="BOOL">FALSE</field>
-                                                                    </block>
-                                                                </value>
-                                                            </block>
-                                                        </next>
-                                                    </block>
-                                                </next>
                                             </block>
                                         </next>
                                     </block>
