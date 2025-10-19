@@ -15,6 +15,7 @@ import { tickPredictionEngine } from '@/services/tick-prediction-engine';
 import { executeDirectTrade, getContractTypeFromAction } from '@/services/direct-trade-executor';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import { realTimeTrendMonitor, TrendAnalysis, TrendDirection } from '@/services/real-time-trend-monitor';
+import { getROCCalculator } from '@/services/roc-calculator';
 import './ml-trader.scss';
 
 
@@ -154,6 +155,15 @@ const MLTrader = observer(() => {
         last_10_trades: [] as Array<{direction: 'RISE' | 'FALL', profit: number}>
     });
 
+    // ROC (Rate of Change) State
+    const [roc_enabled, setRocEnabled] = useState(true);
+    const [roc_period, setRocPeriod] = useState(2);
+    const [current_roc, setCurrentROC] = useState<{
+        symbol: string;
+        roc: number;
+        direction: 'UP' | 'DOWN' | 'NEUTRAL';
+    } | null>(null);
+
     useEffect(() => {
         initializeMLTrader();
         return () => cleanup();
@@ -265,6 +275,21 @@ const MLTrader = observer(() => {
                         quote: tick.quote,
                         epoch: tick.epoch
                     });
+
+                    // Calculate ROC for this symbol
+                    if (roc_enabled) {
+                        const rocCalc = getROCCalculator(tick.symbol, roc_period);
+                        const rocData = rocCalc.addPrice(tick.quote);
+                        
+                        // Update ROC state if this is the selected symbol
+                        if (tick.symbol === (selected_recommendation?.symbol || trading_interface.symbol)) {
+                            setCurrentROC({
+                                symbol: tick.symbol,
+                                roc: rocData.roc,
+                                direction: rocData.direction
+                            });
+                        }
+                    }
 
                     // Feed tick to prediction engine if enabled
                     if (use_tick_predictor) {
@@ -898,8 +923,26 @@ const MLTrader = observer(() => {
             return;
         }
 
-        contractInProgressRef.current = true;
         const tradeDirection = recommendation.action;
+
+        // ROC FILTERING: Check if ROC direction matches recommendation
+        if (roc_enabled && current_roc && current_roc.symbol === recommendation.symbol) {
+            const rocDirection = current_roc.direction;
+            const isROCAligned = (
+                (tradeDirection === 'RISE' && rocDirection === 'UP') ||
+                (tradeDirection === 'FALL' && rocDirection === 'DOWN')
+            );
+
+            if (!isROCAligned) {
+                console.log(`❌ ROC FILTER BLOCKED: Recommendation is ${tradeDirection} but ROC is ${rocDirection} (${current_roc.roc.toFixed(4)}%)`);
+                setStatus(`⏸️ Trade blocked: ROC (${rocDirection}) conflicts with ${tradeDirection} recommendation`);
+                return;
+            }
+
+            console.log(`✅ ROC FILTER PASSED: ${tradeDirection} aligns with ROC ${rocDirection} (${current_roc.roc.toFixed(4)}%)`);
+        }
+
+        contractInProgressRef.current = true;
 
         try {
             setStatus(`🔄 Executing ${tradeDirection} trade for ${recommendation.displayName}...`);
@@ -1138,6 +1181,23 @@ const MLTrader = observer(() => {
             } else {
                 tradeDirection = selectedRecommendation.action;
                 console.log(`📊 Standard: ${tradeDirection} - Confidence: ${selectedRecommendation.confidence.toFixed(1)}%`);
+            }
+            
+            // ROC FILTERING: Check if ROC direction matches trade direction
+            if (roc_enabled && current_roc && current_roc.symbol === selectedRecommendation.symbol) {
+                const rocDirection = current_roc.direction;
+                const isROCAligned = (
+                    (tradeDirection === 'RISE' && rocDirection === 'UP') ||
+                    (tradeDirection === 'FALL' && rocDirection === 'DOWN')
+                );
+
+                if (!isROCAligned) {
+                    console.log(`❌ ROC FILTER BLOCKED (Continuous): ${tradeDirection} conflicts with ROC ${rocDirection} (${current_roc.roc.toFixed(4)}%)`);
+                    setStatus(`⏸️ Trade blocked: ROC (${rocDirection}) conflicts with ${tradeDirection}`);
+                    return;
+                }
+
+                console.log(`✅ ROC FILTER PASSED (Continuous): ${tradeDirection} aligns with ROC ${rocDirection} (${current_roc.roc.toFixed(4)}%)`);
             }
             
             // Execute trade with trend-based or RL-optimized direction
@@ -2050,6 +2110,53 @@ const MLTrader = observer(() => {
                     </div>
 
                     <div className="trading-form">
+                        {/* ROC Filter Controls */}
+                        <div style={{
+                            padding: '12px',
+                            marginBottom: '16px',
+                            borderRadius: '8px',
+                            background: roc_enabled ? 'linear-gradient(135deg, #2196F3 0%, #64B5F6 100%)' : '#757575',
+                            color: 'white',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Text size="sm" weight="bold" style={{ color: 'white' }}>
+                                        📊 ROC Filter (2-Period)
+                                    </Text>
+                                    <button
+                                        onClick={() => setRocEnabled(!roc_enabled)}
+                                        style={{
+                                            padding: '4px 12px',
+                                            borderRadius: '4px',
+                                            border: 'none',
+                                            background: roc_enabled ? '#4CAF50' : '#f44336',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {roc_enabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                            </div>
+                            {roc_enabled && current_roc && (
+                                <div style={{ fontSize: '11px', opacity: 0.9 }}>
+                                    <div>Symbol: <strong>{current_roc.symbol}</strong> | Direction: <strong>{current_roc.direction}</strong></div>
+                                    <div>ROC Value: <strong>{current_roc.roc.toFixed(4)}%</strong></div>
+                                    <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.85 }}>
+                                        ✓ Only executes trades when recommendation aligns with ROC direction
+                                    </div>
+                                </div>
+                            )}
+                            {roc_enabled && !current_roc && (
+                                <div style={{ fontSize: '11px', opacity: 0.9 }}>
+                                    Waiting for price data to calculate ROC...
+                                </div>
+                            )}
+                        </div>
+
                         {/* Real-Time Trend Indicator */}
                         {trading_interface.is_auto_trading && current_trend && (
                             <div style={{
