@@ -863,23 +863,29 @@ const MLTrader = observer(() => {
                     Date.now()
                 );
                 
-                // Every 3 ticks, if no active contract, generate recommendation
+                // Every 3 ticks, generate recommendation
                 if (tickCounter % 3 === 0) {
                     console.log(`🎯 AI Recommendation Cycle #${Math.floor(tickCounter / 3)}: ${prediction.direction} (Confidence: ${prediction.confidence}%)`);
                     
-                    // Convert prediction to trade direction
+                    // Convert prediction to trade direction and update state
                     if (prediction.direction === 'CALL') {
                         setContinuousAIRecommendation('RISE');
                         setAIRecommendationConfidence(prediction.confidence);
                     } else if (prediction.direction === 'PUT') {
                         setContinuousAIRecommendation('FALL');
                         setAIRecommendationConfidence(prediction.confidence);
+                    } else {
+                        // HOLD - still update UI but don't execute
+                        setContinuousAIRecommendation(null);
+                        setAIRecommendationConfidence(prediction.confidence);
+                        console.log(`⏸️ AI suggests HOLD (${prediction.confidence}% confidence) - ${prediction.reason}`);
                     }
                     
                     // If no contract in progress and high confidence, execute trade
-                    if (!contractInProgressRef.current && prediction.confidence >= 75) {
+                    if (!contractInProgressRef.current && prediction.direction !== 'HOLD' && prediction.confidence >= 75) {
                         const tradeDirection = prediction.direction === 'CALL' ? 'RISE' : 'FALL';
                         console.log(`🚀 AUTO-EXECUTING AI RECOMMENDATION: ${tradeDirection} (${prediction.confidence}% confidence)`);
+                        console.log(`   Reason: ${prediction.reason}`);
                         
                         // Execute trade using the AI recommendation
                         (async () => {
@@ -906,13 +912,17 @@ const MLTrader = observer(() => {
                                 updateRLState(tradeDirection, -trading_interface.stake);
                             }
                         })();
+                    } else if (prediction.direction !== 'HOLD' && prediction.confidence < 75) {
+                        console.log(`⏭️ AI recommendation below threshold: ${prediction.direction} (${prediction.confidence}% < 75%)`);
                     }
                 }
             }
         });
         
-        // Store unsubscribe function
+        // Store subscription for cleanup
         tickSubscriptionRef.current = unsubscribe;
+        
+        console.log('✅ Continuous AI recommendations started successfully');
     }, [trading_interface.stake, updateRLState]);
     
     /**
@@ -920,9 +930,13 @@ const MLTrader = observer(() => {
      */
     const stopContinuousAIRecommendations = useCallback(() => {
         if (tickSubscriptionRef.current) {
-            tickSubscriptionRef.current();
+            try {
+                tickSubscriptionRef.current.unsubscribe();
+                console.log('⏹️ Stopped continuous AI recommendations');
+            } catch (error) {
+                console.error('Error stopping AI recommendations:', error);
+            }
             tickSubscriptionRef.current = null;
-            console.log('⏹️ Stopped continuous AI recommendations');
         }
     }, []);
 
@@ -2350,7 +2364,7 @@ const MLTrader = observer(() => {
                             <button
                                 className={`auto-trading-btn-big ${trading_interface.is_auto_trading ? 'active' : ''}`}
                                 onClick={toggleAutoTrading}
-                                disabled={!is_authorized || recommendations.length === 0}
+                                disabled={!is_authorized || (!trading_interface.is_auto_trading && recommendations.length === 0)}
                                 style={{
                                     width: '100%',
                                     padding: '16px 24px',
@@ -2358,7 +2372,7 @@ const MLTrader = observer(() => {
                                     fontWeight: 'bold',
                                     borderRadius: '8px',
                                     border: 'none',
-                                    cursor: recommendations.length === 0 || !is_authorized ? 'not-allowed' : 'pointer',
+                                    cursor: (!is_authorized || (!trading_interface.is_auto_trading && recommendations.length === 0)) ? 'not-allowed' : 'pointer',
                                     backgroundColor: trading_interface.is_auto_trading ? '#f44336' : '#4CAF50',
                                     color: 'white',
                                     transition: 'all 0.3s ease',
