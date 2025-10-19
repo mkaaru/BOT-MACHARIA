@@ -1640,32 +1640,40 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Monitor contract result with RL tracking
     const monitorContract = async (api: any, contractId: string, symbol?: string, tradeType?: string): Promise<{ profit: number }> => {
         return new Promise((resolve) => {
-            const checkContract = async () => {
+            let subscription: any = null;
+            
+            const subscribe = async () => {
                 try {
-                    const { proposal_open_contract } = await api.send({
-                        proposal_open_contract: 1,
-                        contract_id: contractId,
-                        subscribe: 1,
-                    });
-
-                    if (proposal_open_contract?.is_sold) {
-                        const profit = Number(proposal_open_contract.profit || 0);
-                        
-                        // Update RL state if symbol and trade type provided
-                        if (symbol && tradeType) {
-                            updateRLState(symbol, tradeType, profit);
+                    subscription = api.proposalOpenContract({ contract_id: contractId, subscribe: 1 }, (response: any) => {
+                        if (response.error) {
+                            console.error('Contract monitoring error:', response.error);
+                            if (subscription) subscription.unsubscribe();
+                            resolve({ profit: 0 });
+                            return;
                         }
-                        
-                        resolve({ profit });
-                    } else {
-                        setTimeout(checkContract, 1000);
-                    }
+
+                        const contract = response.proposal_open_contract;
+                        if (contract?.is_sold) {
+                            const profit = Number(contract.profit || 0);
+                            
+                            // Update RL state if symbol and trade type provided
+                            if (symbol && tradeType) {
+                                updateRLState(symbol, tradeType, profit);
+                            }
+                            
+                            // Unsubscribe and resolve
+                            if (subscription) subscription.unsubscribe();
+                            resolve({ profit });
+                        }
+                    });
                 } catch (error) {
-                    console.error('Contract monitoring error:', error);
+                    console.error('Contract subscription error:', error);
+                    if (subscription) subscription.unsubscribe();
                     resolve({ profit: 0 });
                 }
             };
-            checkContract();
+            
+            subscribe();
         });
     };
 
