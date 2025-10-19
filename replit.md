@@ -47,6 +47,19 @@ Preferred communication style: Simple, everyday language.
   * **2-Tick Duration**: Uses 2 ticks for Step Indices and volatility markets
   * **Risk Management**: Preserves martingale progression and consecutive loss limits (max 5) while adding intelligent market timing
   * **Initial Bootstrap**: Starts with 75% confidence to enable initial trades, then adapts based on market learning
+- **Real-Time Trend Monitoring (October 2025)**: Continuous tick stream analysis that dynamically adapts trading direction:
+  * **12-Tick Trend Analysis**: `real-time-trend-monitor.ts` service maintains rolling 12-tick windows to detect BULLISH/BEARISH/NEUTRAL trends
+  * **Dynamic Direction Switching**: Automatically switches between RISE and FALL trades when trend reversals are detected during auto-trading
+  * **Priority System**: Trade direction determined by: Real-time trend > Reinforcement learning > AI recommendations
+  * **Visual Feedback**: Live trend indicator shows current market direction, confidence, strength, and price change
+  * **Trend Change Tracking**: Counts and displays trend reversals during trading sessions
+- **Continuous AI Recommendations (October 2025)**: Automated trade signal generation every 3 ticks:
+  * **3-Tick Analysis Cycle**: Subscribes to tick stream and generates AI recommendations every 3 ticks using `tickPredictionEngine`
+  * **Auto-Execution**: Automatically executes trades when no contract is active and confidence >= 75%
+  * **RISE/FALL Prediction**: Converts tick predictions (CALL/PUT) to trade directions (RISE/FALL)
+  * **Contract Gating**: Only executes when `contractInProgressRef` is false, preventing overlapping trades
+  * **Visual Indicator**: Blue gradient card displays current AI recommendation, tick count, confidence, and contract status
+  * **Lifecycle Management**: Starts with auto-trading, cleans up properly on stop
 
 # External Dependencies
 
