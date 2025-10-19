@@ -1575,7 +1575,7 @@ const MLTrader = observer(() => {
     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
         <statement name="BEFOREPURCHASE_STACK">
             <block type="controls_if">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
                 <value name="IF0">
                     <block type="logic_compare">
                         <field name="OP">GTE</field>
@@ -1607,114 +1607,48 @@ const MLTrader = observer(() => {
                         </next>
                     </block>
                 </statement>
-                <next>
-                    <block type="controls_if">
-                        <value name="IF0">
+                <value name="IF1">
+                    <block type="logic_operation">
+                        <field name="OP">AND</field>
+                        <value name="A">
                             <block type="logic_compare">
                                 <field name="OP">EQ</field>
                                 <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                    <block type="text">
+                                        <field name="TEXT">${contractType}</field>
                                     </block>
                                 </value>
                                 <value name="B">
-                                    <block type="logic_boolean">
-                                        <field name="BOOL">TRUE</field>
+                                    <block type="text">
+                                        <field name="TEXT">CALL</field>
                                     </block>
                                 </value>
                             </block>
                         </value>
-                        <statement name="DO0">
-                            <block type="purchase">
-                                <field name="PURCHASE_LIST">${contractType}</field>
-                            </block>
-                        </statement>
-                    </block>
-                </next>
                         <value name="B">
-                            <block type="controls_if">
-                                <value name="IF0">
-                                    <block type="logic_operation">
-                                        <field name="OP">AND</field>
-                                        <value name="A">
-                                            <block type="logic_compare">
-                                                <field name="OP">EQ</field>
-                                                <value name="A">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
-                                                    </block>
-                                                </value>
-                                                <value name="B">
-                                                    <block type="logic_boolean">
-                                                        <field name="BOOL">TRUE</field>
-                                                    </block>
-                                                </value>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="logic_compare">
-                                                <field name="OP">EQ</field>
-                                                <value name="A">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="last_tick_var">last_tick</field>
-                                                    </block>
-                                                </value>
-                                                <value name="B">
-                                                    <block type="text_prompt_ext">
-                                                        <mutation type="NUMBER"></mutation>
-                                                        <field name="TEXT"></field>
-                                                        <value name="VALUE">
-                                                            <block type="math_number">
-                                                                <field name="NUM">0</field>
-                                                            </block>
-                                                        </value>
-                                                    </block>
-                                                </value>
-                                            </block>
-                                        </value>
+                            <block type="logic_compare">
+                                <field name="OP">LTE</field>
+                                <value name="A">
+                                    <block type="roc">
+                                        <field name="ROCLENGTH_LIST">${roc_period}</field>
                                     </block>
                                 </value>
-                                <statement name="DO0">
-                                    <block type="controls_if">
-                                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                                        <value name="IF0">
-                                            <block type="logic_compare">
-                                                <field name="OP">EQ</field>
-                                                <value name="A">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="last_tick_var">last_tick</field>
-                                                    </block>
-                                                </value>
-                                                <value name="B">
-                                                    <block type="math_number">
-                                                        <field name="NUM">0</field>
-                                                    </block>
-                                                </value>
-                                            </block>
-                                        </value>
-                                        <statement name="DO0">
-                                            <block type="trade_again">
-                                                <field name="TRADE_AGAIN">FALSE</field>
-                                            </block>
-                                        </statement>
-                                        <statement name="ELSE">
-                                            <block type="purchase">
-                                                <field name="PURCHASE_LIST">${contractType}</field>
-                                            </block>
-                                        </statement>
+                                <value name="B">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
                                     </block>
-                                </statement>
+                                </value>
                             </block>
                         </value>
                     </block>
                 </value>
-                <statement name="DO0">
+                <statement name="DO1">
                     <block type="notify">
                         <field name="NOTIFICATION_TYPE">warn</field>
                         <field name="NOTIFICATION_SOUND">silent</field>
                         <value name="MESSAGE">
                             <shadow type="text">
-                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
+                                <field name="TEXT">ROC filter blocked: CALL trade but ROC is DOWN/NEUTRAL. Skipping trade.</field>
                             </shadow>
                         </value>
                         <next>
@@ -1724,30 +1658,62 @@ const MLTrader = observer(() => {
                         </next>
                     </block>
                 </statement>
-                <next>
+                <statement name="ELSE">
                     <block type="controls_if">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
                         <value name="IF0">
-                            <block type="logic_compare">
-                                <field name="OP">EQ</field>
+                            <block type="logic_operation">
+                                <field name="OP">AND</field>
                                 <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                    <block type="logic_compare">
+                                        <field name="OP">EQ</field>
+                                        <value name="A">
+                                            <block type="text">
+                                                <field name="TEXT">${contractType}</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="text">
+                                                <field name="TEXT">PUT</field>
+                                            </block>
+                                        </value>
                                     </block>
                                 </value>
                                 <value name="B">
-                                    <block type="logic_boolean">
-                                        <field name="BOOL">TRUE</field>
+                                    <block type="logic_compare">
+                                        <field name="OP">GTE</field>
+                                        <value name="A">
+                                            <block type="roc">
+                                                <field name="ROCLENGTH_LIST">${roc_period}</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="math_number">
+                                                <field name="NUM">0</field>
+                                            </block>
+                                        </value>
                                     </block>
                                 </value>
                             </block>
                         </value>
                         <statement name="DO0">
-                            <block type="purchase">
-                                <field name="PURCHASE_LIST">${contractType}</field>
+                            <block type="notify">
+                                <field name="NOTIFICATION_TYPE">warn</field>
+                                <field name="NOTIFICATION_SOUND">silent</field>
+                                <value name="MESSAGE">
+                                    <shadow type="text">
+                                        <field name="TEXT">ROC filter blocked: PUT trade but ROC is UP/NEUTRAL. Skipping trade.</field>
+                                    </shadow>
+                                </value>
+                                <next>
+                                    <block type="trade_again">
+                                        <field name="TRADE_AGAIN">FALSE</field>
+                                    </block>
+                                </next>
                             </block>
                         </statement>
                     </block>
-                </next>
+                </statement>
             </block>
         </statement>
     </block>
@@ -2063,7 +2029,7 @@ const MLTrader = observer(() => {
                     </div>
 
                     {show_auto_trade_panel ? (
-                        <AutoTradePanel 
+                        <AutoTradePanel
                             onConfigChange={(config) => {
                                 mlAutoTrader.configure(config);
                             }}
@@ -2078,7 +2044,7 @@ const MLTrader = observer(() => {
                             <div className={`prediction-signal ${tick_prediction.direction.toLowerCase()}`}>
                                 <div className="signal-direction">
                                     <Text size="xl" weight="bold">
-                                        {tick_prediction.direction === 'CALL' ? '📈 CALL' : 
+                                        {tick_prediction.direction === 'CALL' ? '📈 CALL' :
                                          tick_prediction.direction === 'PUT' ? '📉 PUT' : '⏸️ HOLD'}
                                     </Text>
                                 </div>
@@ -2115,7 +2081,7 @@ const MLTrader = observer(() => {
 
                             {tick_prediction.direction !== 'HOLD' && tick_prediction.confidence >= 80 && (
                                 <div className="prediction-action">
-                                    <button 
+                                    <button
                                         className="execute-btn"
                                         onClick={() => {
                                             const action = tick_prediction.direction === 'CALL' ? 'RISE' : 'FALL';
