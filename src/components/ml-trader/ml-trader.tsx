@@ -842,7 +842,7 @@ const MLTrader = observer(() => {
         }
 
         return result;
-    }, [transactions]);
+    }, [transactions, account_currency]);
 
     /**
      * Apply recommendation and execute trade directly via API (bypasses Bot Builder)
