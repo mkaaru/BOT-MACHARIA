@@ -816,21 +816,21 @@ const MLTrader = observer(() => {
                 tradeType = 'risefall';
             }
 
-            // Set default duration to 2 ticks
-            const defaultDuration = 2;
+            // Set default duration to 3 ticks for better analysis
+            const defaultDuration = 3;
 
             // Set default stake to 0.35
             const defaultStake = 0.35;
 
-            // Contract type based on action and symbol type
-            let contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
+            // Initial contract type based on action and symbol type (will be adaptive based on analysis)
+            let initialContractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
 
             // For Rise/Fall (normal and 1s volatilities), use CALLE/PUTE
             if (isNormalVolatility || is1sVolatility) {
-                contractType = recommendation.action === 'RISE' ? 'CALLE' : 'PUTE';
+                initialContractType = recommendation.action === 'RISE' ? 'CALLE' : 'PUTE';
             }
 
-            // Prepare strategy XML with martingale settings from default bot builder
+            // Prepare enhanced strategy XML with John Ehlers tick analysis
             const strategyXml = `
                 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                     <variables>
@@ -854,6 +854,14 @@ const MLTrader = observer(() => {
                         <variable id="consecutiveLossCount">consecutiveLossCount</variable>
                         <variable id="maxConsecutiveLoss">maxConsecutiveLoss</variable>
                         <variable id="durationTicks">durationTicks</variable>
+                        <variable id="tickBuffer">tickBuffer</variable>
+                        <variable id="tickCount">tickCount</variable>
+                        <variable id="ticksUntilRecalc">ticksUntilRecalc</variable>
+                        <variable id="currentDirection">currentDirection</variable>
+                        <variable id="currentConfidence">currentConfidence</variable>
+                        <variable id="trendRising">trendRising</variable>
+                        <variable id="minConfidenceThreshold">minConfidenceThreshold</variable>
+                        <variable id="adaptiveContractType">adaptiveContractType</variable>
                     </variables>
                     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
                         <statement name="TRADE_OPTIONS">
@@ -867,7 +875,7 @@ const MLTrader = observer(() => {
                                         <field name="TRADETYPE_LIST">${tradeType}</field>
                                         <next>
                                             <block type="trade_definition_contracttype" deletable="false" movable="false">
-                                                <field name="TYPE_LIST">${contractType}</field>
+                                                <field name="TYPE_LIST">${initialContractType}</field>
                                                 <next>
                                                     <block type="trade_definition_candleinterval" deletable="false" movable="false">
                                                         <field name="CANDLEINTERVAL_LIST">60</field>
@@ -918,7 +926,7 @@ const MLTrader = observer(() => {
                                                         <field name="VAR" id="durationTicks">durationTicks</field>
                                                         <value name="VALUE">
                                                             <block type="math_number">
-                                                                <field name="NUM">2</field>
+                                                                <field name="NUM">3</field>
                                                             </block>
                                                         </value>
                                                         <next>
@@ -929,6 +937,76 @@ const MLTrader = observer(() => {
                                                                         <field name="NUM">1</field>
                                                                     </block>
                                                                 </value>
+                                                                <next>
+                                                                    <block type="variables_set" id="init_tick_buffer">
+                                                                        <field name="VAR" id="tickBuffer">tickBuffer</field>
+                                                                        <value name="VALUE">
+                                                                            <block type="lists_create_with">
+                                                                                <mutation items="0"></mutation>
+                                                                            </block>
+                                                                        </value>
+                                                                        <next>
+                                                                            <block type="variables_set" id="init_tick_count">
+                                                                                <field name="VAR" id="tickCount">tickCount</field>
+                                                                                <value name="VALUE">
+                                                                                    <block type="math_number">
+                                                                                        <field name="NUM">0</field>
+                                                                                    </block>
+                                                                                </value>
+                                                                                <next>
+                                                                                    <block type="variables_set" id="init_ticks_until_recalc">
+                                                                                        <field name="VAR" id="ticksUntilRecalc">ticksUntilRecalc</field>
+                                                                                        <value name="VALUE">
+                                                                                            <block type="math_number">
+                                                                                                <field name="NUM">60</field>
+                                                                                            </block>
+                                                                                        </value>
+                                                                                        <next>
+                                                                                            <block type="variables_set" id="init_current_direction">
+                                                                                                <field name="VAR" id="currentDirection">currentDirection</field>
+                                                                                                <value name="VALUE">
+                                                                                                    <block type="text">
+                                                                                                        <field name="TEXT">RISE</field>
+                                                                                                    </block>
+                                                                                                </value>
+                                                                                                <next>
+                                                                                                    <block type="variables_set" id="init_current_confidence">
+                                                                                                        <field name="VAR" id="currentConfidence">currentConfidence</field>
+                                                                                                        <value name="VALUE">
+                                                                                                            <block type="math_number">
+                                                                                                                <field name="NUM">75</field>
+                                                                                                            </block>
+                                                                                                        </value>
+                                                                                                        <next>
+                                                                                                            <block type="variables_set" id="init_min_confidence">
+                                                                                                                <field name="VAR" id="minConfidenceThreshold">minConfidenceThreshold</field>
+                                                                                                                <value name="VALUE">
+                                                                                                                    <block type="math_number">
+                                                                                                                        <field name="NUM">70</field>
+                                                                                                                    </block>
+                                                                                                                </value>
+                                                                                                                <next>
+                                                                                                                    <block type="variables_set" id="init_adaptive_contract_type">
+                                                                                                                        <field name="VAR" id="adaptiveContractType">adaptiveContractType</field>
+                                                                                                                        <value name="VALUE">
+                                                                                                                            <block type="text">
+                                                                                                                                <field name="TEXT">${initialContractType}</field>
+                                                                                                                            </block>
+                                                                                                                        </value>
+                                                                                                                    </block>
+                                                                                                                </next>
+                                                                                                            </block>
+                                                                                                        </next>
+                                                                                                    </block>
+                                                                                                </next>
+                                                                                            </block>
+                                                                                        </next>
+                                                                                    </block>
+                                                                                </next>
+                                                                            </block>
+                                                                        </next>
+                                                                    </block>
+                                                                </next>
                                                             </block>
                                                         </next>
                                                     </block>
@@ -944,10 +1022,10 @@ const MLTrader = observer(() => {
                                 <field name="DURATIONTYPE_LIST">t</field>
                                 <value name="DURATION">
                                     <shadow type="math_number">
-                                        <field name="NUM">2</field>
+                                        <field name="NUM">3</field>
                                     </shadow>
                                     <block type="math_number">
-                                        <field name="NUM">2</field>
+                                        <field name="NUM">3</field>
                                     </block>
                                 </value>
                                 <value name="AMOUNT">
@@ -963,38 +1041,69 @@ const MLTrader = observer(() => {
                     </block>
                     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="400">
                         <statement name="BEFOREPURCHASE_STACK">
-                            <block type="controls_if" id="check_consecutive_loss">
+                            <block type="controls_if" id="check_confidence">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
                                 <value name="IF0">
                                     <block type="logic_compare">
                                         <field name="OP">GTE</field>
                                         <value name="A">
                                             <block type="variables_get">
-                                                <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                <field name="VAR" id="currentConfidence">currentConfidence</field>
                                             </block>
                                         </value>
                                         <value name="B">
                                             <block type="variables_get">
-                                                <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                                <field name="VAR" id="minConfidenceThreshold">minConfidenceThreshold</field>
                                             </block>
                                         </value>
                                     </block>
                                 </value>
                                 <statement name="DO0">
+                                    <block type="controls_if" id="check_consecutive_loss">
+                                        <value name="IF0">
+                                            <block type="logic_compare">
+                                                <field name="OP">GTE</field>
+                                                <value name="A">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <statement name="DO0">
+                                            <block type="notify">
+                                                <field name="NOTIFICATION_TYPE">error</field>
+                                                <field name="NOTIFICATION_SOUND">silent</field>
+                                                <value name="MESSAGE">
+                                                    <shadow type="text">
+                                                        <field name="TEXT">Stop loss triggered: Maximum consecutive losses reached</field>
+                                                    </shadow>
+                                                </value>
+                                            </block>
+                                        </statement>
+                                        <next>
+                                            <block type="purchase" id="purchase">
+                                                <field name="PURCHASE_LIST">${initialContractType}</field>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </statement>
+                                <statement name="ELSE">
                                     <block type="notify">
-                                        <field name="NOTIFICATION_TYPE">error</field>
+                                        <field name="NOTIFICATION_TYPE">warn</field>
                                         <field name="NOTIFICATION_SOUND">silent</field>
                                         <value name="MESSAGE">
                                             <shadow type="text">
-                                                <field name="TEXT">Stop loss triggered: Maximum consecutive losses reached</field>
+                                                <field name="TEXT">Confidence too low - waiting for better signal</field>
                                             </shadow>
                                         </value>
                                     </block>
                                 </statement>
-                                <next>
-                                    <block type="purchase" id="purchase">
-                                        <field name="PURCHASE_LIST">${contractType}</field>
-                                    </block>
-                                </next>
                             </block>
                         </statement>
                     </block>
@@ -1064,27 +1173,236 @@ const MLTrader = observer(() => {
                                     </block>
                                 </statement>
                                 <next>
-                                    <block type="controls_if" id="check_stop_loss">
-                                        <value name="IF0">
-                                            <block type="logic_compare">
-                                                <field name="OP">LT</field>
-                                                <value name="A">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
-                                                    </block>
-                                                </value>
-                                                <value name="B">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
-                                                    </block>
-                                                </value>
-                                            </block>
+                                    <block type="math_change" id="increment_tick_count">
+                                        <field name="VAR" id="tickCount">tickCount</field>
+                                        <value name="DELTA">
+                                            <shadow type="math_number">
+                                                <field name="NUM">1</field>
+                                            </shadow>
                                         </value>
-                                        <statement name="DO0">
-                                            <block type="trade_again" id="trade_again">
-                                                <field name="TRADE_AGAIN_TYPE">true</field>
+                                        <next>
+                                            <block type="lists_setIndex" id="add_to_tick_buffer">
+                                                <mutation xmlns="http://www.w3.org/1999/xhtml" at="false"></mutation>
+                                                <field name="MODE">INSERT</field>
+                                                <field name="WHERE">LAST</field>
+                                                <value name="LIST">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="tickBuffer">tickBuffer</field>
+                                                    </block>
+                                                </value>
+                                                <value name="TO">
+                                                    <block type="read_details">
+                                                        <field name="DETAIL_LIST">sell_price</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="controls_if" id="check_buffer_limit">
+                                                        <value name="IF0">
+                                                            <block type="logic_compare">
+                                                                <field name="OP">GT</field>
+                                                                <value name="A">
+                                                                    <block type="lists_length">
+                                                                        <value name="VALUE">
+                                                                            <block type="variables_get">
+                                                                                <field name="VAR" id="tickBuffer">tickBuffer</field>
+                                                                            </block>
+                                                                        </value>
+                                                                    </block>
+                                                                </value>
+                                                                <value name="B">
+                                                                    <block type="math_number">
+                                                                        <field name="NUM">150</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </value>
+                                                        <statement name="DO0">
+                                                            <block type="lists_setIndex" id="remove_oldest_tick">
+                                                                <mutation xmlns="http://www.w3.org/1999/xhtml" at="false"></mutation>
+                                                                <field name="MODE">REMOVE</field>
+                                                                <field name="WHERE">FIRST</field>
+                                                                <value name="LIST">
+                                                                    <block type="variables_get">
+                                                                        <field name="VAR" id="tickBuffer">tickBuffer</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </statement>
+                                                        <next>
+                                                            <block type="controls_if" id="check_recalc_time">
+                                                                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                                                <value name="IF0">
+                                                                    <block type="logic_compare">
+                                                                        <field name="OP">LTE</field>
+                                                                        <value name="A">
+                                                                            <block type="variables_get">
+                                                                                <field name="VAR" id="ticksUntilRecalc">ticksUntilRecalc</field>
+                                                                            </block>
+                                                                        </value>
+                                                                        <value name="B">
+                                                                            <block type="math_number">
+                                                                                <field name="NUM">0</field>
+                                                                            </block>
+                                                                        </value>
+                                                                    </block>
+                                                                </value>
+                                                                <statement name="DO0">
+                                                                    <block type="controls_if" id="check_buffer_size">
+                                                                        <value name="IF0">
+                                                                            <block type="logic_compare">
+                                                                                <field name="OP">GTE</field>
+                                                                                <value name="A">
+                                                                                    <block type="lists_length">
+                                                                                        <value name="VALUE">
+                                                                                            <block type="variables_get">
+                                                                                                <field name="VAR" id="tickBuffer">tickBuffer</field>
+                                                                                            </block>
+                                                                                        </value>
+                                                                                    </block>
+                                                                                </value>
+                                                                                <value name="B">
+                                                                                    <block type="math_number">
+                                                                                        <field name="NUM">30</field>
+                                                                                    </block>
+                                                                                </value>
+                                                                            </block>
+                                                                        </value>
+                                                                        <statement name="DO0">
+                                                                            <block type="variables_set" id="calc_first_half_avg">
+                                                                                <field name="VAR" id="trendRising">trendRising</field>
+                                                                                <value name="VALUE">
+                                                                                    <block type="logic_compare">
+                                                                                        <field name="OP">GT</field>
+                                                                                        <value name="A">
+                                                                                            <block type="lists_getIndex">
+                                                                                                <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="false"></mutation>
+                                                                                                <field name="MODE">GET</field>
+                                                                                                <field name="WHERE">LAST</field>
+                                                                                                <value name="VALUE">
+                                                                                                    <block type="variables_get">
+                                                                                                        <field name="VAR" id="tickBuffer">tickBuffer</field>
+                                                                                                    </block>
+                                                                                                </value>
+                                                                                            </block>
+                                                                                        </value>
+                                                                                        <value name="B">
+                                                                                            <block type="lists_getIndex">
+                                                                                                <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="false"></mutation>
+                                                                                                <field name="MODE">GET</field>
+                                                                                                <field name="WHERE">FIRST</field>
+                                                                                                <value name="VALUE">
+                                                                                                    <block type="variables_get">
+                                                                                                        <field name="VAR" id="tickBuffer">tickBuffer</field>
+                                                                                                    </block>
+                                                                                                </value>
+                                                                                            </block>
+                                                                                        </value>
+                                                                                    </block>
+                                                                                </value>
+                                                                                <next>
+                                                                                    <block type="controls_if" id="update_direction">
+                                                                                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                                                                        <value name="IF0">
+                                                                                            <block type="variables_get">
+                                                                                                <field name="VAR" id="trendRising">trendRising</field>
+                                                                                            </block>
+                                                                                        </value>
+                                                                                        <statement name="DO0">
+                                                                                            <block type="variables_set" id="set_direction_rise">
+                                                                                                <field name="VAR" id="currentDirection">currentDirection</field>
+                                                                                                <value name="VALUE">
+                                                                                                    <block type="text">
+                                                                                                        <field name="TEXT">RISE</field>
+                                                                                                    </block>
+                                                                                                </value>
+                                                                                                <next>
+                                                                                                    <block type="variables_set" id="update_confidence_rise">
+                                                                                                        <field name="VAR" id="currentConfidence">currentConfidence</field>
+                                                                                                        <value name="VALUE">
+                                                                                                            <block type="math_number">
+                                                                                                                <field name="NUM">75</field>
+                                                                                                            </block>
+                                                                                                        </value>
+                                                                                                    </block>
+                                                                                                </next>
+                                                                                            </block>
+                                                                                        </statement>
+                                                                                        <statement name="ELSE">
+                                                                                            <block type="variables_set" id="set_direction_fall">
+                                                                                                <field name="VAR" id="currentDirection">currentDirection</field>
+                                                                                                <value name="VALUE">
+                                                                                                    <block type="text">
+                                                                                                        <field name="TEXT">FALL</field>
+                                                                                                    </block>
+                                                                                                </value>
+                                                                                                <next>
+                                                                                                    <block type="variables_set" id="update_confidence_fall">
+                                                                                                        <field name="VAR" id="currentConfidence">currentConfidence</field>
+                                                                                                        <value name="VALUE">
+                                                                                                            <block type="math_number">
+                                                                                                                <field name="NUM">75</field>
+                                                                                                            </block>
+                                                                                                        </value>
+                                                                                                    </block>
+                                                                                                </next>
+                                                                                            </block>
+                                                                                        </statement>
+                                                                                        <next>
+                                                                                            <block type="variables_set" id="reset_recalc_counter">
+                                                                                                <field name="VAR" id="ticksUntilRecalc">ticksUntilRecalc</field>
+                                                                                                <value name="VALUE">
+                                                                                                    <block type="math_number">
+                                                                                                        <field name="NUM">60</field>
+                                                                                                    </block>
+                                                                                                </value>
+                                                                                            </block>
+                                                                                        </next>
+                                                                                    </block>
+                                                                                </next>
+                                                                            </block>
+                                                                        </statement>
+                                                                    </block>
+                                                                </statement>
+                                                                <statement name="ELSE">
+                                                                    <block type="math_change" id="decrement_recalc">
+                                                                        <field name="VAR" id="ticksUntilRecalc">ticksUntilRecalc</field>
+                                                                        <value name="DELTA">
+                                                                            <shadow type="math_number">
+                                                                                <field name="NUM">-1</field>
+                                                                            </shadow>
+                                                                        </value>
+                                                                    </block>
+                                                                </statement>
+                                                                <next>
+                                                                    <block type="controls_if" id="check_stop_loss">
+                                                                        <value name="IF0">
+                                                                            <block type="logic_compare">
+                                                                                <field name="OP">LT</field>
+                                                                                <value name="A">
+                                                                                    <block type="variables_get">
+                                                                                        <field name="VAR" id="consecutiveLossCount">consecutiveLossCount</field>
+                                                                                    </block>
+                                                                                </value>
+                                                                                <value name="B">
+                                                                                    <block type="variables_get">
+                                                                                        <field name="VAR" id="maxConsecutiveLoss">maxConsecutiveLoss</field>
+                                                                                    </block>
+                                                                                </value>
+                                                                            </block>
+                                                                        </value>
+                                                                        <statement name="DO0">
+                                                                            <block type="trade_again" id="trade_again">
+                                                                                <field name="TRADE_AGAIN_TYPE">true</field>
+                                                                            </block>
+                                                                        </statement>
+                                                                    </block>
+                                                                </next>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
                                             </block>
-                                        </statement>
+                                        </next>
                                     </block>
                                 </next>
                             </block>
