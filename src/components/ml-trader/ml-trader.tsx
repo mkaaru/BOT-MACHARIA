@@ -1211,7 +1211,7 @@ const MLTrader = observer(() => {
                                                 </value>
                                                 <value name="TO">
                                                     <block type="read_details">
-                                                        <field name="DETAIL_LIST">sell_price</field>
+                                                        <field name="DETAIL">sell_price</field>
                                                     </block>
                                                 </value>
                                                 <next>
@@ -1411,7 +1411,6 @@ const MLTrader = observer(() => {
                                                                         </value>
                                                                         <statement name="DO0">
                                                                             <block type="trade_again" id="trade_again">
-                                                                                <field name="TRADE_AGAIN_TYPE">true</field>
                                                                             </block>
                                                                         </statement>
                                                                     </block>
