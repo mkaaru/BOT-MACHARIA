@@ -37,6 +37,12 @@ Preferred communication style: Simple, everyday language.
 - **Trading Hub Interface**: Features an embedded Smart Trader component for direct trading without modals, with all settings directly editable and "Start Trading" buttons initiating trades directly. It includes auto-scroll to the Smart Trader and a persistent stop button.
 - **Auto-Trading System**: `ml-auto-trader.ts` service for intelligent trade execution with risk management, including configurable stake, min confidence, max trades/hour, cooldown, stop-loss, and take-profit. Features symbol rotation and a contract type alternation strategy (Equals vs. Plain contracts) based on win/loss streaks.
 - **Deriv API Integration**: Corrected contract type mapping (Rise as PUT, Fall as CALL) and enforced 2-tick duration. Optimized for Step Indices to reduce API load and improve rate limit avoidance.
+- **Complete Volatility Coverage (October 2025)**: ML Trader scanner now tracks ALL 24 Deriv volatility indices:
+  * 9 Normal Volatilities: R_10, R_25, R_50, R_75, R_100, R_150, R_200, R_250, R_300
+  * 9 1-Second Volatilities: 1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V, 1HZ150V, 1HZ200V, 1HZ250V, 1HZ300V
+  * 5 Step Indices: stpRNG (100), stpRNG2 (200), stpRNG3 (300), stpRNG4 (400), stpRNG5 (500)
+  * Updated contract type mapping regex to support all new volatilities in Bot Builder
+  * Manual "Load to Bot Builder" button retained, auto-load feature removed for user control
 - **Bot Builder Market Hierarchy**: Correct XML structure for Blockly to properly populate market, submarket, and symbol dropdowns, particularly for Step Indices.
 - **Intelligent ML Trader Bot (October 2025)**: Enhanced "Load to Bot Builder" feature that generates adaptive trading bots with tick-stream analysis capabilities:
   * **John Ehlers Technical Indicators**: Utilizes `ehlers-indicators.ts` with Supersmoother filter, Instantaneous Trendline, and Cyber Cycle for market analysis
