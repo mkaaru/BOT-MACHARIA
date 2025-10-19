@@ -13,6 +13,7 @@ import { mlAutoTrader } from '@/services/ml-auto-trader';
 import { AutoTradePanel } from './auto-trade-panel';
 import { tickPredictionEngine } from '@/services/tick-prediction-engine';
 import { executeDirectTrade, getContractTypeFromAction } from '@/services/direct-trade-executor';
+import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import './ml-trader.scss';
 
 
@@ -907,10 +908,19 @@ const MLTrader = observer(() => {
         mlAutoTrader.configure({ enabled: newState });
 
         if (newState) {
+            // Notify Run Panel that bot is starting
+            globalObserver.emit('bot.running', { is_running: true });
+            console.log('📡 Emitted bot.running to Run Panel');
+            
             // Start auto-trading with continuous loop
             setStatus('🤖 Auto-trading activated - executing trades continuously...');
             startContinuousTrading();
         } else {
+            // Notify Run Panel that bot is stopping
+            globalObserver.emit('bot.stop');
+            globalObserver.emit('bot.running', { is_running: false });
+            console.log('📡 Emitted bot.stop to Run Panel');
+            
             // Stop auto-trading
             setStatus('⏹️ Auto-trading stopped');
             
