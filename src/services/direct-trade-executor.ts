@@ -106,8 +106,12 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
             const buy_price = parseFloat(buyResponse.buy.buy_price);
             const payout = parseFloat(buyResponse.buy.payout || 0);
             
+            // Get account ID for transaction panel
+            const accountID = authorize?.loginid || V2GetActiveClientId();
+            
             // Emit initial contract event to transaction panel
             const contractData = {
+                accountID,  // Required for transaction panel
                 contract_id,
                 contract_type: params.contract_type,
                 buy_price,
@@ -123,7 +127,7 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
 
             // Emit contract event so it shows in transaction panel
             globalObserver.emit('bot.contract', contractData);
-            console.log('📡 Emitted bot.contract event for transaction panel');
+            console.log('📡 Emitted bot.contract event for transaction panel:', contract_id);
 
             // Subscribe to contract updates using proper subscription
             // This ensures the transaction panel receives all updates including settlement
@@ -139,7 +143,9 @@ export async function executeDirectTrade(params: DirectTradeParams): Promise<Dir
                         const poc = pocResponse.proposal_open_contract;
                         
                         // Emit updated contract with current status to transaction panel
+                        // Must include accountID for transaction panel to recognize it
                         globalObserver.emit('bot.contract', {
+                            accountID,
                             ...poc,
                             underlying: params.symbol
                         });

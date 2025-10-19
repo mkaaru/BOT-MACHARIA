@@ -908,8 +908,8 @@ const MLTrader = observer(() => {
         mlAutoTrader.configure({ enabled: newState });
 
         if (newState) {
-            // Notify Run Panel that bot is starting
-            globalObserver.emit('bot.running', { is_running: true });
+            // Notify Run Panel that bot is starting (no parameters needed)
+            globalObserver.emit('bot.running');
             console.log('📡 Emitted bot.running to Run Panel');
             
             // Start auto-trading with continuous loop
@@ -918,7 +918,6 @@ const MLTrader = observer(() => {
         } else {
             // Notify Run Panel that bot is stopping
             globalObserver.emit('bot.stop');
-            globalObserver.emit('bot.running', { is_running: false });
             console.log('📡 Emitted bot.stop to Run Panel');
             
             // Stop auto-trading
