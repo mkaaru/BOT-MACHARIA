@@ -1331,7 +1331,7 @@ const MLTrader = observer(() => {
     };
 
     /**
-     * Load recommendation to Bot Builder - Simple Martingale Strategy
+     * Load recommendation to Bot Builder - Martingale Strategy with Level 3 Limit
      */
     const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
         try {
@@ -1376,11 +1376,14 @@ const MLTrader = observer(() => {
                 action: recommendation.action
             });
 
-            // Simple martingale strategy XML - Basic version without tick analysis
+            // Martingale strategy with level 3 limit (revert after 2 losses) and max 5 losses
             const strategyXml = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
     <variables>
         <variable id="stake_var">stake</variable>
+        <variable id="initial_stake_var">initial_stake</variable>
         <variable id="martingale_var">martingale</variable>
+        <variable id="loss_count_var">loss_count</variable>
+        <variable id="martingale_level_var">martingale_level</variable>
     </variables>
     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
         <statement name="TRADE_OPTIONS">
@@ -1418,7 +1421,7 @@ const MLTrader = observer(() => {
         </statement>
         <statement name="INITIALIZATION">
             <block type="variables_set">
-                <field name="VAR" id="stake_var">stake</field>
+                <field name="VAR" id="initial_stake_var">initial_stake</field>
                 <value name="VALUE">
                     <block type="math_number">
                         <field name="NUM">${defaultStake}</field>
@@ -1426,12 +1429,42 @@ const MLTrader = observer(() => {
                 </value>
                 <next>
                     <block type="variables_set">
-                        <field name="VAR" id="martingale_var">martingale</field>
+                        <field name="VAR" id="stake_var">stake</field>
                         <value name="VALUE">
-                            <block type="math_number">
-                                <field name="NUM">2</field>
+                            <block type="variables_get">
+                                <field name="VAR" id="initial_stake_var">initial_stake</field>
                             </block>
                         </value>
+                        <next>
+                            <block type="variables_set">
+                                <field name="VAR" id="martingale_var">martingale</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">1</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="loss_count_var">loss_count</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">0</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="martingale_level_var">martingale_level</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
                     </block>
                 </next>
             </block>
@@ -1455,14 +1488,49 @@ const MLTrader = observer(() => {
             </block>
         </statement>
     </block>
-    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="300">
+    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
         <statement name="BEFOREPURCHASE_STACK">
-            <block type="purchase">
-                <field name="PURCHASE_LIST">${contractType}</field>
+            <block type="controls_if">
+                <value name="IF0">
+                    <block type="logic_compare">
+                        <field name="OP">GTE</field>
+                        <value name="A">
+                            <block type="variables_get">
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+                            </block>
+                        </value>
+                        <value name="B">
+                            <block type="math_number">
+                                <field name="NUM">5</field>
+                            </block>
+                        </value>
+                    </block>
+                </value>
+                <statement name="DO0">
+                    <block type="notify">
+                        <field name="NOTIFICATION_TYPE">warn</field>
+                        <field name="NOTIFICATION_SOUND">silent</field>
+                        <value name="MESSAGE">
+                            <shadow type="text">
+                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
+                            </shadow>
+                        </value>
+                        <next>
+                            <block type="trade_again">
+                                <field name="TRADE_AGAIN">FALSE</field>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+                <next>
+                    <block type="purchase">
+                        <field name="PURCHASE_LIST">${contractType}</field>
+                    </block>
+                </next>
             </block>
         </statement>
     </block>
-    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="450">
+    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="0">
         <statement name="AFTERPURCHASE_STACK">
             <block type="controls_if">
                 <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
@@ -1475,36 +1543,140 @@ const MLTrader = observer(() => {
                     <block type="variables_set">
                         <field name="VAR" id="stake_var">stake</field>
                         <value name="VALUE">
-                            <block type="math_number">
-                                <field name="NUM">${defaultStake}</field>
+                            <block type="variables_get">
+                                <field name="VAR" id="initial_stake_var">initial_stake</field>
                             </block>
                         </value>
+                        <next>
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">0</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
                     </block>
                 </statement>
                 <statement name="ELSE">
                     <block type="variables_set">
-                        <field name="VAR" id="stake_var">stake</field>
+                        <field name="VAR" id="loss_count_var">loss_count</field>
                         <value name="VALUE">
                             <block type="math_arithmetic">
-                                <field name="OP">MULTIPLY</field>
+                                <field name="OP">ADD</field>
                                 <value name="A">
-                                    <shadow type="math_number">
-                                        <field name="NUM">1</field>
-                                    </shadow>
                                     <block type="variables_get">
-                                        <field name="VAR" id="stake_var">stake</field>
+                                        <field name="VAR" id="loss_count_var">loss_count</field>
                                     </block>
                                 </value>
                                 <value name="B">
-                                    <shadow type="math_number">
+                                    <block type="math_number">
                                         <field name="NUM">1</field>
-                                    </shadow>
-                                    <block type="variables_get">
-                                        <field name="VAR" id="martingale_var">martingale</field>
                                     </block>
                                 </value>
                             </block>
                         </value>
+                        <next>
+                            <block type="variables_set">
+                                <field name="VAR" id="martingale_level_var">martingale_level</field>
+                                <value name="VALUE">
+                                    <block type="math_arithmetic">
+                                        <field name="OP">ADD</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="martingale_level_var">martingale_level</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="math_number">
+                                                <field name="NUM">1</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="controls_if">
+                                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                        <value name="IF0">
+                                            <block type="logic_compare">
+                                                <field name="OP">GTE</field>
+                                                <value name="A">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="math_number">
+                                                        <field name="NUM">3</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <statement name="DO0">
+                                            <block type="variables_set">
+                                                <field name="VAR" id="stake_var">stake</field>
+                                                <value name="VALUE">
+                                                    <block type="variables_get">
+                                                        <field name="VAR" id="initial_stake_var">initial_stake</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
+                                                        <value name="VALUE">
+                                                            <block type="math_number">
+                                                                <field name="NUM">0</field>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </statement>
+                                        <statement name="ELSE">
+                                            <block type="variables_set">
+                                                <field name="VAR" id="stake_var">stake</field>
+                                                <value name="VALUE">
+                                                    <block type="math_arithmetic">
+                                                        <field name="OP">MULTIPLY</field>
+                                                        <value name="A">
+                                                            <block type="variables_get">
+                                                                <field name="VAR" id="stake_var">stake</field>
+                                                            </block>
+                                                        </value>
+                                                        <value name="B">
+                                                            <block type="math_arithmetic">
+                                                                <field name="OP">ADD</field>
+                                                                <value name="A">
+                                                                    <block type="variables_get">
+                                                                        <field name="VAR" id="martingale_var">martingale</field>
+                                                                    </block>
+                                                                </value>
+                                                                <value name="B">
+                                                                    <block type="math_number">
+                                                                        <field name="NUM">1</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </statement>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
                     </block>
                 </statement>
                 <next>
