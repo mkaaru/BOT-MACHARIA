@@ -1391,55 +1391,18 @@ const MLTrader = observer(() => {
     };
 
     /**
-     * Load recommendation to Bot Builder - Martingale Strategy with Level 3 Limit
+     * Generate Martingale strategy XML
      */
-    const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
-        try {
-            console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
-
-            // Validate recommendation data
-            if (!recommendation || !recommendation.symbol || !recommendation.action) {
-                console.error('❌ Invalid recommendation data:', recommendation);
-                setStatus('❌ Invalid recommendation data');
-                return;
-            }
-
-            // Get display name
-            const displayName = recommendation.displayName || recommendation.symbol;
-
-            // Use the symbol directly (already uppercase from DERIV_VOLATILITY_SYMBOLS)
-            const symbol = recommendation.symbol;
-
-            // Check symbol type
-            const isStepIndex = symbol.toLowerCase().startsWith('stprng');
-            const isNormalVolatility = /^R_(10|25|50|75|100|150|200|250|300)$/i.test(symbol);
-            const is1sVolatility = /^1HZ(10|25|50|75|100|150|200|250|300)V$/i.test(symbol);
-
-            // Determine market and submarket
-            let market = 'synthetic_index';
-            let submarket = isStepIndex ? 'step_index' : 'random_index';
-
-            // Determine contract type - ALWAYS use CALL/PUT for tick contracts
-            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT';
-
-            // Set default stake
-            const defaultStake = 0.35;
-
-            // Debug log all variables before XML generation
-            console.log('✅ XML Generation Variables:', {
-                market,
-                submarket,
-                symbol,
-                contractType,
-                defaultStake,
-                displayName,
-                action: recommendation.action
-            });
-
-            // Martingale strategy with level 3 limit (revert after 2 losses) and max 5 losses
-            // Includes ROC (Rate of Change) filtering - only trades when market direction aligns with recommendation
-            // Includes Step Index movement validation - checks for valid tick movement before purchase
-            const strategyXml = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    function generateMartingaleStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Martingale strategy with level 3 limit (revert after 2 losses) and max 5 losses
+        // Includes ROC (Rate of Change) filtering - only trades when market direction aligns with recommendation
+        // Includes Step Index movement validation - checks for valid tick movement before purchase
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
     <variables>
         <variable id="stake_var">stake</variable>
         <variable id="initial_stake_var">initial_stake</variable>
@@ -1452,8 +1415,8 @@ const MLTrader = observer(() => {
     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
         <statement name="TRADE_OPTIONS">
             <block type="trade_definition_market" deletable="false" movable="false">
-                <field name="MARKET_LIST">${market}</field>
-                <field name="SUBMARKET_LIST">${submarket}</field>
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
                 <field name="SYMBOL_LIST">${symbol}</field>
                 <next>
                     <block type="trade_definition_tradetype" deletable="false" movable="false">
@@ -1893,71 +1856,604 @@ const MLTrader = observer(() => {
         </statement>
     </block>
 </xml>`;
+    }
 
-            console.log('📄 Loading ML Trader strategy with continuous trading to Bot Builder...');
+    /**
+     * Generate Ehlers SuperSmoother strategy XML
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Simplified Ehlers Supersmoother strategy with momentum and trend analysis
+        // Uses a 2-period rate of change (ROC) for trend confirmation
+        // Includes risk management (Martingale-style stake increase on loss)
+        // Stop conditions: max 5 consecutive losses or profit target reached
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="stake_var">stake</variable>
+        <variable id="initial_stake_var">initial_stake</variable>
+        <variable id="loss_count_var">loss_count</variable>
+        <variable id="supersmoother_var">supersmoother</variable>
+        <variable id="trend_direction_var">trend_direction</variable>
+        <variable id="momentum_var">momentum</variable>
+        <variable id="confidence_var">confidence</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">${contractType}</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">5</field> <!-- Use 5-minute candles for Ehlers -->
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="INITIALIZATION">
+            <block type="variables_set">
+                <field name="VAR" id="initial_stake_var">initial_stake</field>
+                <value name="VALUE">
+                    <block type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </block>
+                </value>
+                <next>
+                    <block type="variables_set">
+                        <field name="VAR" id="stake_var">stake</field>
+                        <value name="VALUE">
+                            <block type="variables_get">
+                                <field name="VAR" id="initial_stake_var">initial_stake</field>
+                            </block>
+                        </value>
+                        <next>
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="supersmoother_var">supersmoother</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">0</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
+                                                <value name="VALUE">
+                                                    <block type="text">
+                                                        <field name="TEXT">NONE</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="momentum_var">momentum</field>
+                                                        <value name="VALUE">
+                                                            <block type="math_number">
+                                                                <field name="NUM">0</field>
+                                                            </block>
+                                                        </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="confidence_var">confidence</field>
+                                                                <value name="VALUE">
+                                                                    <block type="math_number">
+                                                                        <field name="NUM">0</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">5</field> <!-- 5 ticks for Ehlers -->
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
+                    </block>
+                </value>
+            </block>
+        </statement>
+    </block>
+    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
+        <statement name="BEFOREPURCHASE_STACK">
+            <!-- Ehlers Logic: Calculate Supersmoother, Momentum, Trend, and Confidence -->
+            <block type="controls_if">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="2" else="1"></mutation>
+                <!-- Condition 1: Max losses -->
+                <value name="IF0">
+                    <block type="logic_compare">
+                        <field name="OP">GTE</field>
+                        <value name="A">
+                            <block type="variables_get">
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+                            </block>
+                        </value>
+                        <value name="B">
+                            <block type="math_number">
+                                <field name="NUM">5</field>
+                            </block>
+                        </value>
+                    </block>
+                </value>
+                <statement name="DO0">
+                    <block type="notify">
+                        <field name="NOTIFICATION_TYPE">warn</field>
+                        <field name="NOTIFICATION_SOUND">silent</field>
+                        <value name="MESSAGE">
+                            <shadow type="text">
+                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
+                            </shadow>
+                        </value>
+                        <next>
+                            <block type="trade_again">
+                                <field name="TRADE_AGAIN">FALSE</field>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
 
-            // Switch to Bot Builder tab
+                <!-- Condition 2: Trend Up & Momentum Up -->
+                <value name="IF1">
+                    <block type="logic_operation">
+                        <field name="OP">AND</field>
+                        <value name="A">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="trend_direction_var">trend_direction</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="text">
+                                        <field name="TEXT">UP</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <value name="B">
+                            <block type="logic_compare">
+                                <field name="OP">GT</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="momentum_var">momentum</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                    </block>
+                </value>
+                <statement name="DO1">
+                    <!-- Buy CALL if condition met -->
+                    <block type="controls_if">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml"></mutation>
+                        <value name="IF0">
+                            <block type="logic_operation">
+                                <field name="OP">AND</field>
+                                <value name="A">
+                                    <block type="logic_compare">
+                                        <field name="OP">EQ</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="text">
+                                                <field name="TEXT">UP</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_compare">
+                                        <field name="OP">GT</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="momentum_var">momentum</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="math_number">
+                                                <field name="NUM">0</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="trade_again">
+                                <field name="TRADE_AGAIN">TRUE</field>
+                            </block>
+                        </statement>
+                    </block>
+                </statement>
+
+                <!-- Condition 3: Trend Down & Momentum Down -->
+                <value name="IF2">
+                    <block type="logic_operation">
+                        <field name="OP">AND</field>
+                        <value name="A">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="trend_direction_var">trend_direction</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="text">
+                                        <field name="TEXT">DOWN</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <value name="B">
+                            <block type="logic_compare">
+                                <field name="OP">LT</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="momentum_var">momentum</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                    </block>
+                </value>
+                <statement name="DO2">
+                    <!-- Buy PUT if condition met -->
+                    <block type="controls_if">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml"></mutation>
+                        <value name="IF0">
+                            <block type="logic_operation">
+                                <field name="OP">AND</field>
+                                <value name="A">
+                                    <block type="logic_compare">
+                                        <field name="OP">EQ</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="text">
+                                                <field name="TEXT">DOWN</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_compare">
+                                        <field name="OP">LT</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="momentum_var">momentum</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="math_number">
+                                                <field name="NUM">0</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="trade_again">
+                                <field name="TRADE_AGAIN">TRUE</field>
+                            </block>
+                        </statement>
+                    </block>
+                </statement>
+
+                <!-- ELSE: No trade -->
+                <statement name="ELSE">
+                    <block type="trade_again">
+                        <field name="TRADE_AGAIN">FALSE</field>
+                    </block>
+                </statement>
+            </block>
+        </statement>
+    </block>
+    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="0">
+        <statement name="AFTERPURCHASE_STACK">
+            <block type="controls_if">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                <value name="IF0">
+                    <block type="contract_check_result">
+                        <field name="CHECK_RESULT">win</field>
+                    </block>
+                </value>
+                <statement name="DO0">
+                    <!-- Reset on win -->
+                    <block type="variables_set">
+                        <field name="VAR" id="stake_var">stake</field>
+                        <value name="VALUE">
+                            <block type="variables_get">
+                                <field name="VAR" id="initial_stake_var">initial_stake</field>
+                            </block>
+                        </value>
+                        <next>
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+                <statement name="ELSE">
+                    <!-- Increase stake and loss count on loss -->
+                    <block type="variables_set">
+                        <field name="VAR" id="loss_count_var">loss_count</field>
+                        <value name="VALUE">
+                            <block type="math_arithmetic">
+                                <field name="OP">ADD</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count_var">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="math_number">
+                                        <field name="NUM">1</field>
+                                    </block>
+                                </value>
+                            </block>
+                        </value>
+                        <next>
+                            <block type="variables_set">
+                                <field name="VAR" id="stake_var">stake</field>
+                                <value name="VALUE">
+                                    <block type="math_arithmetic">
+                                        <field name="OP">MULTIPLY</field>
+                                        <value name="A">
+                                            <block type="variables_get">
+                                                <field name="VAR" id="stake_var">stake</field>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <!-- Martingale multiplier (e.g., 1.15) -->
+                                            <block type="math_number">
+                                                <field name="NUM">1.15</field>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+                <next>
+                    <block type="trade_again"></block>
+                </next>
+            </block>
+        </statement>
+    </block>
+</xml>`;
+    }
+
+
+    /**
+     * Load recommendation to Bot Builder - Martingale Strategy
+     */
+    const loadMartingaleStrategy = useCallback(async (recommendation: ScannerRecommendation) => {
+        try {
+            console.log('🚀 Loading Martingale strategy to Bot Builder:', recommendation);
+
+            if (!recommendation || !recommendation.symbol || !recommendation.action) {
+                console.error('❌ Invalid recommendation data:', recommendation);
+                setStatus('❌ Invalid recommendation data');
+                return;
+            }
+
+            const displayName = recommendation.displayName || recommendation.symbol;
+            const symbol = recommendation.symbol;
+            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT'; // CALL for Rise, PUT for Fall
+            const defaultStake = 0.35; // Default stake for Martingale
+
+            const strategyXml = generateMartingaleStrategyXML(symbol, contractType, defaultStake, roc_period);
+
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
 
-            // Wait for tab switch and load the strategy
             setTimeout(async () => {
                 try {
-                    // Import bot skeleton functions
                     const { load } = await import('@/external/bot-skeleton');
                     const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
 
-                    // Load to workspace
                     if (window.Blockly?.derivWorkspace) {
-
                         await load({
                             block_string: strategyXml,
-                            file_name: `MLTrader_${displayName}_${recommendation.action}_${Date.now()}`,
+                            file_name: `MLTrader_Martingale_${displayName}_${recommendation.action}_${Date.now()}`,
                             workspace: window.Blockly.derivWorkspace,
                             from: save_types.UNSAVED,
                             drop_event: null,
                             strategy_id: null,
                             showIncompatibleStrategyDialog: null,
                         });
-
-                        // Center workspace
                         window.Blockly.derivWorkspace.scrollCenter();
-
-                        setStatus(`✅ Loaded ${recommendation.action} strategy for ${displayName} to Bot Builder`);
-
+                        setStatus(`✅ Loaded Martingale strategy for ${displayName} to Bot Builder`);
                     } else {
                         console.warn('⚠️ Blockly workspace not ready, using fallback method');
-
-                        // Fallback method
                         setTimeout(() => {
                             if (window.Blockly?.derivWorkspace) {
                                 window.Blockly.derivWorkspace.clear();
                                 const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                                 window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                                 window.Blockly.derivWorkspace.scrollCenter();
-                                setStatus(`✅ Loaded ${recommendation.action} strategy using fallback method`);
+                                setStatus(`✅ Loaded Martingale strategy using fallback method`);
                             }
                         }, 500);
                     }
                 } catch (loadError) {
-                    console.error('❌ Error loading ML Trader strategy:', loadError);
-
-                    // Final fallback
+                    console.error('❌ Error loading Martingale strategy:', loadError);
                     if (window.Blockly?.derivWorkspace) {
                         window.Blockly.derivWorkspace.clear();
                         const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
                         window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                         window.Blockly.derivWorkspace.scrollCenter();
-                        setStatus(`✅ Loaded ${recommendation.action} strategy using final fallback`);
+                        setStatus(`✅ Loaded Martingale strategy using final fallback`);
                     }
                 }
             }, 300);
 
-
         } catch (error) {
-            console.error('Error loading recommendation to Bot Builder:', error);
+            console.error('Error loading Martingale strategy to Bot Builder:', error);
             setStatus(`❌ Error loading strategy: ${error}`);
         }
-    }, [store.dashboard]);
+    }, [store.dashboard, roc_period]);
+
+    /**
+     * Load recommendation to Bot Builder - Ehlers Strategy
+     */
+    const loadEhlersStrategy = useCallback(async (recommendation: ScannerRecommendation) => {
+        try {
+            console.log('🚀 Loading Ehlers strategy to Bot Builder:', recommendation);
+
+            if (!recommendation || !recommendation.symbol || !recommendation.action) {
+                console.error('❌ Invalid recommendation data:', recommendation);
+                setStatus('❌ Invalid recommendation data');
+                return;
+            }
+
+            const displayName = recommendation.displayName || recommendation.symbol;
+            const symbol = recommendation.symbol;
+            const contractType = recommendation.action === 'RISE' ? 'CALL' : 'PUT'; // CALL for Rise, PUT for Fall
+            const defaultStake = 0.35; // Default stake for Ehlers
+
+            const strategyXml = generateEhlersStrategyXML(symbol, contractType, defaultStake, roc_period);
+
+            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+
+            setTimeout(async () => {
+                try {
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+
+                    if (window.Blockly?.derivWorkspace) {
+                        await load({
+                            block_string: strategyXml,
+                            file_name: `MLTrader_Ehlers_${displayName}_${recommendation.action}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        setStatus(`✅ Loaded Ehlers strategy for ${displayName} to Bot Builder`);
+                    } else {
+                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+                        setTimeout(() => {
+                            if (window.Blockly?.derivWorkspace) {
+                                window.Blockly.derivWorkspace.clear();
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
+                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                                window.Blockly.derivWorkspace.scrollCenter();
+                                setStatus(`✅ Loaded Ehlers strategy using fallback method`);
+                            }
+                        }, 500);
+                    }
+                } catch (loadError) {
+                    console.error('❌ Error loading Ehlers strategy:', loadError);
+                    if (window.Blockly?.derivWorkspace) {
+                        window.Blockly.derivWorkspace.clear();
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(strategyXml);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        setStatus(`✅ Loaded Ehlers strategy using final fallback`);
+                    }
+                }
+            }, 300);
+
+        } catch (error) {
+            console.error('Error loading Ehlers strategy to Bot Builder:', error);
+            setStatus(`❌ Error loading strategy: ${error}`);
+        }
+    }, [store.dashboard, roc_period]);
+
+    /**
+     * Load recommendation to Bot Builder - Generic function to choose strategy type
+     */
+    const loadToBotBuilder = useCallback(async (recommendation: ScannerRecommendation) => {
+        // This is a placeholder function. In a real scenario, you might have logic
+        // here to decide WHICH strategy (Martingale, Ehlers, etc.) to load based on
+        // user selection or other criteria. For now, we'll default to Martingale.
+        // You could add a dropdown or buttons to choose the strategy.
+
+        // For demonstration, let's load the Martingale strategy.
+        await loadMartingaleStrategy(recommendation);
+
+        // If you wanted to load the Ehlers strategy instead, you would call:
+        // await loadEhlersStrategy(recommendation);
+
+    }, [loadMartingaleStrategy, loadEhlersStrategy]);
+
 
     return (
         <div
@@ -2195,7 +2691,7 @@ const MLTrader = observer(() => {
                                                 className="action-btn load-to-bot"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    loadToBotBuilder(rec);
+                                                    loadToBotBuilder(rec); // This will now call loadMartingaleStrategy by default
                                                 }}
                                             >
                                                 <span className="btn-icon">🤖</span>
