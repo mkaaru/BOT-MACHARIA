@@ -1,0 +1,107 @@
+✅ ML Training Complete: 117 patterns learned
+ml-tick-analyzer.ts:251 🧠 ML Prediction for stpRNG4: NEUTRAL (39.9% confidence, 3 patterns)
+deriv-volatility-scanner.ts:370 ✅ Step Index analysis complete: stpRNG4, Confidence: 85.0%, Recommendation: FALL
+ml-trader.tsx:786 🚀 Loading recommendation to Bot Builder: {rank: 1, symbol: 'stpRNG4', displayName: 'Step Index 400', action: 'FALL', confidence: 85, …}
+ml-trader.tsx:850 XML Generation Variables: {market: 'synthetic_index', submarket: 'step_index', symbol: 'stpRNG4', tradeTypeCategory: 'callput', tradeType: 'callput', …}
+ml-trader.tsx:1492 📄 Loading ML Trader strategy with continuous trading to Bot Builder...
+ml-trader.tsx:744 ML Trader cleanup completed
+index.js:261  Ignoring non-existent field DETAIL in block read_details
+domToField$$module$build$src$core$xml @ blockly_compressed.js:197
+applyFieldTagNodes$$module$build$src$core$xml @ blockly_compressed.js:190
+domToBlockHeadless$$module$build$src$core$xml @ blockly_compressed.js:195
+applyInputTagNodes$$module$build$src$core$xml @ blockly_compressed.js:192
+domToBlockHeadless$$module$build$src$core$xml @ blockly_compressed.js:195
+applyNextTagNodes$$module$build$src$core$xml @ blockly_compressed.js:193
+domToBlockHeadless$$module$build$src$core$xml @ blockly_compressed.js:195
+applyNextTagNodes$$module$build$src$core$xml @ blockly_compressed.js:193
+domToBlockHeadless$$module$build$src$core$xml @ blockly_compressed.js:195
+applyInputTagNodes$$module$build$src$core$xml @ blockly_compressed.js:192
+domToBlockHeadless$$module$build$src$core$xml @ blockly_compressed.js:195
+domToBlockInternal$$module$build$src$core$xml @ blockly_compressed.js:184
+$.domToWorkspace$$module$build$src$core$xml @ blockly_compressed.js:178
+clearWorkspaceAndLoadFromXml$$module$build$src$core$xml @ blockly_compressed.js:177
+loadWorkspace @ index.js:261
+await in loadWorkspace
+load @ index.js:213
+await in load
+(anonymous) @ ml-trader.tsx:1507
+setTimeout
+(anonymous) @ ml-trader.tsx:1498
+onClick @ ml-trader.tsx:1793
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26179
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430
+tick-stream-manager.ts:408 Unsubscribed from stpRNG
+tick-stream-manager.ts:408 Unsubscribed from stpRNG2
+tick-stream-manager.ts:408 Unsubscribed from stpRNG3
+tick-stream-manager.ts:408 Unsubscribed from stpRNG4
+tick-stream-manager.ts:408 Unsubscribed from stpRNG5
+react-dom.development.js:86  Warning: findDOMNode is deprecated and will be removed in the next major release. Instead, add a ref directly to the element you want to reference. Learn more about using refs safely here: https://reactjs.org/link/strict-mode-find-node
+    at CellMeasurer (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:26103:86)
+    at div
+    at div
+    at Grid (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:28032:86)
+    at List (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:30914:86)
+    at div
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at div
+    at TransitionGroup (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:25212:30)
+    at div
+    at AutoSizer (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:25862:86)
+    at div
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:3692:11
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23081:11)
+    at DrawerContent (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:14363:11)
+    at div
+    at div
+    at div
+    at div
+    at Drawer (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:20157:11)
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at Desktop (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:1084:11)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4556:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4413:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23479:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)

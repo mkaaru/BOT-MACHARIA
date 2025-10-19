@@ -1220,7 +1220,7 @@ const MLTrader = observer(() => {
                                                 </value>
                                                 <value name="TO">
                                                     <block type="read_details">
-                                                        <field name="DETAIL">sell_price</field>
+                                                        <field name="DETAIL_TYPE">sell_price</field>
                                                     </block>
                                                 </value>
                                                 <next>
