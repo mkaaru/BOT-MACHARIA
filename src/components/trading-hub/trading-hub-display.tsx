@@ -46,6 +46,17 @@ interface TradeSettings {
     takeProfit?: number; // Take profit in USD
 }
 
+// Mock RL state for display purposes, assuming it's managed elsewhere and passed down
+// In a real app, this would likely come from a store or context.
+const rlState = {
+    strategy_stats: new Map([
+        ['rise', { win_rate: 55, wins: 110, losses: 90, total_profit: 15.75 }],
+        ['fall', { win_rate: 48, wins: 96, losses: 104, total_profit: -8.20 }]
+    ]),
+    confidence_threshold: 50,
+};
+
+
 const TradingHubDisplay: React.FC = observer(() => {
     // Get store instance at component level to avoid hook rule violations
     const store = useStore();
@@ -67,7 +78,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
     const [autoStartTrading, setAutoStartTrading] = useState(false);
     const [autoStartEmbedded, setAutoStartEmbedded] = useState(false);
-    
+
     // Manual card selection lock - prevents scanner from overwriting clicked recommendation
     const [manualCardSelection, setManualCardSelection] = useState<TradeRecommendation | null>(null);
     const [isManualSelectionLocked, setIsManualSelectionLocked] = useState(false);
@@ -273,13 +284,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                     console.error('Market analyzer error:', error);
                     setConnectionStatus('error');
                     setStatusMessage('Connection error - retrying...');
-                    
+
                     // Auto-recover after 3 seconds if we have some data
                     setTimeout(() => {
                         const hasAnyData = Object.keys(marketStats).some(symbol => 
                             marketStats[symbol] && marketStats[symbol].tickCount > 0
                         );
-                        
+
                         if (hasAnyData) {
                             setConnectionStatus('ready');
                             setStatusMessage('🎯 Trading opportunities identified - Ready to trade!');
@@ -292,7 +303,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 marketAnalyzer.start();
                 setIsScanning(true);
                 setConnectionStatus('scanning');
-                
+
                 // Fallback timeout - force ready state after 15 seconds
                 setTimeout(() => {
                     if (connectionStatus === 'scanning' || connectionStatus === 'connecting') {
@@ -962,15 +973,15 @@ const TradingHubDisplay: React.FC = observer(() => {
             prediction: recommendation.prediction,
             confidence: recommendation.confidence
         });
-        
+
         // LOCK the manual card selection to prevent scanner from overwriting it
         setManualCardSelection(recommendation);
         setIsManualSelectionLocked(true);
-        
+
         // Enable auto-start for immediate trading
         setAutoStartEmbedded(true);
-        
-        
+
+
         // Scroll to the Best Opportunity section
         setTimeout(() => {
             const smartTraderSection = document.querySelector('.smart-trader-panel-container');
@@ -1826,7 +1837,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             // Use manual card selection if locked, otherwise use best recommendation
                             const activeRecommendation = manualCardSelection || bestRecommendation;
                             if (!activeRecommendation) return null;
-                            
+
                             return (
                                 <div className="smart-trader-panel-container">
                                     <div className="panel-header">
