@@ -446,7 +446,7 @@ const MLTrader = observer(() => {
         // Apply recommendation to trading interface
         applyRecommendation(topRec);
 
-    }, [rl_state, filter_settings, applyRecommendation]);
+    }, [rl_state, filter_settings]);
 
     /**
      * Check if symbol is moving (price changing)
