@@ -674,6 +674,14 @@ const MLTrader = observer(() => {
      * Apply recommendation and execute trade directly via API (bypasses Bot Builder)
      */
     const applyRecommendation = useCallback(async (recommendation: ScannerRecommendation) => {
+        // Prevent overlapping trades
+        if (contractInProgressRef.current) {
+            console.log('⏭️ Skipping trade - contract already in progress');
+            return;
+        }
+
+        contractInProgressRef.current = true;
+
         try {
             setStatus(`🔄 Executing ${recommendation.action} trade for ${recommendation.displayName}...`);
             
@@ -695,13 +703,23 @@ const MLTrader = observer(() => {
                 
                 // Emit trade statistics
                 statisticsEmitter.emitTradeRun();
+
+                // For 2-tick contracts, wait ~10 seconds for settlement before allowing next trade
+                // This prevents overlapping contracts even with API delays
+                // NOTE: 2-tick contracts typically settle in 3-5 seconds, 10s provides safety buffer
+                setTimeout(() => {
+                    contractInProgressRef.current = false;
+                    console.log('✅ Contract settlement timeout elapsed, ready for next trade');
+                }, 10000);
             } else {
                 setStatus(`❌ Trade failed: ${result.error}`);
                 console.error('❌ Direct trade failed:', result.error);
+                contractInProgressRef.current = false; // Reset immediately on failure
             }
         } catch (error: any) {
             setStatus(`❌ Error executing trade: ${error.message}`);
             console.error('❌ Direct trade error:', error);
+            contractInProgressRef.current = false; // Reset immediately on error
         }
     }, [trading_interface.stake]);
 
@@ -722,12 +740,6 @@ const MLTrader = observer(() => {
                 return;
             }
 
-            // Skip if contract is already in progress
-            if (contractInProgressRef.current) {
-                console.log('⏭️ Skipping trade - contract already in progress');
-                return;
-            }
-
             // Get the top recommendation
             if (recommendations.length === 0) {
                 console.log('⏭️ No recommendations available');
@@ -735,17 +747,18 @@ const MLTrader = observer(() => {
             }
 
             const topRecommendation = recommendations[0];
-            console.log(`🎯 Executing continuous trade for ${topRecommendation.displayName} (${topRecommendation.action})`);
+            console.log(`🎯 Continuous trading: attempting ${topRecommendation.displayName} (${topRecommendation.action})`);
             
-            // Execute the trade
+            // Execute the trade (has built-in contract guard)
             await applyRecommendation(topRecommendation);
         };
 
         // Execute first trade immediately
         executeContinuousTrade();
 
-        // Then execute every 10 seconds
-        autoTradeIntervalRef.current = setInterval(executeContinuousTrade, 10000);
+        // Then execute every 12 seconds (allows 10s settlement + 2s buffer)
+        // This ensures contracts don't overlap even with API delays
+        autoTradeIntervalRef.current = setInterval(executeContinuousTrade, 12000);
     }, [recommendations, applyRecommendation]);
 
     /**
