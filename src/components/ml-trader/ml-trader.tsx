@@ -1537,94 +1537,47 @@ const MLTrader = observer(() => {
     </block>
     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
         <statement name="BEFOREPURCHASE_STACK">
-            <block type="controls_if">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-                <value name="IF0">
-                    <block type="logic_compare">
-                        <field name="OP">GTE</field>
-                        <value name="A">
-                            <block type="variables_get">
-                                <field name="VAR" id="loss_count_var">loss_count</field>
-                            </block>
-                        </value>
-                        <value name="B">
-                            <block type="math_number">
-                                <field name="NUM">5</field>
-                            </block>
-                        </value>
-                    </block>
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Martingale Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
                 </value>
-                <statement name="DO0">
-                    <block type="notify">
-                        <field name="NOTIFICATION_TYPE">warn</field>
-                        <field name="NOTIFICATION_SOUND">silent</field>
-                        <value name="MESSAGE">
-                            <shadow type="text">
-                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
-                            </shadow>
-                        </value>
-                        <next>
-                            <block type="trade_again">
-                                <field name="TRADE_AGAIN">FALSE</field>
-                            </block>
-                        </next>
-                    </block>
-                </statement>
-                <value name="IF1">
-                    <block type="logic_operation">
-                        <field name="OP">AND</field>
-                        <value name="A">
+                <next>
+                    <block type="controls_if">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
+                        <value name="IF0">
                             <block type="logic_compare">
-                                <field name="OP">EQ</field>
+                                <field name="OP">GTE</field>
                                 <value name="A">
-                                    <block type="text">
-                                        <field name="TEXT">${contractType}</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="text">
-                                        <field name="TEXT">CALL</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <value name="B">
-                            <block type="logic_compare">
-                                <field name="OP">LTE</field>
-                                <value name="A">
-                                    <block type="roc">
-                                        <field name="ROCLENGTH_LIST">${roc_period}</field>
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count_var">loss_count</field>
                                     </block>
                                 </value>
                                 <value name="B">
                                     <block type="math_number">
-                                        <field name="NUM">0</field>
+                                        <field name="NUM">5</field>
                                     </block>
                                 </value>
                             </block>
                         </value>
-                    </block>
-                </value>
-                <statement name="DO1">
-                    <block type="notify">
-                        <field name="NOTIFICATION_TYPE">warn</field>
-                        <field name="NOTIFICATION_SOUND">silent</field>
-                        <value name="MESSAGE">
-                            <shadow type="text">
-                                <field name="TEXT">ROC filter blocked: CALL trade but ROC is DOWN/NEUTRAL. Skipping trade.</field>
-                            </shadow>
-                        </value>
-                        <next>
-                            <block type="trade_again">
-                                <field name="TRADE_AGAIN">FALSE</field>
+                        <statement name="DO0">
+                            <block type="notify">
+                                <field name="NOTIFICATION_TYPE">warn</field>
+                                <field name="NOTIFICATION_SOUND">silent</field>
+                                <value name="MESSAGE">
+                                    <shadow type="text">
+                                        <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
+                                    </shadow>
+                                </value>
+                                <next>
+                                    <block type="trade_again">
+                                        <field name="TRADE_AGAIN">FALSE</field>
+                                    </block>
+                                </next>
                             </block>
-                        </next>
-                    </block>
-                </statement>
-                <statement name="ELSE">
-                    <block type="controls_if">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                        <value name="IF0">
+                        </statement>
+                        <value name="IF1">
                             <block type="logic_operation">
                                 <field name="OP">AND</field>
                                 <value name="A">
@@ -1637,14 +1590,14 @@ const MLTrader = observer(() => {
                                         </value>
                                         <value name="B">
                                             <block type="text">
-                                                <field name="TEXT">PUT</field>
+                                                <field name="TEXT">CALL</field>
                                             </block>
                                         </value>
                                     </block>
                                 </value>
                                 <value name="B">
                                     <block type="logic_compare">
-                                        <field name="OP">GTE</field>
+                                        <field name="OP">LTE</field>
                                         <value name="A">
                                             <block type="roc">
                                                 <field name="ROCLENGTH_LIST">${roc_period}</field>
@@ -1659,13 +1612,13 @@ const MLTrader = observer(() => {
                                 </value>
                             </block>
                         </value>
-                        <statement name="DO0">
+                        <statement name="DO1">
                             <block type="notify">
                                 <field name="NOTIFICATION_TYPE">warn</field>
                                 <field name="NOTIFICATION_SOUND">silent</field>
                                 <value name="MESSAGE">
                                     <shadow type="text">
-                                        <field name="TEXT">ROC filter blocked: PUT trade but ROC is UP/NEUTRAL. Skipping trade.</field>
+                                        <field name="TEXT">ROC filter blocked: CALL trade but ROC is DOWN/NEUTRAL. Skipping trade.</field>
                                     </shadow>
                                 </value>
                                 <next>
@@ -1673,6 +1626,62 @@ const MLTrader = observer(() => {
                                         <field name="TRADE_AGAIN">FALSE</field>
                                     </block>
                                 </next>
+                            </block>
+                        </statement>
+                        <statement name="ELSE">
+                            <block type="controls_if">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                                <value name="IF0">
+                                    <block type="logic_operation">
+                                        <field name="OP">AND</field>
+                                        <value name="A">
+                                            <block type="logic_compare">
+                                                <field name="OP">EQ</field>
+                                                <value name="A">
+                                                    <block type="text">
+                                                        <field name="TEXT">${contractType}</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="text">
+                                                        <field name="TEXT">PUT</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                        <value name="B">
+                                            <block type="logic_compare">
+                                                <field name="OP">GTE</field>
+                                                <value name="A">
+                                                    <block type="roc">
+                                                        <field name="ROCLENGTH_LIST">${roc_period}</field>
+                                                    </block>
+                                                </value>
+                                                <value name="B">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                            </block>
+                                        </value>
+                                    </block>
+                                </value>
+                                <statement name="DO0">
+                                    <block type="notify">
+                                        <field name="NOTIFICATION_TYPE">warn</field>
+                                        <field name="NOTIFICATION_SOUND">silent</field>
+                                        <value name="MESSAGE">
+                                            <shadow type="text">
+                                                <field name="TEXT">ROC filter blocked: PUT trade but ROC is UP/NEUTRAL. Skipping trade.</field>
+                                            </shadow>
+                                        </value>
+                                        <next>
+                                            <block type="trade_again">
+                                                <field name="TRADE_AGAIN">FALSE</field>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </statement>
                             </block>
                         </statement>
                     </block>
@@ -1764,89 +1773,7 @@ with
             </block>
         </statement>
 </new_str>
-Fix Ehlers Bot XML to include mandatory Purchase block
-Replacing
-<old_str>
-/**
-     * Generate Ehlers strategy XML with ROC filtering
-     */
-    function generateEhlersStrategyXML(
-        symbol: string,
-        contractType: string,
-        defaultStake: number,
-        roc_period: number
-    ) {
-        // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-    <variables>
-        <variable id="loss_count">loss_count</variable>
-        <variable id="tick_buffer">tick_buffer</variable>
-        <variable id="last_100_ticks">last_100_ticks</variable>
-        <variable id="trade_count">trade_count</variable>
-        <variable id="ehlers_ss">ehlers_ss</variable>
-        <variable id="momentum">momentum</variable>
-        <variable id="trend_slope">trend_slope</variable>
-        <variable id="confidence">confidence</variable>
-        <variable id="stake_var">stake</variable>
-    </variables>
-    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
-        <statement name="TRADE_OPTIONS">
-            <block type="trade_definition_market" deletable="false" movable="false">
-                <field name="MARKET_LIST">synthetic_index</field>
-                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
-                <field name="SYMBOL_LIST">${symbol}</field>
-                <next>
-                    <block type="trade_definition_tradetype" deletable="false" movable="false">
-                        <field name="TRADETYPECAT_LIST">callput</field>
-                        <field name="TRADETYPE_LIST">callput</field>
-                        <next>
-                            <block type="trade_definition_contracttype" deletable="false" movable="false">
-                                <field name="TYPE_LIST">${contractType}</field>
-                                <next>
-                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                        <field name="CANDLEINTERVAL_LIST">60</field>
-                                        <next>
-                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
-                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                                                <next>
-                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
-                                                        <field name="RESTARTONERROR">TRUE</field>
-                                                    </block>
-                                                </next>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </next>
-                            </block>
-                        </next>
-                    </block>
-                </next>
-            </block>
-        </statement>
-        <statement name="SUBMARKET">
-            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
-                <field name="DURATIONTYPE_LIST">t</field>
-                <value name="DURATION">
-                    <shadow type="math_number">
-                        <field name="NUM">2</field>
-                    </shadow>
-                </value>
-                <value name="AMOUNT">
-                    <shadow type="math_number">
-                        <field name="NUM">${defaultStake}</field>
-                    </shadow>
-                    <block type="variables_get">
-                        <field name="VAR" id="stake_var">stake</field>
-                    </block>
-                </value>
-            </block>
-        </statement>
-    </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</old_str>
-with
-<new_str>
 /**
      * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
      */
@@ -1857,7 +1784,7 @@ with
         roc_period: number
     ) {
         // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+        return `<xml xmlns="${'https://developers.google.com/blockly/xml'}" is_dbot="true" collection="false">
     <variables>
         <variable id="loss_count">loss_count</variable>
         <variable id="tick_buffer">tick_buffer</variable>
@@ -1924,12 +1851,8 @@ with
         </statement>
     </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</new_str>
-Add mandatory Purchase block to BEFOREPURCHASE_STACK
-Replacing
-<old_str>
-<statement name="BEFOREPURCHASE_STACK">
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">
+        <statement name="BEFOREPURCHASE_STACK">
             <block type="text_print">
                 <value name="TEXT">
                     <shadow type="text">
@@ -1983,6 +1906,16 @@ Replacing
                                                                 <mutation items="0"></mutation>
                                                             </block>
                                                         </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
@@ -1991,6 +1924,11 @@ Replacing
                                 </next>
                             </block>
                         </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
                     </block>
                 </next>
             </block>
@@ -2080,89 +2018,7 @@ with
             </block>
         </statement>
 </new_str>
-Fix Ehlers Bot XML to include mandatory Purchase block
-Replacing
-<old_str>
-/**
-     * Generate Ehlers strategy XML with ROC filtering
-     */
-    function generateEhlersStrategyXML(
-        symbol: string,
-        contractType: string,
-        defaultStake: number,
-        roc_period: number
-    ) {
-        // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-    <variables>
-        <variable id="loss_count">loss_count</variable>
-        <variable id="tick_buffer">tick_buffer</variable>
-        <variable id="last_100_ticks">last_100_ticks</variable>
-        <variable id="trade_count">trade_count</variable>
-        <variable id="ehlers_ss">ehlers_ss</variable>
-        <variable id="momentum">momentum</variable>
-        <variable id="trend_slope">trend_slope</variable>
-        <variable id="confidence">confidence</variable>
-        <variable id="stake_var">stake</variable>
-    </variables>
-    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
-        <statement name="TRADE_OPTIONS">
-            <block type="trade_definition_market" deletable="false" movable="false">
-                <field name="MARKET_LIST">synthetic_index</field>
-                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
-                <field name="SYMBOL_LIST">${symbol}</field>
-                <next>
-                    <block type="trade_definition_tradetype" deletable="false" movable="false">
-                        <field name="TRADETYPECAT_LIST">callput</field>
-                        <field name="TRADETYPE_LIST">callput</field>
-                        <next>
-                            <block type="trade_definition_contracttype" deletable="false" movable="false">
-                                <field name="TYPE_LIST">${contractType}</field>
-                                <next>
-                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                        <field name="CANDLEINTERVAL_LIST">60</field>
-                                        <next>
-                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
-                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                                                <next>
-                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
-                                                        <field name="RESTARTONERROR">TRUE</field>
-                                                    </block>
-                                                </next>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </next>
-                            </block>
-                        </next>
-                    </block>
-                </next>
-            </block>
-        </statement>
-        <statement name="SUBMARKET">
-            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
-                <field name="DURATIONTYPE_LIST">t</field>
-                <value name="DURATION">
-                    <shadow type="math_number">
-                        <field name="NUM">2</field>
-                    </shadow>
-                </value>
-                <value name="AMOUNT">
-                    <shadow type="math_number">
-                        <field name="NUM">${defaultStake}</field>
-                    </shadow>
-                    <block type="variables_get">
-                        <field name="VAR" id="stake_var">stake</field>
-                    </block>
-                </value>
-            </block>
-        </statement>
-    </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</old_str>
-with
-<new_str>
 /**
      * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
      */
@@ -2173,7 +2029,7 @@ with
         roc_period: number
     ) {
         // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+        return `<xml xmlns="${'https://developers.google.com/blockly/xml'}" is_dbot="true" collection="false">
     <variables>
         <variable id="loss_count">loss_count</variable>
         <variable id="tick_buffer">tick_buffer</variable>
@@ -2240,12 +2096,8 @@ with
         </statement>
     </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</new_str>
-Add mandatory Purchase block to BEFOREPURCHASE_STACK
-Replacing
-<old_str>
-<statement name="BEFOREPURCHASE_STACK">
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">
+        <statement name="BEFOREPURCHASE_STACK">
             <block type="text_print">
                 <value name="TEXT">
                     <shadow type="text">
@@ -2299,6 +2151,16 @@ Replacing
                                                                 <mutation items="0"></mutation>
                                                             </block>
                                                         </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
@@ -2307,6 +2169,11 @@ Replacing
                                 </next>
                             </block>
                         </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
                     </block>
                 </next>
             </block>
@@ -2396,89 +2263,7 @@ with
             </block>
         </statement>
 </new_str>
-Fix Ehlers Bot XML to include mandatory Purchase block
-Replacing
-<old_str>
-/**
-     * Generate Ehlers strategy XML with ROC filtering
-     */
-    function generateEhlersStrategyXML(
-        symbol: string,
-        contractType: string,
-        defaultStake: number,
-        roc_period: number
-    ) {
-        // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-    <variables>
-        <variable id="loss_count">loss_count</variable>
-        <variable id="tick_buffer">tick_buffer</variable>
-        <variable id="last_100_ticks">last_100_ticks</variable>
-        <variable id="trade_count">trade_count</variable>
-        <variable id="ehlers_ss">ehlers_ss</variable>
-        <variable id="momentum">momentum</variable>
-        <variable id="trend_slope">trend_slope</variable>
-        <variable id="confidence">confidence</variable>
-        <variable id="stake_var">stake</variable>
-    </variables>
-    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
-        <statement name="TRADE_OPTIONS">
-            <block type="trade_definition_market" deletable="false" movable="false">
-                <field name="MARKET_LIST">synthetic_index</field>
-                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
-                <field name="SYMBOL_LIST">${symbol}</field>
-                <next>
-                    <block type="trade_definition_tradetype" deletable="false" movable="false">
-                        <field name="TRADETYPECAT_LIST">callput</field>
-                        <field name="TRADETYPE_LIST">callput</field>
-                        <next>
-                            <block type="trade_definition_contracttype" deletable="false" movable="false">
-                                <field name="TYPE_LIST">${contractType}</field>
-                                <next>
-                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                        <field name="CANDLEINTERVAL_LIST">60</field>
-                                        <next>
-                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
-                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                                                <next>
-                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
-                                                        <field name="RESTARTONERROR">TRUE</field>
-                                                    </block>
-                                                </next>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </next>
-                            </block>
-                        </next>
-                    </block>
-                </next>
-            </block>
-        </statement>
-        <statement name="SUBMARKET">
-            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
-                <field name="DURATIONTYPE_LIST">t</field>
-                <value name="DURATION">
-                    <shadow type="math_number">
-                        <field name="NUM">2</field>
-                    </shadow>
-                </value>
-                <value name="AMOUNT">
-                    <shadow type="math_number">
-                        <field name="NUM">${defaultStake}</field>
-                    </shadow>
-                    <block type="variables_get">
-                        <field name="VAR" id="stake_var">stake</field>
-                    </block>
-                </value>
-            </block>
-        </statement>
-    </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</old_str>
-with
-<new_str>
 /**
      * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
      */
@@ -2489,7 +2274,7 @@ with
         roc_period: number
     ) {
         // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+        return `<xml xmlns="${'https://developers.google.com/blockly/xml'}" is_dbot="true" collection="false">
     <variables>
         <variable id="loss_count">loss_count</variable>
         <variable id="tick_buffer">tick_buffer</variable>
@@ -2556,12 +2341,8 @@ with
         </statement>
     </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</new_str>
-Add mandatory Purchase block to BEFOREPURCHASE_STACK
-Replacing
-<old_str>
-<statement name="BEFOREPURCHASE_STACK">
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">
+        <statement name="BEFOREPURCHASE_STACK">
             <block type="text_print">
                 <value name="TEXT">
                     <shadow type="text">
@@ -2615,6 +2396,16 @@ Replacing
                                                                 <mutation items="0"></mutation>
                                                             </block>
                                                         </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
@@ -2623,6 +2414,11 @@ Replacing
                                 </next>
                             </block>
                         </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
                     </block>
                 </next>
             </block>
@@ -2712,89 +2508,7 @@ with
             </block>
         </statement>
 </new_str>
-Fix Ehlers Bot XML to include mandatory Purchase block
-Replacing
-<old_str>
-/**
-     * Generate Ehlers strategy XML with ROC filtering
-     */
-    function generateEhlersStrategyXML(
-        symbol: string,
-        contractType: string,
-        defaultStake: number,
-        roc_period: number
-    ) {
-        // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-    <variables>
-        <variable id="loss_count">loss_count</variable>
-        <variable id="tick_buffer">tick_buffer</variable>
-        <variable id="last_100_ticks">last_100_ticks</variable>
-        <variable id="trade_count">trade_count</variable>
-        <variable id="ehlers_ss">ehlers_ss</variable>
-        <variable id="momentum">momentum</variable>
-        <variable id="trend_slope">trend_slope</variable>
-        <variable id="confidence">confidence</variable>
-        <variable id="stake_var">stake</variable>
-    </variables>
-    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
-        <statement name="TRADE_OPTIONS">
-            <block type="trade_definition_market" deletable="false" movable="false">
-                <field name="MARKET_LIST">synthetic_index</field>
-                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
-                <field name="SYMBOL_LIST">${symbol}</field>
-                <next>
-                    <block type="trade_definition_tradetype" deletable="false" movable="false">
-                        <field name="TRADETYPECAT_LIST">callput</field>
-                        <field name="TRADETYPE_LIST">callput</field>
-                        <next>
-                            <block type="trade_definition_contracttype" deletable="false" movable="false">
-                                <field name="TYPE_LIST">${contractType}</field>
-                                <next>
-                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                        <field name="CANDLEINTERVAL_LIST">60</field>
-                                        <next>
-                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
-                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                                                <next>
-                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
-                                                        <field name="RESTARTONERROR">TRUE</field>
-                                                    </block>
-                                                </next>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </next>
-                            </block>
-                        </next>
-                    </block>
-                </next>
-            </block>
-        </statement>
-        <statement name="SUBMARKET">
-            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
-                <field name="DURATIONTYPE_LIST">t</field>
-                <value name="DURATION">
-                    <shadow type="math_number">
-                        <field name="NUM">2</field>
-                    </shadow>
-                </value>
-                <value name="AMOUNT">
-                    <shadow type="math_number">
-                        <field name="NUM">${defaultStake}</field>
-                    </shadow>
-                    <block type="variables_get">
-                        <field name="VAR" id="stake_var">stake</field>
-                    </block>
-                </value>
-            </block>
-        </statement>
-    </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</old_str>
-with
-<new_str>
 /**
      * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
      */
@@ -2805,7 +2519,7 @@ with
         roc_period: number
     ) {
         // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+        return `<xml xmlns="${'https://developers.google.com/blockly/xml'}" is_dbot="true" collection="false">
     <variables>
         <variable id="loss_count">loss_count</variable>
         <variable id="tick_buffer">tick_buffer</variable>
@@ -2872,12 +2586,8 @@ with
         </statement>
     </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</new_str>
-Add mandatory Purchase block to BEFOREPURCHASE_STACK
-Replacing
-<old_str>
-<statement name="BEFOREPURCHASE_STACK">
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">
+        <statement name="BEFOREPURCHASE_STACK">
             <block type="text_print">
                 <value name="TEXT">
                     <shadow type="text">
@@ -2931,6 +2641,16 @@ Replacing
                                                                 <mutation items="0"></mutation>
                                                             </block>
                                                         </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
@@ -2939,6 +2659,11 @@ Replacing
                                 </next>
                             </block>
                         </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
                     </block>
                 </next>
             </block>
@@ -3028,89 +2753,7 @@ with
             </block>
         </statement>
 </new_str>
-Fix Ehlers Bot XML to include mandatory Purchase block
-Replacing
-<old_str>
-/**
-     * Generate Ehlers strategy XML with ROC filtering
-     */
-    function generateEhlersStrategyXML(
-        symbol: string,
-        contractType: string,
-        defaultStake: number,
-        roc_period: number
-    ) {
-        // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-    <variables>
-        <variable id="loss_count">loss_count</variable>
-        <variable id="tick_buffer">tick_buffer</variable>
-        <variable id="last_100_ticks">last_100_ticks</variable>
-        <variable id="trade_count">trade_count</variable>
-        <variable id="ehlers_ss">ehlers_ss</variable>
-        <variable id="momentum">momentum</variable>
-        <variable id="trend_slope">trend_slope</variable>
-        <variable id="confidence">confidence</variable>
-        <variable id="stake_var">stake</variable>
-    </variables>
-    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
-        <statement name="TRADE_OPTIONS">
-            <block type="trade_definition_market" deletable="false" movable="false">
-                <field name="MARKET_LIST">synthetic_index</field>
-                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
-                <field name="SYMBOL_LIST">${symbol}</field>
-                <next>
-                    <block type="trade_definition_tradetype" deletable="false" movable="false">
-                        <field name="TRADETYPECAT_LIST">callput</field>
-                        <field name="TRADETYPE_LIST">callput</field>
-                        <next>
-                            <block type="trade_definition_contracttype" deletable="false" movable="false">
-                                <field name="TYPE_LIST">${contractType}</field>
-                                <next>
-                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                        <field name="CANDLEINTERVAL_LIST">60</field>
-                                        <next>
-                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
-                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                                                <next>
-                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
-                                                        <field name="RESTARTONERROR">TRUE</field>
-                                                    </block>
-                                                </next>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </next>
-                            </block>
-                        </next>
-                    </block>
-                </next>
-            </block>
-        </statement>
-        <statement name="SUBMARKET">
-            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
-                <field name="DURATIONTYPE_LIST">t</field>
-                <value name="DURATION">
-                    <shadow type="math_number">
-                        <field name="NUM">2</field>
-                    </shadow>
-                </value>
-                <value name="AMOUNT">
-                    <shadow type="math_number">
-                        <field name="NUM">${defaultStake}</field>
-                    </shadow>
-                    <block type="variables_get">
-                        <field name="VAR" id="stake_var">stake</field>
-                    </block>
-                </value>
-            </block>
-        </statement>
-    </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</old_str>
-with
-<new_str>
 /**
      * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
      */
@@ -3121,7 +2764,7 @@ with
         roc_period: number
     ) {
         // Ehlers momentum/trend strategy with max 5 consecutive losses
-        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+        return `<xml xmlns="${'https://developers.google.com/blockly/xml'}" is_dbot="true" collection="false">
     <variables>
         <variable id="loss_count">loss_count</variable>
         <variable id="tick_buffer">tick_buffer</variable>
@@ -3188,12 +2831,8 @@ with
         </statement>
     </block>
 
-    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
-</new_str>
-Add mandatory Purchase block to BEFOREPURCHASE_STACK
-Replacing
-<old_str>
-<statement name="BEFOREPURCHASE_STACK">
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">
+        <statement name="BEFOREPURCHASE_STACK">
             <block type="text_print">
                 <value name="TEXT">
                     <shadow type="text">
@@ -3247,6 +2886,16 @@ Replacing
                                                                 <mutation items="0"></mutation>
                                                             </block>
                                                         </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
@@ -3255,6 +2904,11 @@ Replacing
                                 </next>
                             </block>
                         </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
                     </block>
                 </next>
             </block>
@@ -3344,17 +2998,8 @@ with
             </block>
         </statement>
 </new_str>
-Fix Ehlers Bot XML to include mandatory Purchase block
-Replacing
-<old_str>
-            </block>
-        </statement>
-    </block>
-</xml>`;
-    }
 
-
-    /**
+/**
      * Load recommendation to Bot Builder - Martingale Strategy
      */
     const loadMartingaleStrategy = useCallback(async (recommendation: ScannerRecommendation) => {
