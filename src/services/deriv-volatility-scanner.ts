@@ -126,20 +126,28 @@ export interface ScannerStatus {
 }
 
 export class DerivVolatilityScanner {
-    // Track all Deriv volatility indices and step indices
+    // Track ALL Deriv volatility indices and step indices (24 total)
     private readonly VOLATILITY_SYMBOLS = [
-        // Normal Volatilities
+        // Normal Volatilities (ALL)
         { symbol: 'R_10', name: 'Volatility 10 Index', baseVolatility: 10, ticksPerMinute: 60 },
         { symbol: 'R_25', name: 'Volatility 25 Index', baseVolatility: 25, ticksPerMinute: 60 },
         { symbol: 'R_50', name: 'Volatility 50 Index', baseVolatility: 50, ticksPerMinute: 60 },
         { symbol: 'R_75', name: 'Volatility 75 Index', baseVolatility: 75, ticksPerMinute: 60 },
         { symbol: 'R_100', name: 'Volatility 100 Index', baseVolatility: 100, ticksPerMinute: 60 },
-        // 1-Second Volatilities
+        { symbol: 'R_150', name: 'Volatility 150 Index', baseVolatility: 150, ticksPerMinute: 60 },
+        { symbol: 'R_200', name: 'Volatility 200 Index', baseVolatility: 200, ticksPerMinute: 60 },
+        { symbol: 'R_250', name: 'Volatility 250 Index', baseVolatility: 250, ticksPerMinute: 60 },
+        { symbol: 'R_300', name: 'Volatility 300 Index', baseVolatility: 300, ticksPerMinute: 60 },
+        // 1-Second Volatilities (ALL)
         { symbol: '1HZ10V', name: 'Volatility 10 (1s) Index', baseVolatility: 10, ticksPerMinute: 60 },
         { symbol: '1HZ25V', name: 'Volatility 25 (1s) Index', baseVolatility: 25, ticksPerMinute: 60 },
         { symbol: '1HZ50V', name: 'Volatility 50 (1s) Index', baseVolatility: 50, ticksPerMinute: 60 },
         { symbol: '1HZ75V', name: 'Volatility 75 (1s) Index', baseVolatility: 75, ticksPerMinute: 60 },
         { symbol: '1HZ100V', name: 'Volatility 100 (1s) Index', baseVolatility: 100, ticksPerMinute: 60 },
+        { symbol: '1HZ150V', name: 'Volatility 150 (1s) Index', baseVolatility: 150, ticksPerMinute: 60 },
+        { symbol: '1HZ200V', name: 'Volatility 200 (1s) Index', baseVolatility: 200, ticksPerMinute: 60 },
+        { symbol: '1HZ250V', name: 'Volatility 250 (1s) Index', baseVolatility: 250, ticksPerMinute: 60 },
+        { symbol: '1HZ300V', name: 'Volatility 300 (1s) Index', baseVolatility: 300, ticksPerMinute: 60 },
         // Step Indices
         { symbol: 'stpRNG', name: 'Step Index 100', baseVolatility: 100, ticksPerMinute: 1 },
         { symbol: 'stpRNG2', name: 'Step Index 200', baseVolatility: 200, ticksPerMinute: 1 },

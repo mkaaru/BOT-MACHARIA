@@ -1,0 +1,620 @@
+To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 288 |     display: flex;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 289:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 289, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:289:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 289 |     align-items: $align-items;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 290:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 290, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:290:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 290 |     justify-content: $justify-content;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 291:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+App.tsx:120 Service Worker registered with scope: https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: JournalStore@10.unfiltered_messages
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+deriv-volatility-scanner.ts:214 🚀 Deriv Volatility Scanner Initialized
+deriv-volatility-scanner.ts:215 📊 Tracking: 15 volatility indices
+deriv-volatility-scanner.ts:216 ⚡ Momentum Weight: 75% | Direction Weight: 25%
+deriv-volatility-scanner.ts:217 🎯 Focus: 5min → 3min → 1min → 30sec momentum cascade
+deriv-volatility-scanner.ts:218 🔍 Thresholds: Min Confidence 75%, Min Momentum 60%
+deriv-volatility-scanner.ts:219 🕐 Auto-scan enabled: Updates on new 1-minute candles
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+tick-based-candle-engine.ts:48 🎯 TickBasedCandleEngine initialized with 20 ticks per candle
+tick-based-candle-engine.ts:48 🎯 TickBasedCandleEngine initialized with 5 ticks per candle
+tick-based-candle-engine.ts:48 🎯 TickBasedCandleEngine initialized with 1 ticks per candle
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+2index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+2splash-screen.tsx:10 SplashScreen component rendered
+?account=demo:1  Uncaught (in promise) _.Mc
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+tick-stream-manager.ts:282 TickStreamManager connected to WebSocket
+splash-screen.tsx:10 SplashScreen component rendered
+content_script.js:40227 content-script-dev: downloader-gv-edge
+content_script.js:40078 check services
+2splash-screen.tsx:10 SplashScreen component rendered
+api-base.ts:148 connection state:  1
+30splash-screen.tsx:10 SplashScreen component rendered
+tracking.js:1 [LiveChat] Current domain is not added to the allowed domains. LiveChat has been disabled.
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+react-dom.development.js:86  Warning: Invalid DOM property `fill-rule`. Did you mean `fillRule`?
+    at path
+    at svg
+    at BotBuilderIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23514:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23612:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4556:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4413:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23479:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linecap`. Did you mean `strokeLinecap`?
+    at path
+    at svg
+    at AnalysisToolIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23514:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23612:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4556:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4413:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23479:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-width`. Did you mean `strokeWidth`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23514:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23612:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4556:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4413:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23479:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linejoin`. Did you mean `strokeLinejoin`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23514:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:23612:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4556:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4413:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23479:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+content_script.js:7165 Content limit: 612032839.68
+main.tsx:282 Successfully loaded: Gold Miner S7.xml
+main.tsx:282 Successfully loaded: Upgraded Candlemine.xml
+main.tsx:282 Successfully loaded: Super Elite.xml
+content_script.js:7165 Content limit: 612032839.68
+main.tsx:282 Successfully loaded: AUTO C4 PRO Version.xml
+blockly_compressed.js:197  Ignoring non-existent field DETAIL_TYPE in block read_details
+domToField$$module$build$src$core$xml @ blockly_compressed.js:197
+market-analyzer.ts:120 ✅ Connected to Deriv WebSocket API
+market-analyzer.ts:427 📊 Loading market data for fast analysis...
+market-analyzer.ts:451 🔄 Fetching 12 missing symbols...
+market-analyzer.ts:191 📊 Subscribed to R_10
+market-analyzer.ts:191 📊 Subscribed to R_25
+market-analyzer.ts:191 📊 Subscribed to R_50
+market-analyzer.ts:191 📊 Subscribed to R_75
+market-analyzer.ts:191 📊 Subscribed to R_100
+market-analyzer.ts:191 📊 Subscribed to RDBEAR
+market-analyzer.ts:191 📊 Subscribed to RDBULL
+market-analyzer.ts:191 📊 Subscribed to 1HZ10V
+market-analyzer.ts:191 📊 Subscribed to 1HZ25V
+market-analyzer.ts:191 📊 Subscribed to 1HZ50V
+market-analyzer.ts:191 📊 Subscribed to 1HZ75V
+market-analyzer.ts:191 📊 Subscribed to 1HZ100V
+main.tsx:282 Successfully loaded: Mkorean SV4.xml
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching R_10: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching R_25: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching R_50: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching R_75: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching R_100: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching RDBEAR: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching RDBULL: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching 1HZ10V: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching 1HZ25V: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching 1HZ50V: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching 1HZ75V: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:203  WebSocket error response: Object
+handleWebSocketMessage @ market-analyzer.ts:203
+trading-hub-display.tsx:273  Market analyzer error: API Error: Input validation failed: req_id
+(anonymous) @ trading-hub-display.tsx:273
+market-analyzer.ts:507 ⚠️ Error fetching 1HZ100V: Input validation failed: req_id, proceeding anyway
+market-analyzer.ts:477 ✅ Initial market analysis complete
+content_script.js:40227 content-script-dev: downloader-gv-edge
+main.tsx:282 Successfully loaded: Candle Mine V3.5.xml
+content_script.js:40078 check services
+main.tsx:282 Successfully loaded: Speed Trading Bot.xml
+main.tsx:282 Successfully loaded: High & Under Bot.xml
+main.tsx:282 Successfully loaded: AI Dual Prediction Bot.xml
+main.tsx:282 Successfully loaded: Bandwagon Entry Point Bot.xml
+main.tsx:282 Successfully loaded: Entry Point Strategy V1.xml
+main.tsx:282 Successfully loaded: Alpha Strategy 2025.xml
+main.tsx:282 Successfully loaded: Classic Martingale Bot.xml
+content_script.js:7165 Content limit: 612032839.68
+main.tsx:282 Successfully loaded: No Martingale Strategy 2025.xml
+main.tsx:282 Successfully loaded: Greenprint Profit Bot.xml
+main.tsx:297 Loaded 15 bots total
+main.tsx:298 Successful: 15
+main.tsx:299 Placeholders: 0
+market-analyzer.ts:550 ⌛ Timeout for R_10, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for R_25, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for R_50, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for R_75, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for R_100, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for RDBEAR, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for RDBULL, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for 1HZ10V, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for 1HZ25V, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for 1HZ50V, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for 1HZ75V, proceeding anyway
+market-analyzer.ts:550 ⌛ Timeout for 1HZ100V, proceeding anyway
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+market-analyzer.ts:464 ⚡ Proceeding with available data after timeout
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 609414357.9
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITUNDER
+transactions.tsx:65 Transactions component - Current transaction count: 0
+transactions.tsx:65 Transactions component - Current transaction count: 1
+transactions.tsx:67 Latest transactions: Array(1)
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITUNDER
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITUNDER
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITOVER
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITUNDER
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.17 USD
+?account=demo:1  Uncaught (in promise) Object
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.34 USD
+?account=demo:1  Uncaught (in promise) Object
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.51 USD
+?account=demo:1  Uncaught (in promise) Object
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.68 USD
+?account=demo:1  Uncaught (in promise) Object
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.85 USD
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITUNDER
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: -0.50 USD
+smart-trader-wrapper.tsx:701 ❌ DIGITUNDER LOSS: -0.50 USD - Martingale step 1
+content_script.js:7165 Content limit: 608113977
+?account=demo:1  Uncaught (in promise) Object
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: -0.33 USD
+?account=demo:1  Uncaught (in promise) Object
+tick-stream-manager.ts:286 TickStreamManager disconnected from WebSocket
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: -0.16 USD
+?account=demo:1  Uncaught (in promise) Object
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.26 USD
+?account=demo:1  Uncaught (in promise) Object
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.43 USD
+content_script.js:7165 Content limit: 612032839.68
+?account=demo:1  Uncaught (in promise) Object
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: -0.07 USD
+smart-trader-wrapper.tsx:701 ❌ DIGITUNDER LOSS: -0.50 USD - Martingale step 1
+?account=demo:1  Uncaught (in promise) Object
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.10 USD
+?account=demo:1  Uncaught (in promise) Object
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.27 USD
+?account=demo:1  Uncaught (in promise) Object
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITOVER
+content_script.js:7165 Content limit: 612032839.68
+smart-trader-wrapper.tsx:674 💰 Cumulative Profit: 0.28 USD
+?account=demo:1  Uncaught (in promise) Object
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 611955446.1
+content_script.js:7165 Content limit: 612032839.68
+run-panel-store.ts:254 📝 Run Panel: Registering external stop handler
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: RunPanelStore@17.run_id
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+smart-trader-wrapper.tsx:548 🚀 Rapid-fire mode enabled for DIGITUNDER
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 609639059.4
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 607916228.4
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 607594830.9
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 610381863.3
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+content_script.js:7165 Content limit: 612032839.68
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+market-analyzer.ts:136 🔌 Deriv WebSocket disconnected: 1005 
+ml-trader.tsx:444  Failed to get account info: Object
+(anonymous) @ ml-trader.tsx:444
+tick-stream-manager.ts:316 Subscribing to all volatility and step indices...
+tick-stream-manager.ts:320 Waiting for WebSocket connection...
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ml-trader.tsx:277  Failed to initialize tick streams: Error: WebSocket connection timeout
+    at tick-stream-manager.ts:374:1
+(anonymous) @ ml-trader.tsx:277
+ml-trader.tsx:237  Error during ML Trader initialization: Error: WebSocket connection timeout
+    at tick-stream-manager.ts:374:1
+(anonymous) @ ml-trader.tsx:237
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68

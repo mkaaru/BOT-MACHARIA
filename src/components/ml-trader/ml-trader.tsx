@@ -18,20 +18,28 @@ import { realTimeTrendMonitor, TrendAnalysis, TrendDirection } from '@/services/
 import './ml-trader.scss';
 
 
-// Enhanced volatility symbols with normal volatilities, 1-second indices and Step Indices
+// ALL Deriv Volatility Symbols - Normal volatilities, 1-second indices and Step Indices
 const DERIV_VOLATILITY_SYMBOLS = [
-    // Normal Volatilities
+    // Normal Volatilities (ALL)
     { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s: false, base_volatility: 10 },
     { symbol: 'R_25', display_name: 'Volatility 25 Index', is_1s: false, base_volatility: 25 },
     { symbol: 'R_50', display_name: 'Volatility 50 Index', is_1s: false, base_volatility: 50 },
     { symbol: 'R_75', display_name: 'Volatility 75 Index', is_1s: false, base_volatility: 75 },
     { symbol: 'R_100', display_name: 'Volatility 100 Index', is_1s: false, base_volatility: 100 },
-    // 1-Second Volatilities
+    { symbol: 'R_150', display_name: 'Volatility 150 Index', is_1s: false, base_volatility: 150 },
+    { symbol: 'R_200', display_name: 'Volatility 200 Index', is_1s: false, base_volatility: 200 },
+    { symbol: 'R_250', display_name: 'Volatility 250 Index', is_1s: false, base_volatility: 250 },
+    { symbol: 'R_300', display_name: 'Volatility 300 Index', is_1s: false, base_volatility: 300 },
+    // 1-Second Volatilities (ALL)
     { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s: true, base_volatility: 10 },
     { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s: true, base_volatility: 25 },
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s: true, base_volatility: 50 },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s: true, base_volatility: 75 },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s: true, base_volatility: 100 },
+    { symbol: '1HZ150V', display_name: 'Volatility 150 (1s) Index', is_1s: true, base_volatility: 150 },
+    { symbol: '1HZ200V', display_name: 'Volatility 200 (1s) Index', is_1s: true, base_volatility: 200 },
+    { symbol: '1HZ250V', display_name: 'Volatility 250 (1s) Index', is_1s: true, base_volatility: 250 },
+    { symbol: '1HZ300V', display_name: 'Volatility 300 (1s) Index', is_1s: true, base_volatility: 300 },
     // Step Indices
     { symbol: 'stpRNG', display_name: 'Step Index 100', is_1s: false, base_volatility: 100 },
     { symbol: 'stpRNG2', display_name: 'Step Index 200', is_1s: false, base_volatility: 200 },
@@ -111,8 +119,6 @@ const MLTrader = observer(() => {
         preferred_durations: ['1m', '2m', '3m'] as string[]
     });
 
-    // Auto-load to Bot Builder state
-    const [auto_load_to_bot_builder, setAutoLoadToBotBuilder] = useState(false);
 
     // Performance tracking
     const [trading_stats, setTradingStats] = useState({
@@ -303,23 +309,6 @@ const MLTrader = observer(() => {
                 if (autoTradingRef.current && recs.length > 0) {
                     handleAutoTrading(recs);
                 }
-
-                // Automatically load to Bot Builder if enabled
-                if (auto_load_to_bot_builder && recs.length > 0) {
-                    // Find the best recommendation based on confidence and other factors
-                    const bestRecommendation = recs.reduce((best, current) => {
-                        // Implement your logic to find the "best" recommendation
-                        // For example, prioritize higher confidence, then momentum, etc.
-                        if (current.confidence > best.confidence) {
-                            return current;
-                        }
-                        return best;
-                    }, recs[0]);
-
-                    if (bestRecommendation) {
-                        loadToBotBuilder(bestRecommendation);
-                    }
-                }
             });
 
             // Fetch and process historical data for ML model training (with retry on timeout)
@@ -380,11 +369,17 @@ const MLTrader = observer(() => {
                 fetchHistoricalDataWithRetry(symbolInfo)
             );
 
-            await Promise.allSettled(historicalDataPromises); // Use allSettled to continue even if some fail
+            const results = await Promise.allSettled(historicalDataPromises); // Use allSettled to continue even if some fail
+            
+            // Log summary of historical data loading
+            const successful = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.filter(r => r.status === 'rejected').length;
+            console.log(`📊 Historical data loading complete: ${successful} succeeded, ${failed} failed out of ${DERIV_VOLATILITY_SYMBOLS.length} symbols`);
 
             // Perform immediate initial scan now that historical data is loaded
             console.log('🚀 Performing initial scanner scan with historical data...');
-            await derivVolatilityScanner.performFullScan();
+            const scanResult = await derivVolatilityScanner.performFullScan();
+            console.log('✅ Initial scan completed, recommendations:', scanResult?.length || 0);
 
             // Start periodic scanning for ongoing updates (backup to candle-based updates)
             const scanInterval = setInterval(() => {
@@ -409,7 +404,7 @@ const MLTrader = observer(() => {
             setStatus('Scanner initialized with partial data - scanning for opportunities');
             return () => {}; // Return empty cleanup function
         }
-    }, [is_scanner_active, auto_load_to_bot_builder]);
+    }, [is_scanner_active]);
 
     /**
      * Update symbol analyses
@@ -1363,8 +1358,8 @@ const MLTrader = observer(() => {
 
             // Check symbol type and set appropriate market/submarket/trade type
             const isStepIndex = recommendation.symbol.toLowerCase().startsWith('stprng');
-            const isNormalVolatility = /^R_(10|25|50|75|100)$/i.test(recommendation.symbol);
-            const is1sVolatility = /^1HZ(10|25|50|75|100)V$/i.test(recommendation.symbol);
+            const isNormalVolatility = /^R_(10|25|50|75|100|150|200|250|300)$/i.test(recommendation.symbol);
+            const is1sVolatility = /^1HZ(10|25|50|75|100|150|200|250|300)V$/i.test(recommendation.symbol);
 
             if (isStepIndex) {
                 // Step Index: synthetic_index / step_index / callput
