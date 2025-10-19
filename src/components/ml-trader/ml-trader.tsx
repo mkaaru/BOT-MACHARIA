@@ -1577,23 +1577,60 @@ const MLTrader = observer(() => {
             <block type="controls_if">
                 <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
                 <value name="IF0">
-                    <block type="logic_operation">
-                        <field name="OP">AND</field>
+                    <block type="logic_compare">
+                        <field name="OP">GTE</field>
                         <value name="A">
+                            <block type="variables_get">
+                                <field name="VAR" id="loss_count_var">loss_count</field>
+                            </block>
+                        </value>
+                        <value name="B">
+                            <block type="math_number">
+                                <field name="NUM">5</field>
+                            </block>
+                        </value>
+                    </block>
+                </value>
+                <statement name="DO0">
+                    <block type="notify">
+                        <field name="NOTIFICATION_TYPE">warn</field>
+                        <field name="NOTIFICATION_SOUND">silent</field>
+                        <value name="MESSAGE">
+                            <shadow type="text">
+                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
+                            </shadow>
+                        </value>
+                        <next>
+                            <block type="trade_again">
+                                <field name="TRADE_AGAIN">FALSE</field>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
                             <block type="logic_compare">
-                                <field name="OP">GTE</field>
+                                <field name="OP">EQ</field>
                                 <value name="A">
                                     <block type="variables_get">
-                                        <field name="VAR" id="loss_count_var">loss_count</field>
+                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
                                     </block>
                                 </value>
                                 <value name="B">
-                                    <block type="math_number">
-                                        <field name="NUM">5</field>
+                                    <block type="logic_boolean">
+                                        <field name="BOOL">TRUE</field>
                                     </block>
                                 </value>
                             </block>
                         </value>
+                        <statement name="DO0">
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </statement>
+                    </block>
+                </next>
                         <value name="B">
                             <block type="controls_if">
                                 <value name="IF0">
