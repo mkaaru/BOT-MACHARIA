@@ -109,6 +109,18 @@ const TradingHubDisplay: React.FC = observer(() => {
     const activeContractSubscriptionsRef = useRef<Set<string>>(new Set());
     const aiAutoTradeStopFlagRef = useRef<boolean>(false);
 
+    // Reinforcement Learning State - tracks performance per symbol and trade type
+    const [rlState, setRLState] = useState<Record<string, {
+        symbol: string;
+        tradeType: string;
+        wins: number;
+        losses: number;
+        totalTrades: number;
+        winRate: number;
+        lastTrades: Array<{ profit: number; timestamp: number }>;
+        confidenceBoost: number; // Multiplier for recommendation confidence (0.8 to 1.2)
+    }>>({});
+
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
         initializing: [
@@ -501,10 +513,13 @@ const TradingHubDisplay: React.FC = observer(() => {
             const o5u4Data = o5u4Opportunities.find(opp => opp.symbol === symbol);
 
             if (recommendations.length > 0 || (o5u4Data && o5u4Data.conditionsMetCount >= 3)) {
+                // Apply RL boosts to recommendations before adding to results
+                const rlAdjustedRecommendations = applyRLBoostsToRecommendations(recommendations);
+                
                 results.push({
                     symbol,
                     displayName,
-                    recommendations,
+                    recommendations: rlAdjustedRecommendations,
                     stats,
                     o5u4Data
                 });
@@ -516,7 +531,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             const bMaxConf = Math.max(...b.recommendations.map(r => r.confidence), 0);
             return bMaxConf - aMaxConf;
         });
-    }, [marketStats, realTimeStats, o5u4Opportunities, selectedTradeType]);
+    }, [marketStats, realTimeStats, o5u4Opportunities, selectedTradeType, applyRLBoostsToRecommendations]);
 
     // Update scan results when data changes - continuously update when ready
     useEffect(() => {
@@ -1458,8 +1473,9 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 if (buyResult) {
 
-                    // Wait for contract result
-                    const contractResult = await monitorContract(api, buyResult.contract_id);
+                    // Wait for contract result with RL tracking
+                    const tradeType = getTradeTypeForStrategy(currentRecommendation.strategy);
+                    const contractResult = await monitorContract(api, buyResult.contract_id, currentRecommendation.symbol, tradeType);
 
                     if (contractResult.profit > 0) {
                         // WIN: Reset progression
@@ -1536,8 +1552,93 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     };
 
-    // Monitor contract result
-    const monitorContract = async (api: any, contractId: string): Promise<{ profit: number }> => {
+    /**
+     * Apply Reinforcement Learning confidence boosts to recommendations
+     */
+    const applyRLBoostsToRecommendations = useCallback((recommendations: TradeRecommendation[]): TradeRecommendation[] => {
+        return recommendations.map(rec => {
+            const tradeType = getTradeTypeForStrategy(rec.strategy);
+            const rlKey = `${rec.symbol}_${tradeType}`;
+            const rlData = rlState[rlKey];
+            
+            if (rlData && rlData.totalTrades >= 5) { // Only apply boost after 5+ trades
+                const adjustedConfidence = Math.min(100, Math.max(0, rec.confidence * rlData.confidenceBoost));
+                
+                return {
+                    ...rec,
+                    confidence: adjustedConfidence,
+                    // Store original confidence for reference
+                    originalConfidence: rec.confidence,
+                    rlWinRate: rlData.winRate,
+                    rlTotalTrades: rlData.totalTrades
+                };
+            }
+            
+            return rec;
+        });
+    }, [rlState]);
+
+    /**
+     * Update Reinforcement Learning state based on trade outcome
+     */
+    const updateRLState = useCallback((symbol: string, tradeType: string, profit: number) => {
+        const rlKey = `${symbol}_${tradeType}`;
+        
+        setRLState(prev => {
+            const current = prev[rlKey] || {
+                symbol,
+                tradeType,
+                wins: 0,
+                losses: 0,
+                totalTrades: 0,
+                winRate: 0,
+                lastTrades: [],
+                confidenceBoost: 1.0
+            };
+            
+            const isWin = profit > 0;
+            const newWins = current.wins + (isWin ? 1 : 0);
+            const newLosses = current.losses + (isWin ? 0 : 1);
+            const newTotalTrades = current.totalTrades + 1;
+            const newWinRate = (newWins / newTotalTrades) * 100;
+            
+            // Keep last 20 trades for analysis
+            const newLastTrades = [
+                ...current.lastTrades,
+                { profit, timestamp: Date.now() }
+            ].slice(-20);
+            
+            // Calculate confidence boost based on recent performance
+            // Win rate > 55%: boost up to 1.2x
+            // Win rate < 45%: reduce to 0.8x
+            // Win rate 45-55%: neutral 1.0x
+            let confidenceBoost = 1.0;
+            if (newWinRate > 55) {
+                confidenceBoost = 1.0 + ((newWinRate - 55) / 45) * 0.2; // Max 1.2x at 100% win rate
+            } else if (newWinRate < 45) {
+                confidenceBoost = 1.0 - ((45 - newWinRate) / 45) * 0.2; // Min 0.8x at 0% win rate
+            }
+            
+            console.log(`🧠 RL UPDATE [${symbol} - ${tradeType}]: ${isWin ? 'WIN' : 'LOSS'} | Win Rate: ${newWinRate.toFixed(1)}% | Confidence Boost: ${confidenceBoost.toFixed(2)}x`);
+            
+            return {
+                ...prev,
+                [rlKey]: {
+                    symbol,
+                    tradeType,
+                    wins: newWins,
+                    losses: newLosses,
+                    totalTrades: newTotalTrades,
+                    winRate: newWinRate,
+                    lastTrades: newLastTrades,
+                    confidenceBoost
+                }
+            };
+        });
+    }, []);
+
+    // Monitor contract result with RL tracking
+    const monitorContract = async (api: any, contractId: string, symbol?: string, tradeType?: string): Promise<{ profit: number }> => {
         return new Promise((resolve) => {
             const checkContract = async () => {
                 try {
@@ -1548,7 +1649,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                     });
 
                     if (proposal_open_contract?.is_sold) {
-                        resolve({ profit: Number(proposal_open_contract.profit || 0) });
+                        const profit = Number(proposal_open_contract.profit || 0);
+                        
+                        // Update RL state if symbol and trade type provided
+                        if (symbol && tradeType) {
+                            updateRLState(symbol, tradeType, profit);
+                        }
+                        
+                        resolve({ profit });
                     } else {
                         setTimeout(checkContract, 1000);
                     }
