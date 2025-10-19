@@ -923,49 +923,50 @@
                 }
 
                 .card-actions {
-                    display: flex;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
                     gap: 8px;
+                    margin-top: 12px;
                     margin-bottom: 12px;
                     position: relative;
                     z-index: 1;
 
                     .action-btn {
-                        flex: 1;
+                        padding: 10px 12px;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 11px;
+                        font-weight: 600;
+                        transition: all 0.2s;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        gap: 6px;
-                        padding: 10px 12px;
-                        border: none;
-                        border-radius: 12px;
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        font-size: 0.8rem;
-
-                        .btn-icon {
-                            font-size: 1rem;
-                        }
+                        gap: 4px;
 
                         &.load-to-bot {
-                            background: linear-gradient(135deg, var(--brand-coral) 0%, rgba(var(--brand-coral-rgb), 0.8) 100%);
+                            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
                             color: white;
-                            box-shadow: 0 2px 8px rgba(var(--brand-coral-rgb), 0.3);
 
                             &:hover {
-                                transform: translateY(-1px);
-                                box-shadow: 0 4px 12px rgba(var(--brand-coral-rgb), 0.4);
+                                transform: translateY(-2px);
+                                box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
                             }
                         }
 
                         &.apply-settings {
-                            background: var(--fill-normal);
-                            color: var(--text-prominent);
-                            border: 1px solid var(--border-normal);
+                            background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+                            color: white;
+                            grid-column: 1 / -1; /* This will make it span both columns */
 
                             &:hover {
-                                background: var(--fill-hover);
-                                border-color: var(--border-hover);
+                                transform: translateY(-2px);
+                                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
                             }
+                        }
+
+                        .btn-icon {
+                            font-size: 14px;
                         }
                     }
                 }
@@ -2112,8 +2113,8 @@
 
                     .detail-item {
                         background: linear-gradient(145deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
-                        padding: 20px;
                         border-radius: 16px;
+                        padding: 20px;
                         border: 1px solid rgba(148, 163, 184, 0.15);
                         text-align: center;
                         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

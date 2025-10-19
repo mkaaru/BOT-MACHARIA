@@ -2691,11 +2691,22 @@ const MLTrader = observer(() => {
                                                 className="action-btn load-to-bot"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    loadToBotBuilder(rec); // This will now call loadMartingaleStrategy by default
+                                                    loadMartingaleStrategy(rec);
                                                 }}
                                             >
                                                 <span className="btn-icon">🤖</span>
-                                                <Text size="xs" weight="bold">{localize('Load to Bot Builder')}</Text>
+                                                <Text size="xs" weight="bold">{localize('Martingale Bot')}</Text>
+                                            </button>
+
+                                            <button
+                                                className="action-btn load-to-bot"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    loadEhlersStrategy(rec);
+                                                }}
+                                            >
+                                                <span className="btn-icon">📊</span>
+                                                <Text size="xs" weight="bold">{localize('Ehlers Bot')}</Text>
                                             </button>
 
                                             <button
@@ -2706,7 +2717,7 @@ const MLTrader = observer(() => {
                                                 }}
                                             >
                                                 <span className="btn-icon">⚙️</span>
-                                                <Text size="xs" weight="bold">{localize('Apply Settings')}</Text>
+                                                <Text size="xs" weight="bold">{localize('Direct Trade')}</Text>
                                             </button>
                                         </div>
 
