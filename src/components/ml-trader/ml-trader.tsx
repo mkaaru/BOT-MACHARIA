@@ -1584,22 +1584,8 @@ const MLTrader = observer(() => {
                     </block>
                 </statement>
                 <next>
-                    <block type="text_print">
-                        <value name="TEXT">
-                            <block type="text_join">
-                                <mutation items="3"></mutation>
-                                <value name="ADD0">
-                                    <block type="text">
-                                        <field name="TEXT">ROC Check: Recommendation=${recommendation.action}, Expecting ${recommendation.action === 'RISE' ? 'UP' : 'DOWN'} movement</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <next>
-                            <block type="purchase">
-                                <field name="PURCHASE_LIST">${contractType}</field>
-                            </block>
-                        </next>
+                    <block type="purchase">
+                        <field name="PURCHASE_LIST">${contractType}</field>
                     </block>
                 </next>
             </block>
