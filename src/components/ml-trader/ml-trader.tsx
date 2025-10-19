@@ -1679,27 +1679,34 @@ const MLTrader = observer(() => {
                 </statement>
             </block>
         </statement>
-    </block>
-    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="0">
-        <statement name="AFTERPURCHASE_STACK">
-            <block type="controls_if">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                <value name="IF0">
-                    <block type="contract_check_result">
-                        <field name="CHECK_RESULT">win</field>
-                    </block>
+</old_str>
+with
+<new_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
                 </value>
-                <statement name="DO0">
-                    <block type="variables_set">
-                        <field name="VAR" id="stake_var">stake</field>
-                        <value name="VALUE">
-                            <block type="variables_get">
-                                <field name="VAR" id="initial_stake_var">initial_stake</field>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
                             </block>
                         </value>
-                        <next>
+                        <statement name="DO0">
                             <block type="variables_set">
-                                <field name="VAR" id="loss_count_var">loss_count</field>
+                                <field name="VAR" id="loss_count">loss_count</field>
                                 <value name="VALUE">
                                     <block type="math_number">
                                         <field name="NUM">0</field>
@@ -1707,15 +1714,15 @@ const MLTrader = observer(() => {
                                 </value>
                                 <next>
                                     <block type="variables_set">
-                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
+                                        <field name="VAR" id="stake_var">stake</field>
                                         <value name="VALUE">
                                             <block type="math_number">
-                                                <field name="NUM">0</field>
+                                                <field name="NUM">${defaultStake}</field>
                                             </block>
                                         </value>
                                         <next>
                                             <block type="variables_set">
-                                                <field name="VAR" id="last_tick_var">last_tick</field>
+                                                <field name="VAR" id="trade_count">trade_count</field>
                                                 <value name="VALUE">
                                                     <block type="math_number">
                                                         <field name="NUM">0</field>
@@ -1723,12 +1730,22 @@ const MLTrader = observer(() => {
                                                 </value>
                                                 <next>
                                                     <block type="variables_set">
-                                                        <field name="VAR" id="movement_valid_var">movement_valid</field>
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
                                                         <value name="VALUE">
-                                                            <block type="logic_boolean">
-                                                                <field name="BOOL">FALSE</field>
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
                                                             </block>
                                                         </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
                                                     </block>
                                                 </next>
                                             </block>
@@ -1736,130 +1753,22 @@ const MLTrader = observer(() => {
                                     </block>
                                 </next>
                             </block>
-                        </next>
-                    </block>
-                </statement>
-                <statement name="ELSE">
-                    <block type="variables_set">
-                        <field name="VAR" id="loss_count_var">loss_count</field>
-                        <value name="VALUE">
-                            <block type="math_arithmetic">
-                                <field name="OP">ADD</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="loss_count_var">loss_count</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="math_number">
-                                        <field name="NUM">1</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
+                        </statement>
                         <next>
-                            <block type="variables_set">
-                                <field name="VAR" id="martingale_level_var">martingale_level</field>
-                                <value name="VALUE">
-                                    <block type="math_arithmetic">
-                                        <field name="OP">ADD</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="martingale_level_var">martingale_level</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="math_number">
-                                                <field name="NUM">1</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                                <next>
-                                    <block type="controls_if">
-                                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                                        <value name="IF0">
-                                            <block type="logic_compare">
-                                                <field name="OP">GTE</field>
-                                                <value name="A">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
-                                                    </block>
-                                                </value>
-                                                <value name="B">
-                                                    <block type="math_number">
-                                                        <field name="NUM">3</field>
-                                                    </block>
-                                                </value>
-                                            </block>
-                                        </value>
-                                        <statement name="DO0">
-                                            <block type="variables_set">
-                                                <field name="VAR" id="stake_var">stake</field>
-                                                <value name="VALUE">
-                                                    <block type="variables_get">
-                                                        <field name="VAR" id="initial_stake_var">initial_stake</field>
-                                                    </block>
-                                                </value>
-                                                <next>
-                                                    <block type="variables_set">
-                                                        <field name="VAR" id="martingale_level_var">martingale_level</field>
-                                                        <value name="VALUE">
-                                                            <block type="math_number">
-                                                                <field name="NUM">0</field>
-                                                            </block>
-                                                        </value>
-                                                    </block>
-                                                </next>
-                                            </block>
-                                        </statement>
-                                        <statement name="ELSE">
-                                            <block type="variables_set">
-                                                <field name="VAR" id="stake_var">stake</field>
-                                                <value name="VALUE">
-                                                    <block type="math_arithmetic">
-                                                        <field name="OP">MULTIPLY</field>
-                                                        <value name="A">
-                                                            <block type="variables_get">
-                                                                <field name="VAR" id="stake_var">stake</field>
-                                                            </block>
-                                                        </value>
-                                                        <value name="B">
-                                                            <block type="math_arithmetic">
-                                                                <field name="OP">ADD</field>
-                                                                <value name="A">
-                                                                    <block type="variables_get">
-                                                                        <field name="VAR" id="martingale_var">martingale</field>
-                                                                    </block>
-                                                                </value>
-                                                                <value name="B">
-                                                                    <block type="math_number">
-                                                                        <field name="NUM">1</field>
-                                                                    </block>
-                                                                </value>
-                                                            </block>
-                                                        </value>
-                                                    </block>
-                                                </value>
-                                            </block>
-                                        </statement>
-                                    </block>
-                                </next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
                             </block>
                         </next>
                     </block>
-                </statement>
-                <next>
-                    <block type="trade_again"></block>
                 </next>
             </block>
         </statement>
-    </block>
-</xml>`;
-    }
-
-    /**
-     * Generate Ehlers SuperSmoother strategy XML
+</new_str>
+Fix Ehlers Bot XML to include mandatory Purchase block
+Replacing
+<old_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering
      */
     function generateEhlersStrategyXML(
         symbol: string,
@@ -1867,19 +1776,18 @@ const MLTrader = observer(() => {
         defaultStake: number,
         roc_period: number
     ) {
-        // Simplified Ehlers Supersmoother strategy with momentum and trend analysis
-        // Uses a 2-period rate of change (ROC) for trend confirmation
-        // Includes risk management (Martingale-style stake increase on loss)
-        // Stop conditions: max 5 consecutive losses or profit target reached
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
         return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
     <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
         <variable id="stake_var">stake</variable>
-        <variable id="initial_stake_var">initial_stake</variable>
-        <variable id="loss_count_var">loss_count</variable>
-        <variable id="supersmoother_var">supersmoother</variable>
-        <variable id="trend_direction_var">trend_direction</variable>
-        <variable id="momentum_var">momentum</variable>
-        <variable id="confidence_var">confidence</variable>
     </variables>
     <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
         <statement name="TRADE_OPTIONS">
@@ -1896,7 +1804,7 @@ const MLTrader = observer(() => {
                                 <field name="TYPE_LIST">${contractType}</field>
                                 <next>
                                     <block type="trade_definition_candleinterval" deletable="false" movable="false">
-                                        <field name="CANDLEINTERVAL_LIST">5</field> <!-- Use 5-minute candles for Ehlers -->
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
                                         <next>
                                             <block type="trade_definition_restartbuysell" deletable="false" movable="false">
                                                 <field name="TIME_MACHINE_ENABLED">FALSE</field>
@@ -1915,64 +1823,75 @@ const MLTrader = observer(() => {
                 </next>
             </block>
         </statement>
-        <statement name="INITIALIZATION">
-            <block type="variables_set">
-                <field name="VAR" id="initial_stake_var">initial_stake</field>
-                <value name="VALUE">
-                    <block type="math_number">
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
                         <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
                     </block>
                 </value>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</old_str>
+with
+<new_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+        <variable id="trade_direction">trade_direction</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
                 <next>
-                    <block type="variables_set">
-                        <field name="VAR" id="stake_var">stake</field>
-                        <value name="VALUE">
-                            <block type="variables_get">
-                                <field name="VAR" id="initial_stake_var">initial_stake</field>
-                            </block>
-                        </value>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
                         <next>
-                            <block type="variables_set">
-                                <field name="VAR" id="loss_count_var">loss_count</field>
-                                <value name="VALUE">
-                                    <block type="math_number">
-                                        <field name="NUM">0</field>
-                                    </block>
-                                </value>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">both</field>
                                 <next>
-                                    <block type="variables_set">
-                                        <field name="VAR" id="supersmoother_var">supersmoother</field>
-                                        <value name="VALUE">
-                                            <block type="math_number">
-                                                <field name="NUM">0</field>
-                                            </block>
-                                        </value>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
                                         <next>
-                                            <block type="variables_set">
-                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                                <value name="VALUE">
-                                                    <block type="text">
-                                                        <field name="TEXT">NONE</field>
-                                                    </block>
-                                                </value>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
                                                 <next>
-                                                    <block type="variables_set">
-                                                        <field name="VAR" id="momentum_var">momentum</field>
-                                                        <value name="VALUE">
-                                                            <block type="math_number">
-                                                                <field name="NUM">0</field>
-                                                            </block>
-                                                        </value>
-                                                        <next>
-                                                            <block type="variables_set">
-                                                                <field name="VAR" id="confidence_var">confidence</field>
-                                                                <value name="VALUE">
-                                                                    <block type="math_number">
-                                                                        <field name="NUM">0</field>
-                                                                    </block>
-                                                                </value>
-                                                            </block>
-                                                        </next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
                                                     </block>
                                                 </next>
                                             </block>
@@ -1990,7 +1909,7 @@ const MLTrader = observer(() => {
                 <field name="DURATIONTYPE_LIST">t</field>
                 <value name="DURATION">
                     <shadow type="math_number">
-                        <field name="NUM">5</field> <!-- 5 ticks for Ehlers -->
+                        <field name="NUM">2</field>
                     </shadow>
                 </value>
                 <value name="AMOUNT">
@@ -2004,294 +1923,1430 @@ const MLTrader = observer(() => {
             </block>
         </statement>
     </block>
-    <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
-        <statement name="BEFOREPURCHASE_STACK">
-            <!-- Ehlers Logic: Calculate Supersmoother, Momentum, Trend, and Confidence -->
-            <block type="controls_if">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="2" else="1"></mutation>
-                <!-- Condition 1: Max losses -->
-                <value name="IF0">
-                    <block type="logic_compare">
-                        <field name="OP">GTE</field>
-                        <value name="A">
-                            <block type="variables_get">
-                                <field name="VAR" id="loss_count_var">loss_count</field>
-                            </block>
-                        </value>
-                        <value name="B">
-                            <block type="math_number">
-                                <field name="NUM">5</field>
-                            </block>
-                        </value>
-                    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</new_str>
+Add mandatory Purchase block to BEFOREPURCHASE_STACK
+Replacing
+<old_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
                 </value>
-                <statement name="DO0">
-                    <block type="notify">
-                        <field name="NOTIFICATION_TYPE">warn</field>
-                        <field name="NOTIFICATION_SOUND">silent</field>
-                        <value name="MESSAGE">
-                            <shadow type="text">
-                                <field name="TEXT">Maximum 5 consecutive losses reached. Stopping bot.</field>
-                            </shadow>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
                         </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                    </block>
+                </next>
+            </block>
+        </statement>
+</old_str>
+with
+<new_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
                         <next>
-                            <block type="trade_again">
-                                <field name="TRADE_AGAIN">FALSE</field>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
                             </block>
                         </next>
                     </block>
-                </statement>
-
-                <!-- Condition 2: Trend Up & Momentum Up -->
-                <value name="IF1">
-                    <block type="logic_operation">
-                        <field name="OP">AND</field>
-                        <value name="A">
-                            <block type="logic_compare">
-                                <field name="OP">EQ</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="trend_direction_var">trend_direction</field>
+                </next>
+            </block>
+        </statement>
+</new_str>
+Fix Ehlers Bot XML to include mandatory Purchase block
+Replacing
+<old_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">${contractType}</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
                                     </block>
-                                </value>
-                                <value name="B">
-                                    <block type="text">
-                                        <field name="TEXT">UP</field>
-                                    </block>
-                                </value>
+                                </next>
                             </block>
-                        </value>
-                        <value name="B">
-                            <block type="logic_compare">
-                                <field name="OP">GT</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="momentum_var">momentum</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="math_number">
-                                        <field name="NUM">0</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
                     </block>
                 </value>
-                <statement name="DO1">
-                    <!-- Buy CALL if condition met -->
-                    <block type="controls_if">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml"></mutation>
-                        <value name="IF0">
-                            <block type="logic_operation">
-                                <field name="OP">AND</field>
-                                <value name="A">
-                                    <block type="logic_compare">
-                                        <field name="OP">EQ</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="text">
-                                                <field name="TEXT">UP</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="logic_compare">
-                                        <field name="OP">GT</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="momentum_var">momentum</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="math_number">
-                                                <field name="NUM">0</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <statement name="DO0">
-                            <block type="trade_again">
-                                <field name="TRADE_AGAIN">TRUE</field>
-                            </block>
-                        </statement>
-                    </block>
-                </statement>
-
-                <!-- Condition 3: Trend Down & Momentum Down -->
-                <value name="IF2">
-                    <block type="logic_operation">
-                        <field name="OP">AND</field>
-                        <value name="A">
-                            <block type="logic_compare">
-                                <field name="OP">EQ</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="text">
-                                        <field name="TEXT">DOWN</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <value name="B">
-                            <block type="logic_compare">
-                                <field name="OP">LT</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="momentum_var">momentum</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="math_number">
-                                        <field name="NUM">0</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                    </block>
-                </value>
-                <statement name="DO2">
-                    <!-- Buy PUT if condition met -->
-                    <block type="controls_if">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml"></mutation>
-                        <value name="IF0">
-                            <block type="logic_operation">
-                                <field name="OP">AND</field>
-                                <value name="A">
-                                    <block type="logic_compare">
-                                        <field name="OP">EQ</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="text">
-                                                <field name="TEXT">DOWN</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="logic_compare">
-                                        <field name="OP">LT</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="momentum_var">momentum</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="math_number">
-                                                <field name="NUM">0</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <statement name="DO0">
-                            <block type="trade_again">
-                                <field name="TRADE_AGAIN">TRUE</field>
-                            </block>
-                        </statement>
-                    </block>
-                </statement>
-
-                <!-- ELSE: No trade -->
-                <statement name="ELSE">
-                    <block type="trade_again">
-                        <field name="TRADE_AGAIN">FALSE</field>
-                    </block>
-                </statement>
             </block>
         </statement>
     </block>
-    <block type="after_purchase" id="after_purchase" deletable="false" movable="false" x="0" y="0">
-        <statement name="AFTERPURCHASE_STACK">
-            <block type="controls_if">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                <value name="IF0">
-                    <block type="contract_check_result">
-                        <field name="CHECK_RESULT">win</field>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</old_str>
+with
+<new_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+        <variable id="trade_direction">trade_direction</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">both</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
                     </block>
                 </value>
-                <statement name="DO0">
-                    <!-- Reset on win -->
-                    <block type="variables_set">
-                        <field name="VAR" id="stake_var">stake</field>
-                        <value name="VALUE">
-                            <block type="variables_get">
-                                <field name="VAR" id="initial_stake_var">initial_stake</field>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</new_str>
+Add mandatory Purchase block to BEFOREPURCHASE_STACK
+Replacing
+<old_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
                             </block>
                         </value>
-                        <next>
+                        <statement name="DO0">
                             <block type="variables_set">
-                                <field name="VAR" id="loss_count_var">loss_count</field>
+                                <field name="VAR" id="loss_count">loss_count</field>
                                 <value name="VALUE">
                                     <block type="math_number">
                                         <field name="NUM">0</field>
                                     </block>
                                 </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
                             </block>
-                        </next>
+                        </statement>
                     </block>
-                </statement>
-                <statement name="ELSE">
-                    <!-- Increase stake and loss count on loss -->
-                    <block type="variables_set">
-                        <field name="VAR" id="loss_count_var">loss_count</field>
-                        <value name="VALUE">
-                            <block type="math_arithmetic">
-                                <field name="OP">ADD</field>
+                </next>
+            </block>
+        </statement>
+</old_str>
+with
+<new_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
                                 <value name="A">
                                     <block type="variables_get">
-                                        <field name="VAR" id="loss_count_var">loss_count</field>
+                                        <field name="VAR" id="loss_count">loss_count</field>
                                     </block>
                                 </value>
                                 <value name="B">
-                                    <block type="math_number">
-                                        <field name="NUM">1</field>
-                                    </block>
+                                    <block type="logic_null"></block>
                                 </value>
                             </block>
                         </value>
-                        <next>
+                        <statement name="DO0">
                             <block type="variables_set">
-                                <field name="VAR" id="stake_var">stake</field>
+                                <field name="VAR" id="loss_count">loss_count</field>
                                 <value name="VALUE">
-                                    <block type="math_arithmetic">
-                                        <field name="OP">MULTIPLY</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="stake_var">stake</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <!-- Martingale multiplier (e.g., 1.15) -->
-                                            <block type="math_number">
-                                                <field name="NUM">1.15</field>
-                                            </block>
-                                        </value>
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
                                     </block>
                                 </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
                             </block>
                         </next>
                     </block>
-                </statement>
-                <next>
-                    <block type="trade_again"></block>
                 </next>
+            </block>
+        </statement>
+</new_str>
+Fix Ehlers Bot XML to include mandatory Purchase block
+Replacing
+<old_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">${contractType}</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
+                    </block>
+                </value>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</old_str>
+with
+<new_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+        <variable id="trade_direction">trade_direction</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">both</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
+                    </block>
+                </value>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</new_str>
+Add mandatory Purchase block to BEFOREPURCHASE_STACK
+Replacing
+<old_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                    </block>
+                </next>
+            </block>
+        </statement>
+</old_str>
+with
+<new_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+</new_str>
+Fix Ehlers Bot XML to include mandatory Purchase block
+Replacing
+<old_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">${contractType}</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
+                    </block>
+                </value>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</old_str>
+with
+<new_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+        <variable id="trade_direction">trade_direction</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">both</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
+                    </block>
+                </value>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</new_str>
+Add mandatory Purchase block to BEFOREPURCHASE_STACK
+Replacing
+<old_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                    </block>
+                </next>
+            </block>
+        </statement>
+</old_str>
+with
+<new_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+</new_str>
+Fix Ehlers Bot XML to include mandatory Purchase block
+Replacing
+<old_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">${contractType}</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
+                    </block>
+                </value>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</old_str>
+with
+<new_str>
+/**
+     * Generate Ehlers strategy XML with ROC filtering and mandatory Purchase block
+     */
+    function generateEhlersStrategyXML(
+        symbol: string,
+        contractType: string,
+        defaultStake: number,
+        roc_period: number
+    ) {
+        // Ehlers momentum/trend strategy with max 5 consecutive losses
+        return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+    <variables>
+        <variable id="loss_count">loss_count</variable>
+        <variable id="tick_buffer">tick_buffer</variable>
+        <variable id="last_100_ticks">last_100_ticks</variable>
+        <variable id="trade_count">trade_count</variable>
+        <variable id="ehlers_ss">ehlers_ss</variable>
+        <variable id="momentum">momentum</variable>
+        <variable id="trend_slope">trend_slope</variable>
+        <variable id="confidence">confidence</variable>
+        <variable id="stake_var">stake</variable>
+        <variable id="trade_direction">trade_direction</variable>
+    </variables>
+    <block type="trade_definition" id="trade_definition" deletable="false" movable="false" x="0" y="0">
+        <statement name="TRADE_OPTIONS">
+            <block type="trade_definition_market" deletable="false" movable="false">
+                <field name="MARKET_LIST">synthetic_index</field>
+                <field name="SUBMARKET_LIST">${symbol.toLowerCase().startsWith('stprng') ? 'step_index' : 'random_index'}</field>
+                <field name="SYMBOL_LIST">${symbol}</field>
+                <next>
+                    <block type="trade_definition_tradetype" deletable="false" movable="false">
+                        <field name="TRADETYPECAT_LIST">callput</field>
+                        <field name="TRADETYPE_LIST">callput</field>
+                        <next>
+                            <block type="trade_definition_contracttype" deletable="false" movable="false">
+                                <field name="TYPE_LIST">both</field>
+                                <next>
+                                    <block type="trade_definition_candleinterval" deletable="false" movable="false">
+                                        <field name="CANDLEINTERVAL_LIST">60</field>
+                                        <next>
+                                            <block type="trade_definition_restartbuysell" deletable="false" movable="false">
+                                                <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                                                <next>
+                                                    <block type="trade_definition_restartonerror" deletable="false" movable="false">
+                                                        <field name="RESTARTONERROR">TRUE</field>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+        <statement name="SUBMARKET">
+            <block type="trade_definition_tradeoptions" deletable="false" movable="false">
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                    <shadow type="math_number">
+                        <field name="NUM">2</field>
+                    </shadow>
+                </value>
+                <value name="AMOUNT">
+                    <shadow type="math_number">
+                        <field name="NUM">${defaultStake}</field>
+                    </shadow>
+                    <block type="variables_get">
+                        <field name="VAR" id="stake_var">stake</field>
+                    </block>
+                </value>
+            </block>
+        </statement>
+    </block>
+
+    <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="400">`
+</new_str>
+Add mandatory Purchase block to BEFOREPURCHASE_STACK
+Replacing
+<old_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                    </block>
+                </next>
+            </block>
+        </statement>
+</old_str>
+with
+<new_str>
+<statement name="BEFOREPURCHASE_STACK">
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">🚀 Ehlers Bot Ready - Max 5 consecutive losses</field>
+                    </shadow>
+                </value>
+                <next>
+                    <block type="controls_if">
+                        <value name="IF0">
+                            <block type="logic_compare">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                    <block type="variables_get">
+                                        <field name="VAR" id="loss_count">loss_count</field>
+                                    </block>
+                                </value>
+                                <value name="B">
+                                    <block type="logic_null"></block>
+                                </value>
+                            </block>
+                        </value>
+                        <statement name="DO0">
+                            <block type="variables_set">
+                                <field name="VAR" id="loss_count">loss_count</field>
+                                <value name="VALUE">
+                                    <block type="math_number">
+                                        <field name="NUM">0</field>
+                                    </block>
+                                </value>
+                                <next>
+                                    <block type="variables_set">
+                                        <field name="VAR" id="stake_var">stake</field>
+                                        <value name="VALUE">
+                                            <block type="math_number">
+                                                <field name="NUM">${defaultStake}</field>
+                                            </block>
+                                        </value>
+                                        <next>
+                                            <block type="variables_set">
+                                                <field name="VAR" id="trade_count">trade_count</field>
+                                                <value name="VALUE">
+                                                    <block type="math_number">
+                                                        <field name="NUM">0</field>
+                                                    </block>
+                                                </value>
+                                                <next>
+                                                    <block type="variables_set">
+                                                        <field name="VAR" id="last_100_ticks">last_100_ticks</field>
+                                                        <value name="VALUE">
+                                                            <block type="lists_create_with">
+                                                                <mutation items="0"></mutation>
+                                                            </block>
+                                                        </value>
+                                                        <next>
+                                                            <block type="variables_set">
+                                                                <field name="VAR" id="trade_direction">trade_direction</field>
+                                                                <value name="VALUE">
+                                                                    <block type="text">
+                                                                        <field name="TEXT">${contractType}</field>
+                                                                    </block>
+                                                                </value>
+                                                            </block>
+                                                        </next>
+                                                    </block>
+                                                </next>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </statement>
+                        <next>
+                            <block type="purchase">
+                                <field name="PURCHASE_LIST">${contractType}</field>
+                            </block>
+                        </next>
+                    </block>
+                </next>
+            </block>
+        </statement>
+</new_str>
+Fix Ehlers Bot XML to include mandatory Purchase block
+Replacing
+<old_str>
             </block>
         </statement>
     </block>
