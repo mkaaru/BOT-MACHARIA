@@ -785,8 +785,15 @@ const MLTrader = observer(() => {
         try {
             console.log('🚀 Loading recommendation to Bot Builder:', recommendation);
 
+            // Validate recommendation data
+            if (!recommendation || !recommendation.symbol || !recommendation.action) {
+                console.error('❌ Invalid recommendation data:', recommendation);
+                setStatus('❌ Invalid recommendation data');
+                return;
+            }
+
             // Get display name
-            const displayName = recommendation.displayName;
+            const displayName = recommendation.displayName || recommendation.symbol;
 
             // Determine market, submarket, trade type category based on symbol
             let market = 'synthetic_index';
@@ -829,6 +836,18 @@ const MLTrader = observer(() => {
             if (isNormalVolatility || is1sVolatility) {
                 initialContractType = recommendation.action === 'RISE' ? 'CALLE' : 'PUTE';
             }
+
+            // Debug log all variables before XML generation
+            console.log('XML Generation Variables:', {
+                market,
+                submarket,
+                symbol,
+                tradeTypeCategory,
+                tradeType,
+                initialContractType,
+                defaultStake,
+                displayName
+            });
 
             // Prepare enhanced strategy XML with John Ehlers tick analysis
             const strategyXml = `
