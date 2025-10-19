@@ -2006,10 +2006,9 @@ const MLTrader = observer(() => {
     </block>
     <block type="before_purchase" id="before_purchase" deletable="false" movable="false" x="0" y="0">
         <statement name="BEFOREPURCHASE_STACK">
-            <!-- Ehlers Logic: Calculate Supersmoother, Momentum, Trend, and Confidence -->
+            <!-- ROC Filter Check -->
             <block type="controls_if">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="2" else="1"></mutation>
-                <!-- Condition 1: Max losses -->
+                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
                 <value name="IF0">
                     <block type="logic_compare">
                         <field name="OP">GTE</field>
@@ -2041,177 +2040,10 @@ const MLTrader = observer(() => {
                         </next>
                     </block>
                 </statement>
-
-                <!-- Condition 2: Trend Up & Momentum Up -->
-                <value name="IF1">
-                    <block type="logic_operation">
-                        <field name="OP">AND</field>
-                        <value name="A">
-                            <block type="logic_compare">
-                                <field name="OP">EQ</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="text">
-                                        <field name="TEXT">UP</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <value name="B">
-                            <block type="logic_compare">
-                                <field name="OP">GT</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="momentum_var">momentum</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="math_number">
-                                        <field name="NUM">0</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                    </block>
-                </value>
-                <statement name="DO1">
-                    <!-- Buy CALL if condition met -->
-                    <block type="controls_if">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml"></mutation>
-                        <value name="IF0">
-                            <block type="logic_operation">
-                                <field name="OP">AND</field>
-                                <value name="A">
-                                    <block type="logic_compare">
-                                        <field name="OP">EQ</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="text">
-                                                <field name="TEXT">UP</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="logic_compare">
-                                        <field name="OP">GT</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="momentum_var">momentum</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="math_number">
-                                                <field name="NUM">0</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <statement name="DO0">
-                            <block type="trade_again">
-                                <field name="TRADE_AGAIN">TRUE</field>
-                            </block>
-                        </statement>
-                    </block>
-                </statement>
-
-                <!-- Condition 3: Trend Down & Momentum Down -->
-                <value name="IF2">
-                    <block type="logic_operation">
-                        <field name="OP">AND</field>
-                        <value name="A">
-                            <block type="logic_compare">
-                                <field name="OP">EQ</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="text">
-                                        <field name="TEXT">DOWN</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <value name="B">
-                            <block type="logic_compare">
-                                <field name="OP">LT</field>
-                                <value name="A">
-                                    <block type="variables_get">
-                                        <field name="VAR" id="momentum_var">momentum</field>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="math_number">
-                                        <field name="NUM">0</field>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                    </block>
-                </value>
-                <statement name="DO2">
-                    <!-- Buy PUT if condition met -->
-                    <block type="controls_if">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml"></mutation>
-                        <value name="IF0">
-                            <block type="logic_operation">
-                                <field name="OP">AND</field>
-                                <value name="A">
-                                    <block type="logic_compare">
-                                        <field name="OP">EQ</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="trend_direction_var">trend_direction</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="text">
-                                                <field name="TEXT">DOWN</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                                <value name="B">
-                                    <block type="logic_compare">
-                                        <field name="OP">LT</field>
-                                        <value name="A">
-                                            <block type="variables_get">
-                                                <field name="VAR" id="momentum_var">momentum</field>
-                                            </block>
-                                        </value>
-                                        <value name="B">
-                                            <block type="math_number">
-                                                <field name="NUM">0</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </value>
-                            </block>
-                        </value>
-                        <statement name="DO0">
-                            <block type="trade_again">
-                                <field name="TRADE_AGAIN">TRUE</field>
-                            </block>
-                        </statement>
-                    </block>
-                </statement>
-
-                <!-- ELSE: No trade -->
                 <statement name="ELSE">
-                    <block type="trade_again">
-                        <field name="TRADE_AGAIN">FALSE</field>
+                    <!-- Purchase Block - MANDATORY -->
+                    <block type="purchase">
+                        <field name="PURCHASE_LIST">${contractType}</field>
                     </block>
                 </statement>
             </block>
