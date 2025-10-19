@@ -680,11 +680,11 @@ const MLTrader = observer(() => {
             // For tick-based contracts, ALWAYS use CALL/PUT (not CALLE/PUTE)
             const contractType = getContractTypeFromAction(recommendation.action, 't');
             
-            // Execute trade directly via Deriv API
+            // Execute trade directly via Deriv API using configured stake
             const result = await executeDirectTrade({
                 symbol: recommendation.symbol,
                 contract_type: contractType,
-                stake: 0.35, // Default stake
+                stake: trading_interface.stake, // Use configured stake from UI
                 duration: 2, // 2 ticks
                 duration_unit: 't'
             });
@@ -703,7 +703,50 @@ const MLTrader = observer(() => {
             setStatus(`❌ Error executing trade: ${error.message}`);
             console.error('❌ Direct trade error:', error);
         }
-    }, []);
+    }, [trading_interface.stake]);
+
+    /**
+     * Continuous trading loop - executes trades repeatedly
+     */
+    const startContinuousTrading = useCallback(() => {
+        console.log('🔄 Starting continuous trading loop...');
+        
+        const executeContinuousTrade = async () => {
+            // Only trade if auto-trading is still active
+            if (!autoTradingRef.current) {
+                console.log('⏹️ Auto-trading stopped, stopping loop');
+                if (autoTradeIntervalRef.current) {
+                    clearInterval(autoTradeIntervalRef.current);
+                    autoTradeIntervalRef.current = null;
+                }
+                return;
+            }
+
+            // Skip if contract is already in progress
+            if (contractInProgressRef.current) {
+                console.log('⏭️ Skipping trade - contract already in progress');
+                return;
+            }
+
+            // Get the top recommendation
+            if (recommendations.length === 0) {
+                console.log('⏭️ No recommendations available');
+                return;
+            }
+
+            const topRecommendation = recommendations[0];
+            console.log(`🎯 Executing continuous trade for ${topRecommendation.displayName} (${topRecommendation.action})`);
+            
+            // Execute the trade
+            await applyRecommendation(topRecommendation);
+        };
+
+        // Execute first trade immediately
+        executeContinuousTrade();
+
+        // Then execute every 10 seconds
+        autoTradeIntervalRef.current = setInterval(executeContinuousTrade, 10000);
+    }, [recommendations, applyRecommendation]);
 
     /**
      * Toggle auto trading
@@ -721,13 +764,20 @@ const MLTrader = observer(() => {
         mlAutoTrader.configure({ enabled: newState });
 
         if (newState) {
-            // Start auto-trading
-            setStatus('🤖 Auto-trading activated - monitoring recommendations...');
+            // Start auto-trading with continuous loop
+            setStatus('🤖 Auto-trading activated - executing trades continuously...');
+            startContinuousTrading();
         } else {
             // Stop auto-trading
             setStatus('⏹️ Auto-trading stopped');
+            
+            // Clear the continuous trading interval
+            if (autoTradeIntervalRef.current) {
+                clearInterval(autoTradeIntervalRef.current);
+                autoTradeIntervalRef.current = null;
+            }
         }
-    }, [trading_interface.is_auto_trading]);
+    }, [trading_interface.is_auto_trading, startContinuousTrading]);
 
     /**
      * Manual trade execution
